@@ -86,6 +86,27 @@
   </url>
 
   <url>
+    <loc>https://new-sankaku.github.io/manga-editor-desu/html/Minual/screen-tone.html</loc>
+    <lastmod>2026-08-10</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+  </url>
+
+  <url>
+    <loc>https://new-sankaku.github.io/manga-editor-desu/html/Minual/effect.html</loc>
+    <lastmod>2026-08-10</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+  </url>
+
+  <url>
+    <loc>https://new-sankaku.github.io/manga-editor-desu/html/Minual/custom-speechBubble.html</loc>
+    <lastmod>2026-08-10</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+  </url>
+
+  <url>
     <loc>https://new-sankaku.github.io/manga-editor-desu/html/PrivacyPolicy/i18n-privacy-dark-complete.html</loc>
     <lastmod>2026-08-10</lastmod>
     <changefreq>yearly</changefreq>

@@ -42,6 +42,8 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Klee+One&family=M+PLUS+1p&family=Noto+Sans+JP:wght@100..900&family=Zen+Maru+Gothic&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@100..900&family=ZCOOL+KuaiLe&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=East+Sea+Dokdo&family=IBM+Plex+Sans+KR&family=Noto+Sans+KR:wght@100..900&display=swap" rel="stylesheet">
@@ -118,6 +120,27 @@
 </head>
 <!-- ========== Body ========== -->
 <body>
+
+    <!-- The editor is a canvas application, so the page has no visible heading of
+         its own. This one is for crawlers and screen readers; it is positioned
+         off-screen rather than hidden with display:none so assistive technology
+         still announces it. -->
+    <h1 style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;">Manga Editor Desu — free browser-based manga editor with panel layouts, speech bubbles, vertical text, screen tones and optional AI image generation</h1>
+
+    <noscript>
+        <div style="max-width:52rem;margin:2rem auto;padding:1.5rem;font-family:system-ui,sans-serif;line-height:1.7;color:#e0e0e0;background:#1e1e1e;border:1px solid #333;border-radius:8px;">
+            <h2 style="margin-top:0;">JavaScript is required to run the editor</h2>
+            <p>Manga Editor Desu is a browser-based manga and comic page editor. It runs entirely on your own machine — there is no installation, no account and no server component — but the editing canvas itself needs JavaScript enabled.</p>
+            <p>It provides 69 panel layout templates, 48 speech bubble styles, 156 bundled fonts, 31 decorative image-text styles, 8 pen brushes, 5 screentone generators, 15 image filters, 25 blend modes, layer management and print-resolution export. AI image generation is optional and runs through a backend you configure yourself: ComfyUI, RunPod ComfyUI, SD WebUI (AUTOMATIC1111 or Forge), Fal.ai, Grok or Ollama.</p>
+            <p>You can read the full documentation without JavaScript:</p>
+            <ul>
+                <li><a href="html/docs/features.html" style="color:#9e7bff;">Feature reference</a> (<a href="html/docs/features-ja.html" style="color:#9e7bff;">日本語</a>) — every editing and AI feature in detail</li>
+                <li><a href="html/docs/faq.html" style="color:#9e7bff;">FAQ</a> (<a href="html/docs/faq-ja.html" style="color:#9e7bff;">日本語</a>) — installation, file formats, privacy, offline use</li>
+                <li><a href="html/docs/ai-setup.html" style="color:#9e7bff;">AI backend setup</a> (<a href="html/docs/ai-setup-ja.html" style="color:#9e7bff;">日本語</a>) — CORS flags, API keys, ComfyUI workflows</li>
+            </ul>
+            <p>Source code and issue tracker: <a href="https://github.com/new-sankaku/manga-editor-desu" style="color:#9e7bff;">github.com/new-sankaku/manga-editor-desu</a> — free and open source under GPL-3.0.</p>
+        </div>
+    </noscript>
 
     <div id="a" style="display:none"></div>
 <!-- ========== Boot Animation ========== -->
@@ -1272,25 +1295,25 @@ function getElementClasses(element) {
                     <div class="param-group">
                         <div class="param-group-header" data-i18n="secLinePreset"></div>
                         <button id="sb_aButton" onclick="switchSBLine('sb_a')">
-                            <img src="03_images/preset/line/a.png">
+                            <img src="03_images/preset/line/a.png" alt="Speech bubble outline style A">
                         </button>
                         <button id="sb_bButton" onclick="switchSBLine('sb_b')">
-                            <img src="03_images/preset/line/b.png">
+                            <img src="03_images/preset/line/b.png" alt="Speech bubble outline style B">
                         </button>
                         <button id="sb_cButton" onclick="switchSBLine('sb_c')">
-                            <img src="03_images/preset/line/c.png">
+                            <img src="03_images/preset/line/c.png" alt="Speech bubble outline style C">
                         </button>
                         <button id="sb_dButton" onclick="switchSBLine('sb_d')">
-                            <img src="03_images/preset/line/d.png">
+                            <img src="03_images/preset/line/d.png" alt="Speech bubble outline style D">
                         </button>
                         <button id="sb_eButton" onclick="switchSBLine('sb_e')">
-                            <img src="03_images/preset/line/e.png">
+                            <img src="03_images/preset/line/e.png" alt="Speech bubble outline style E">
                         </button>
                         <button id="sb_fButton" onclick="switchSBLine('sb_f')">
-                            <img src="03_images/preset/line/f.png">
+                            <img src="03_images/preset/line/f.png" alt="Speech bubble outline style F">
                         </button>
                         <button id="sb_gButton" onclick="switchSBLine('sb_g')">
-                            <img src="03_images/preset/line/g.png">
+                            <img src="03_images/preset/line/g.png" alt="Speech bubble outline style G">
                         </button>
                     </div>
                 </div>

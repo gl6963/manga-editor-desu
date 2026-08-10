@@ -5978,6 +5978,11 @@ function (err, t) {
 );
 
 function updateContent() {
+// <html lang>を実際の表示言語に合わせる。初期化と言語切替の両方がここを通るため、
+// 切替処理側には手を入れない。ずれているとクローラーと支援技術が言語を誤認する。
+if (i18next.language) {
+  document.documentElement.lang = i18next.language;
+}
 document.querySelectorAll("[data-i18n]").forEach(function (element) {
   const key = element.getAttribute("data-i18n");
   const translation = i18next.t(key);

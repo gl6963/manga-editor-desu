@@ -54,6 +54,7 @@ manga-editor-desu/
 ├── robots.txt          クローラー制御（※このファイル自体は未適用。実体は別リポジトリ。下記参照）
 ├── sitemap.xml         サイトマップ（hreflangでEN/JA対応付け）
 ├── llms.txt            AI検索向けの要約索引。数値を変更したらここも直す
+├── 404.html            GitHub Pagesの404ページ。旧URLからの流入を現行URLへ案内する
 ├── llm_doc/            LLM向けドキュメント
 └── scripts/            ユーティリティスクリプト（format, translation check）
 ```
@@ -62,7 +63,11 @@ manga-editor-desu/
 - `index.html`の`<head>`は49行目付近の`<div id="a">`で強制終了していたため、`</head>`を明示済み。**metaタグは必ず`</head>`より前に置く**（後ろに置くとbody扱いで無視される）
 - `robots.txt`はドメイン直下（`new-sankaku.github.io/robots.txt`）でないとクローラーが読まない。**実際に効いているのは別リポジトリ [`new-sankaku/new-sankaku.github.io`](https://github.com/new-sankaku/new-sankaku.github.io) の`robots.txt`**。本リポジトリ直下の`robots.txt`は`/manga-editor-desu/robots.txt`として配信されるだけで無効（カスタムドメインを付けた場合に備えて内容は同期させておく）。ページ単位の制御は各HTMLの`<meta name="robots">`で行う
 - `service-worker.js`のキャッシュ戦略は3系統。**ドキュメント（`.html`とnavigationリクエスト）はstale-while-revalidate** — キャッシュを即返しつつ裏で更新するため、`CACHE_VERSION`を上げなくても次回読み込みで新しいHTMLが反映される。`.css`/`.js`等はキャッシュ優先（URLの`?v=x.y`で更新する前提）。`.txt`/`.xml`は対象外で常にネットワーク優先なので`robots.txt`/`sitemap.xml`/`llms.txt`は常に最新が配信される
-- 機能の数量（コマ69・フキダシ48・フォント156・画像テキスト31・8言語・AI 6種）を変更したら、`llms.txt`・`html/docs/*`・`index.html`のJSON-LD`featureList`・`README*.md`・`html/functionList.html`をまとめて更新する
+- 機能の数量（コマ69・フキダシ48・フォント156・画像テキスト31・8言語・AI 6種）を変更したら、`llms.txt`・`html/docs/*`・`index.html`のJSON-LD`featureList`・`README*.md`・`html/functionList.html`・`index.html`の`<noscript>`をまとめて更新する
+- `index.html`の`<h1>`は画面には出さない（キャンバスアプリのため見出しの置き場がない）。`display:none`ではなく画面外配置にしてある。`display:none`にすると支援技術からも読めなくなる
+- `<noscript>`はJS無効時の代替であり、クローラーが本文として読む。実態と食い違う内容を書かない
+- `<html lang>`は`updateContent()`（`js/ui/third/i18next.js`）で表示言語に同期させている。初期化と言語切替の両方がここを通るので、切替処理側には手を入れない
+- 静的ページを追加したら `sitemap.xml` への追加、`<meta name="description">`、`<meta name="robots">`、`canonical` をセットで用意する。言語別ページを作る場合のみ`hreflang`を付ける（単一URLでJS切替する`index.html`には付けない）
 
 ## 主要グローバル変数
 | 変数 | 説明 |
