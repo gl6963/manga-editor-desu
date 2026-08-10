@@ -93,12 +93,68 @@ llmLogger.error(this.id+' chat failed: '+response.status+' '+detail);
 throw new Error(this.name+' HTTP '+response.status+': '+detail.slice(0,300));
 }
 var data=await response.json();
+this._recordUsage(modelId,data&&data.usage);
 var choice=data&&data.choices&&data.choices[0];
 var content=choice&&choice.message?choice.message.content:'';
 if(typeof content!=='string'||!content.trim()){
 throw new Error(this.name+': '+i18next.t('llmErrorEmptyResponse'));
 }
 return content.trim();
+}
+// 1トークンあたりのUSD単価。取得できない項目はnullを返す（推定単価で埋めない）
+async getTokenPrices(modelId,promptTokens){
+return null;
+}
+// chat()の1か所からだけ呼ぶ。呼び出し側を巻き込まないようawaitせず、例外は内部で握って握り潰さずログに出す
+async _recordUsage(modelId,usage){
+try{
+if(!this.needsApiKey())return;
+if(!usage)return;
+var promptTokens=usage.prompt_tokens||0;
+var completionTokens=usage.completion_tokens||0;
+if(!promptTokens&&!completionTokens)return;
+var details=usage.prompt_tokens_details||{};
+var cachedTokens=details.cached_tokens||0;
+var imageTokens=details.image_tokens||0;
+var textTokens=Math.max(0,promptTokens-cachedTokens-imageTokens);
+var prices=await this.getTokenPrices(modelId,promptTokens);
+await ApiCostStorage.recordUsage({
+providerId:this.id,
+providerName:this.name,
+modelId:modelId,
+promptTokens:promptTokens,
+cachedTokens:cachedTokens,
+imageTokens:imageTokens,
+completionTokens:completionTokens,
+costUsd:this._calcCostUsd(prices,{
+text:textTokens,
+cached:cachedTokens,
+image:imageTokens,
+completion:completionTokens
+})
+});
+}catch(e){
+llmLogger.error(this.id+' usage record failed: '+(e instanceof Error?e.name+' '+e.message:e));
+}
+}
+// トークンが発生している項目の単価が1つでも欠けていたらnull（＝単価不明）を返す
+_calcCostUsd(prices,tokens){
+if(!prices)return null;
+var pairs=[
+[tokens.text,prices.prompt],
+[tokens.cached,prices.cachedPrompt],
+[tokens.image,prices.promptImage],
+[tokens.completion,prices.completion]
+];
+var total=0;
+for(var i=0;i<pairs.length;i++){
+var count=pairs[i][0];
+var price=pairs[i][1];
+if(!count)continue;
+if(price===null||price===undefined)return null;
+total+=count*price;
+}
+return total;
 }
 buildTextMessages(systemPrompt,userPrompt){
 var messages=[];

@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>輪郭効果線サンプル（びくっびくっ / 動揺線）</title>
+<style>
+:root{
+  --bg:#2b2f36;
+  --panel:#363b44;
+  --panel2:#2f343c;
+  --line:#4a515c;
+  --text:#e8ebef;
+  --accent:#5aa9e6;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI","Meiryo",sans-serif;background:var(--bg);color:var(--text);font-size:13px}
+.app{display:flex;align-items:stretch;min-height:100vh;gap:0}
+.side{flex:0 1 22em;min-width:16em;max-width:26em;background:var(--panel);border-right:1px solid var(--line);padding:.8em;overflow-y:auto;max-height:100vh}
+.main{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1em;gap:.6em;overflow:auto;max-height:100vh}
+.stage{position:relative;max-width:100%;min-width:0;line-height:0}
+canvas{display:block;max-width:100%;max-height:calc(100vh - 6em);width:auto;height:auto;background:#fff;border:1px solid var(--line);cursor:crosshair;touch-action:none}
+.drop{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:rgba(20,24,30,.72);color:#fff;font-size:1.4em;line-height:1.6;text-align:center;pointer-events:none;opacity:0;transition:opacity .12s}
+.drop::after{content:"";position:absolute;inset:1em;border:3px dashed var(--accent);border-radius:.6em}
+.drop.on{opacity:1}
+.empty{display:flex;align-items:center;justify-content:center;width:min(70vw,40em);height:min(60vh,30em);border:2px dashed var(--line);border-radius:.6em;text-align:center;line-height:2;color:#9aa3af;cursor:pointer}
+/* hidden 属性は .empty 等の display 指定に負けるため、専用クラスで切り替える */
+.hide{display:none !important}
+h2{font-size:1em;margin:0 0 .5em}
+fieldset{border:1px solid var(--line);border-radius:.4em;margin:0 0 .7em;padding:.5em .6em .7em;background:var(--panel2)}
+legend{padding:0 .4em;font-weight:bold;color:var(--accent)}
+.row{display:flex;align-items:center;gap:.5em;margin:.25em 0}
+.row>label{flex:1 1 auto;min-width:0}
+.row>input[type=range]{flex:2 1 0;min-width:0}
+.row>input[type=color]{flex:0 0 2.6em;height:1.5em;padding:0;border:1px solid var(--line);background:none}
+.row>select{flex:2 1 0;min-width:0;padding:.25em;border:1px solid var(--line);border-radius:.3em;background:var(--panel2);color:var(--text)}
+.val{flex:0 0 3.2em;text-align:right;font-variant-numeric:tabular-nums;color:#b9c2cd}
+.tabs{display:flex;gap:.3em;margin-bottom:.6em}
+.tabs button{flex:1 1 0;padding:.5em .2em;border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:.3em;cursor:pointer}
+.tabs button.active{background:var(--accent);border-color:var(--accent);color:#10131a;font-weight:bold}
+.btns{display:flex;flex-wrap:wrap;gap:.4em}
+.btns button{flex:1 1 6em;padding:.45em .3em;border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:.3em;cursor:pointer}
+.btns button:hover{border-color:var(--accent)}
+.hint{color:#9aa3af;line-height:1.6;margin:.3em 0 0}
+.status{color:#9aa3af;min-height:1.4em}
+input[type=file]{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="side">
+  <h2>輪郭効果線サンプル</h2>
+  <p class="hint">画像をドロップ →輪郭を自動抽出 →キャンバス上を<b>クリック</b>（またはドラッグで範囲指定）すると、その位置の輪郭に効果線を配置します。</p>
+
+  <fieldset>
+    <legend>画像 / 輪郭抽出</legend>
+    <div class="btns">
+      <button id="btnOpen">画像を開く</button>
+      <button id="btnSave">PNG保存</button>
+    </div>
+    <input type="file" id="file" accept="image/*">
+    <div class="row"><label>背景しきい値</label><input type="range" id="bgTol" min="2" max="120" value="7"><span class="val" id="bgTolV">7</span></div>
+    <div class="row"><label>輪郭の平滑化</label><input type="range" id="smooth" min="0" max="30" value="8"><span class="val" id="smoothV">8</span></div>
+    <div class="row"><label>細部の除去</label><input type="range" id="denoise" min="0" max="8" value="2"><span class="val" id="denoiseV">2</span></div>
+    <div class="row"><label><input type="checkbox" id="showGuide"> 輪郭ガイドを表示</label></div>
+    <div class="row"><label><input type="checkbox" id="showMask"> マスクを表示</label></div>
+  </fieldset>
+
+  <div class="tabs">
+    <button id="tabStartle" class="active">びくっびくっ</button>
+    <button id="tabShake">動揺線</button>
+  </div>
+
+  <div id="panelStartle">
+    <fieldset>
+      <legend>配置</legend>
+      <div class="row"><label>配置範囲(px)</label><input type="range" id="s_span" min="5" max="600" value="30"><span class="val" id="s_spanV">30</span></div>
+      <div class="row"><label>基準線オフセット</label><input type="range" id="s_base" min="-30" max="40" step="0.5" value="6"><span class="val" id="s_baseV">6</span></div>
+      <div class="row"><label>内側への食い込み許容</label><input type="range" id="s_inner" min="0" max="80" step="0.5" value="3"><span class="val" id="s_innerV">3</span></div>
+    </fieldset>
+    <fieldset>
+      <legend>山の形</legend>
+      <div class="row"><label>高さ</label><input type="range" id="s_height" min="2" max="300" step="0.5" value="10"><span class="val" id="s_heightV">10</span></div>
+      <div class="row"><label>山の数</label><input type="range" id="s_mountains" min="2" max="10" value="8"><span class="val" id="s_mountainsV">8</span></div>
+      <div class="row"><label>頂点の山</label><input type="range" id="s_peak" min="1" max="10" value="4"><span class="val" id="s_peakV">4</span></div>
+      <div class="row"><label>凹みの深さ(%)</label><input type="range" id="s_concavity" min="0" max="150" value="114"><span class="val" id="s_concavityV">114</span></div>
+      <div class="row"><label>ランダム性 最小(%)</label><input type="range" id="s_randMin" min="0" max="100" value="0"><span class="val" id="s_randMinV">0</span></div>
+      <div class="row"><label>ランダム性 最大(%)</label><input type="range" id="s_randMax" min="0" max="100" value="59"><span class="val" id="s_randMaxV">59</span></div>
+      <div class="row"><label>不規則性(%)</label><input type="range" id="s_irregular" min="0" max="100" value="0"><span class="val" id="s_irregularV">0</span></div>
+    </fieldset>
+    <fieldset>
+      <legend>線</legend>
+      <div class="row"><label>線幅</label><input type="range" id="s_lineWidth" min="0.2" max="16" step="0.1" value="1"><span class="val" id="s_lineWidthV">1</span></div>
+      <div class="row"><label>線の変化</label><input type="range" id="s_variation" min="0" max="5" step="0.1" value="1.1"><span class="val" id="s_variationV">1.1</span></div>
+      <div class="row"><label>線色</label><input type="color" id="s_lineColor" value="#000000"></div>
+      <div class="row"><label>アウトライン幅</label><input type="range" id="s_outlineWidth" min="0" max="14" step="0.5" value="0"><span class="val" id="s_outlineWidthV">0</span></div>
+      <div class="row"><label>アウトライン色</label><input type="color" id="s_outlineColor" value="#ffffff"></div>
+      <div class="row"><label><input type="checkbox" id="s_blur"> ブラー有効</label><input type="color" id="s_blurColor" value="#000000"></div>
+    </fieldset>
+  </div>
+
+  <div id="panelShake" hidden>
+    <fieldset>
+      <legend>配置</legend>
+      <div class="row"><label>配置範囲(px)</label><input type="range" id="k_span" min="5" max="600" value="30"><span class="val" id="k_spanV">30</span></div>
+      <div class="row"><label>中心オフセット</label><input type="range" id="k_center" min="-40" max="40" step="0.5" value="5"><span class="val" id="k_centerV">5</span></div>
+      <div class="row"><label>線の向き</label><select id="k_dir">
+        <option value="vertical" selected>画像に対して縦</option>
+        <option value="normal">輪郭に垂直</option>
+        <option value="angle">角度指定</option>
+      </select></div>
+      <div class="row"><label>角度(°)</label><input type="range" id="k_angle" min="0" max="180" value="90"><span class="val" id="k_angleV">90</span></div>
+    </fieldset>
+    <fieldset>
+      <legend>線の構成</legend>
+      <div class="row"><label>主線幅</label><input type="range" id="k_mainWidth" min="0.2" max="10" step="0.1" value="2"><span class="val" id="k_mainWidthV">2</span></div>
+      <div class="row"><label>主線の長さ</label><input type="range" id="k_mainLength" min="1" max="200" value="34"><span class="val" id="k_mainLengthV">34</span></div>
+      <div class="row"><label>副線幅</label><input type="range" id="k_subWidth" min="0.2" max="10" step="0.1" value="2"><span class="val" id="k_subWidthV">2</span></div>
+      <div class="row"><label>副線の長さ</label><input type="range" id="k_subLength" min="1" max="200" value="30"><span class="val" id="k_subLengthV">30</span></div>
+      <div class="row"><label>主線と副線の最大ズレ</label><input type="range" id="k_maxOffset" min="0" max="50" value="10"><span class="val" id="k_maxOffsetV">10</span></div>
+      <div class="row"><label>次の線との幅</label><input type="range" id="k_gap" min="0.5" max="30" step="0.5" value="3"><span class="val" id="k_gapV">3</span></div>
+      <div class="row"><label>位置ランダム度(%)</label><input type="range" id="k_posRandom" min="0" max="100" value="71"><span class="val" id="k_posRandomV">71</span></div>
+      <div class="row"><label>傾きランダム(%)</label><input type="range" id="k_tilt" min="0" max="100" value="0"><span class="val" id="k_tiltV">0</span></div>
+      <div class="row"><label>線の変動</label><input type="range" id="k_variation" min="0" max="100" value="15"><span class="val" id="k_variationV">15</span></div>
+    </fieldset>
+    <fieldset>
+      <legend>色</legend>
+      <div class="row"><label>主線色</label><input type="color" id="k_mainColor" value="#000000"></div>
+      <div class="row"><label>副線色</label><input type="color" id="k_subColor" value="#ffffff"></div>
+      <div class="row"><label><input type="checkbox" id="k_blur" checked> ブラー有効</label><input type="color" id="k_blurColor" value="#3355ff"></div>
+    </fieldset>
+  </div>
+
+  <fieldset>
+    <legend>配置リスト</legend>
+    <div class="btns">
+      <button id="btnSample">サンプル配置</button>
+      <button id="btnUndo">直前を削除</button>
+      <button id="btnClear">全消去</button>
+      <button id="btnReseed">形を作り直す</button>
+    </div>
+    <p class="hint" id="placeInfo">配置数: 0</p>
+  </fieldset>
+</div>
+
+<div class="main">
+  <div class="stage" id="stage">
+    <div class="empty" id="empty">ここに画像をドロップ／クリックして選択<br><span style="font-size:.9em">（file:// で動かすため、自動読み込みはしません）</span></div>
+    <canvas id="cv" class="hide"></canvas>
+    <div class="drop" id="dropOverlay">ドロップして読み込み</div>
+  </div>
+  <div class="status" id="status"></div>
+</div>
+</div>
+
+<script>
+'use strict';
+
+/* =========================================================
+   共通ユーティリティ
+   ========================================================= */
+
+// 配置ごとに形を固定するためのシード付き乱数
+function mulberry32(seed){
+  let a = seed >>> 0;
+  return function(){
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function quadraticBezier(p0, p1, p2, t){
+  return (1 - t) * (1 - t) * p0 + 2 * (1 - t) * t * p1 + t * t * p2;
+}
+
+const $ = id => document.getElementById(id);
+const numOf = id => Number($(id).value);
+
+/* =========================================================
+   状態
+   ========================================================= */
+
+const MAX_SIDE = 900;      // 表示・処理用の最大辺
+const SAMPLE_STEP = 2;     // 輪郭のリサンプル間隔(px)
+
+let baseCanvas = null;     // 元画像（表示サイズ）
+let mask = null;           // Uint8Array 被写体=1
+let maskW = 0, maskH = 0;
+let contour = null;        // {pts, cum, total}
+const placements = [];     // {type:'startle'|'shake', s0, span, seed}
+let seedCounter = 1;
+let dragStart = null;      // ドラッグ中の始点 s
+let dragCurrent = null;
+let dragFrom = null;       // ドラッグ開始時のキャンバス座標
+let didDrag = false;
+let hover = null;          // ホバー中の最寄り輪郭 {s, dist}
+let strokeCount = 0;       // 直近の render() で描いた線分数（動作確認用）
+
+const cv = $('cv');
+const ctx = cv.getContext('2d');
+
+/* =========================================================
+   1. 画像読み込み
+   ========================================================= */
+
+function loadFile(file){
+  if(!file){
+    setStatus('ファイルを取得できませんでした');
+    return;
+  }
+  if(!/^image\//.test(file.type)){
+    setStatus('画像ファイルではありません: ' + (file.type || '種類不明'));
+    return;
+  }
+  setStatus('読み込み中... ' + file.name);
+  const reader = new FileReader();
+  // file:// でも getImageData が使えるよう data:URL 経由で読み込む
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => setupImage(img);
+    img.onerror = () => setStatus('画像を復号できませんでした');
+    img.src = reader.result;
+  };
+  reader.onerror = () => setStatus('ファイルを読めませんでした');
+  reader.readAsDataURL(file);
+}
+
+function setupImage(img){
+  const scale = Math.min(1, MAX_SIDE / Math.max(img.width, img.height));
+  const w = Math.max(1, Math.round(img.width * scale));
+  const h = Math.max(1, Math.round(img.height * scale));
+
+  baseCanvas = document.createElement('canvas');
+  baseCanvas.width = w;
+  baseCanvas.height = h;
+  baseCanvas.getContext('2d').drawImage(img, 0, 0, w, h);
+
+  cv.width = w;
+  cv.height = h;
+  cv.classList.remove('hide');
+  $('empty').classList.add('hide');
+
+  placements.length = 0;
+  updatePlaceInfo();
+  rebuildContour();
+}
+
+/* =========================================================
+   2. 背景除去 → 被写体マスク
+   ========================================================= */
+
+function buildMask(tolerance){
+  const w = baseCanvas.width, h = baseCanvas.height;
+  const data = baseCanvas.getContext('2d').getImageData(0, 0, w, h).data;
+
+  // 四隅の平均色を背景の基準色とする
+  const ref = sampleCornerColor(data, w, h);
+
+  const isBg = new Uint8Array(w * h);
+  const stack = new Int32Array(w * h);
+  let sp = 0;
+
+  const push = (x, y) => {
+    const i = y * w + x;
+    if(isBg[i]) return;
+    if(!nearColor(data, i, ref, tolerance)) return;
+    isBg[i] = 1;
+    stack[sp++] = i;
+  };
+
+  // 画像の縁から塗りつぶし開始
+  for(let x = 0; x < w; x++){ push(x, 0); push(x, h - 1); }
+  for(let y = 0; y < h; y++){ push(0, y); push(w - 1, y); }
+
+  while(sp > 0){
+    const i = stack[--sp];
+    const x = i % w, y = (i - x) / w;
+    if(x > 0) push(x - 1, y);
+    if(x < w - 1) push(x + 1, y);
+    if(y > 0) push(x, y - 1);
+    if(y < h - 1) push(x, y + 1);
+  }
+
+  // 背景でない領域＝被写体（内側に閉じ込められた背景は自動的に埋まる）
+  const subject = new Uint8Array(w * h);
+  for(let i = 0; i < w * h; i++) subject[i] = isBg[i] ? 0 : 1;
+
+  maskW = w; maskH = h;
+  return largestComponent(subject, w, h);
+}
+
+function sampleCornerColor(data, w, h){
+  const pts = [];
+  for(let dy = 0; dy < 5; dy++){
+    for(let dx = 0; dx < 5; dx++){
+      pts.push([dx, dy], [w - 1 - dx, dy], [dx, h - 1 - dy], [w - 1 - dx, h - 1 - dy]);
+    }
+  }
+  let r = 0, g = 0, b = 0;
+  for(const [x, y] of pts){
+    const i = (y * w + x) * 4;
+    r += data[i]; g += data[i + 1]; b += data[i + 2];
+  }
+  return [r / pts.length, g / pts.length, b / pts.length];
+}
+
+function nearColor(data, i, ref, tol){
+  const p = i * 4;
+  if(data[p + 3] < 16) return true; // 完全透過は背景扱い
+  return Math.abs(data[p] - ref[0]) <= tol &&
+         Math.abs(data[p + 1] - ref[1]) <= tol &&
+         Math.abs(data[p + 2] - ref[2]) <= tol;
+}
+
+// 最大連結成分だけを残す（縁のノイズ塊を除去）
+function largestComponent(src, w, h){
+  const label = new Int32Array(w * h).fill(-1);
+  const queue = new Int32Array(w * h);
+  let best = -1, bestSize = 0, current = 0;
+
+  for(let start = 0; start < w * h; start++){
+    if(!src[start] || label[start] >= 0) continue;
+    let head = 0, tail = 0, size = 0;
+    queue[tail++] = start;
+    label[start] = current;
+    while(head < tail){
+      const i = queue[head++];
+      size++;
+      const x = i % w, y = (i - x) / w;
+      const near = [];
+      if(x > 0) near.push(i - 1);
+      if(x < w - 1) near.push(i + 1);
+      if(y > 0) near.push(i - w);
+      if(y < h - 1) near.push(i + w);
+      for(const j of near){
+        if(src[j] && label[j] < 0){ label[j] = current; queue[tail++] = j; }
+      }
+    }
+    if(size > bestSize){ bestSize = size; best = current; }
+    current++;
+  }
+
+  const out = new Uint8Array(w * h);
+  if(best < 0) return out;
+  for(let i = 0; i < w * h; i++) out[i] = (label[i] === best) ? 1 : 0;
+  return out;
+}
+
+// 収縮→膨張（細かい突起・髪の毛の隙間などを均す）
+function openMask(src, w, h, radius){
+  if(radius <= 0) return src;
+  let cur = src;
+  for(let r = 0; r < radius; r++) cur = morph(cur, w, h, true);
+  for(let r = 0; r < radius; r++) cur = morph(cur, w, h, false);
+  return cur;
+}
+
+function morph(src, w, h, erode){
+  const out = new Uint8Array(w * h);
+  for(let y = 0; y < h; y++){
+    for(let x = 0; x < w; x++){
+      const i = y * w + x;
+      let v = src[i];
+      for(let dy = -1; dy <= 1 && ((erode && v) || (!erode && !v)); dy++){
+        for(let dx = -1; dx <= 1; dx++){
+          const nx = x + dx, ny = y + dy;
+          // 画像外は「被写体の続き」とみなす（見切れている体を削らない）
+          const s = (nx < 0 || ny < 0 || nx >= w || ny >= h) ? src[i] : src[ny * w + nx];
+          if(erode && !s){ v = 0; break; }
+          if(!erode && s){ v = 1; break; }
+        }
+      }
+      out[i] = v;
+    }
+  }
+  return out;
+}
+
+/* =========================================================
+   3. 輪郭追跡（マーチングスクエア）
+   ========================================================= */
+
+// 進行方向の右側が被写体になるよう辿る（画面座標では時計回り）
+function traceContour(m, w, h){
+  const at = (x, y) => (x < 0 || y < 0 || x >= w || y >= h) ? 0 : m[y * w + x];
+  // 角(x,y)の周囲4セル: TL=1, TR=2, BL=4, BR=8
+  const cell = (x, y) => (at(x - 1, y - 1) ? 1 : 0) | (at(x, y - 1) ? 2 : 0) |
+                         (at(x - 1, y) ? 4 : 0) | (at(x, y) ? 8 : 0);
+
+  let sx = -1, sy = -1;
+  for(let y = 0; y <= h && sy < 0; y++){
+    for(let x = 0; x <= w; x++){
+      const v = cell(x, y);
+      if(v !== 0 && v !== 15){ sx = x; sy = y; break; }
+    }
+  }
+  if(sx < 0) return null;
+
+  const RIGHT = 0, DOWN = 1, LEFT = 2, UP = 3;
+  const step = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+  const pts = [];
+  let x = sx, y = sy, dir = RIGHT;
+  const limit = (w + 2) * (h + 2) * 4;
+
+  for(let n = 0; n < limit; n++){
+    pts.push({ x, y });
+    const v = cell(x, y);
+    let next;
+    switch(v){
+      case 1: case 3: case 11: next = LEFT; break;
+      case 2: case 10: case 14: next = UP; break;
+      case 4: case 5: case 7: next = DOWN; break;
+      case 8: case 12: case 13: next = RIGHT; break;
+      case 6: next = (dir === RIGHT) ? UP : DOWN; break;   // 鞍点：被写体を8連結として扱う
+      case 9: next = (dir === UP) ? LEFT : RIGHT; break;   // 同上
+      default: next = -1;
+    }
+    if(next < 0) break;
+    dir = next;
+    x += step[dir][0];
+    y += step[dir][1];
+    if(x === sx && y === sy) break;
+  }
+  return pts.length > 8 ? pts : null;
+}
+
+/* =========================================================
+   4. 輪郭の整形（リサンプル・平滑化・法線）
+   ========================================================= */
+
+function resampleClosed(pts, step){
+  const out = [];
+  const n = pts.length;
+  let carry = 0;
+  out.push({ x: pts[0].x, y: pts[0].y });
+  for(let i = 0; i < n; i++){
+    const a = pts[i], b = pts[(i + 1) % n];
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    if(len < 1e-6) continue;
+    let d = step - carry;
+    while(d <= len){
+      out.push({ x: a.x + dx * (d / len), y: a.y + dy * (d / len) });
+      d += step;
+    }
+    carry = (len - (d - step));
+  }
+  return out.length > 8 ? out : pts.slice();
+}
+
+function smoothClosed(pts, radius){
+  if(radius <= 0) return pts;
+  const n = pts.length;
+  const out = new Array(n);
+  for(let i = 0; i < n; i++){
+    let sx = 0, sy = 0, c = 0;
+    for(let k = -radius; k <= radius; k++){
+      const p = pts[(i + k + n * 2) % n];
+      sx += p.x; sy += p.y; c++;
+    }
+    out[i] = { x: sx / c, y: sy / c };
+  }
+  return out;
+}
+
+function buildContour(m, w, h, smoothRadius){
+  const raw = traceContour(m, w, h);
+  if(!raw) return null;
+
+  let pts = resampleClosed(raw, SAMPLE_STEP);
+  pts = smoothClosed(pts, smoothRadius);
+  pts = smoothClosed(pts, Math.round(smoothRadius / 2));
+  pts = resampleClosed(pts, SAMPLE_STEP);
+
+  const n = pts.length;
+  const K = 3;
+  for(let i = 0; i < n; i++){
+    const a = pts[(i - K + n) % n], b = pts[(i + K) % n];
+    let tx = b.x - a.x, ty = b.y - a.y;
+    const len = Math.hypot(tx, ty) || 1;
+    tx /= len; ty /= len;
+    pts[i].tx = tx; pts[i].ty = ty;
+    pts[i].nx = ty; pts[i].ny = -tx;   // 時計回り想定の外向き法線
+  }
+
+  // 念のため多数決で法線の向きを検証（内側を向いていたら全反転）
+  let inside = 0, outside = 0;
+  for(let i = 0; i < n; i += Math.max(1, Math.floor(n / 120))){
+    const p = pts[i];
+    const x = Math.round(p.x + p.nx * 4), y = Math.round(p.y + p.ny * 4);
+    if(x < 0 || y < 0 || x >= w || y >= h) { outside++; continue; }
+    if(m[y * w + x]) inside++; else outside++;
+  }
+  if(inside > outside){
+    for(const p of pts){ p.nx = -p.nx; p.ny = -p.ny; }
+  }
+
+  // 累積距離（弧長パラメータ用）
+  const cum = new Float64Array(n + 1);
+  for(let i = 0; i < n; i++){
+    const a = pts[i], b = pts[(i + 1) % n];
+    cum[i + 1] = cum[i] + Math.hypot(b.x - a.x, b.y - a.y);
+  }
+  return { pts, cum, total: cum[n] };
+}
+
+// 弧長 s の位置と姿勢を返す
+function frameAt(s){
+  const { pts, cum, total } = contour;
+  let t = s % total;
+  if(t < 0) t += total;
+  let lo = 0, hi = pts.length;
+  while(lo < hi - 1){
+    const mid = (lo + hi) >> 1;
+    if(cum[mid] <= t) lo = mid; else hi = mid;
+  }
+  const a = pts[lo], b = pts[(lo + 1) % pts.length];
+  const segLen = cum[lo + 1] - cum[lo] || 1;
+  const f = (t - cum[lo]) / segLen;
+  let nx = a.nx + (b.nx - a.nx) * f;
+  let ny = a.ny + (b.ny - a.ny) * f;
+  const nl = Math.hypot(nx, ny) || 1;
+  return {
+    x: a.x + (b.x - a.x) * f,
+    y: a.y + (b.y - a.y) * f,
+    nx: nx / nl,
+    ny: ny / nl
+  };
+}
+
+// ローカル座標(弧長s, 法線方向h) → 画面座標
+function toWorld(s, h){
+  const f = frameAt(s);
+  return { x: f.x + f.nx * h, y: f.y + f.ny * h };
+}
+
+function nearestS(px, py){
+  const { pts, cum } = contour;
+  let best = 0, bestD = Infinity;
+  for(let i = 0; i < pts.length; i++){
+    const dx = pts[i].x - px, dy = pts[i].y - py;
+    const d = dx * dx + dy * dy;
+    if(d < bestD){ bestD = d; best = i; }
+  }
+  return { s: cum[best], dist: Math.sqrt(bestD) };
+}
+
+/* =========================================================
+   5. 効果線の描画
+   共通: ローカル座標(u:弧長方向, h:法線方向) で元サンプルの
+         ロジックを実行し、描画直前に toWorld() で輪郭へ写像する
+   ========================================================= */
+
+function calculateLineWidth(t, maxWidth, variation){
+  const base = Math.sin(t * Math.PI);
+  return maxWidth * (variation === 0 ? 1 : Math.pow(base, 1 / variation));
+}
+
+// ローカル座標(s, h) → 画面座標。
+// opt.dir を渡すと h の向きを輪郭の法線ではなく画像基準の固定方向にする
+// （位置は輪郭に沿って決まるが、線そのものは画像に対して縦などに固定される）
+function localToWorld(s, h, opt){
+  if(!opt || !opt.dir) return toWorld(s, h);
+  const f = frameAt(s);
+  return { x: f.x + opt.dir.x * h, y: f.y + opt.dir.y * h };
+}
+
+// ローカル座標の折れ線を、二次ベジェで凹ませつつ可変線幅で描く
+function drawLocalPath(points, s0, maxWidth, color, opt){
+  ctx.strokeStyle = color;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for(let i = 0; i < points.length - 1; i++){
+    const cur = points[i], next = points[i + 1];
+    const midS = (cur.s + next.s) / 2;
+    const controlH = opt.controlH(cur, next);
+    const segments = opt.segments || 60;
+
+    // minH を指定すると、それより内側（体の中）へ食い込まないよう抑える
+    const clamp = h => (opt.minH === undefined) ? h : Math.max(opt.minH, h);
+
+    for(let j = 0; j < segments; j++){
+      const t = j / segments, t2 = (j + 1) / segments;
+      const p1 = localToWorld(s0 + quadraticBezier(cur.s, midS, next.s, t),
+                              clamp(quadraticBezier(cur.h, controlH, next.h, t)), opt);
+      const p2 = localToWorld(s0 + quadraticBezier(cur.s, midS, next.s, t2),
+                              clamp(quadraticBezier(cur.h, controlH, next.h, t2)), opt);
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.lineWidth = Math.max(0.1, calculateLineWidth(t, maxWidth, opt.variation));
+      if(opt.blur){
+        ctx.shadowColor = opt.blurColor;
+        ctx.shadowBlur = opt.blurRadius;
+      }else{
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+      }
+      ctx.stroke();
+      strokeCount++;
+    }
+  }
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+}
+
+/* ---- びくっびくっ（山型・頂点は必ず体の外側 h>0） ---- */
+
+function startleParams(){
+  let randMin = numOf('s_randMin') / 100;
+  let randMax = numOf('s_randMax') / 100;
+  if(randMin > randMax) randMax = randMin;
+  return {
+    span: numOf('s_span'),
+    baseOffset: numOf('s_base'),
+    inner: numOf('s_inner'),
+    height: numOf('s_height'),
+    mountains: numOf('s_mountains'),
+    peak: Math.min(numOf('s_peak'), numOf('s_mountains')),
+    concavity: numOf('s_concavity') / 100,
+    randMin, randMax,
+    irregular: numOf('s_irregular') / 100,
+    lineWidth: numOf('s_lineWidth'),
+    variation: numOf('s_variation'),
+    lineColor: $('s_lineColor').value,
+    outlineWidth: numOf('s_outlineWidth'),
+    outlineColor: $('s_outlineColor').value,
+    blur: $('s_blur').checked,
+    blurColor: $('s_blurColor').value
+  };
+}
+
+function drawStartle(place, P){
+  const rng = mulberry32(place.seed);
+  const span = place.span;
+  const n = P.mountains;
+  const maxH = P.height * 0.8;
+
+  // ローカル座標の山の頂点列（h>0 が体の外側）
+  const pts = [];
+  for(let i = 0; i < n; i++){
+    const s = (i / (n - 1)) * span;
+    const randomFactor = 1 + (rng() * (P.randMax - P.randMin) + P.randMin);
+    const irregularFactor = 1 + (rng() * 2 - 1) * P.irregular;
+    let h;
+    if(i === 0 || i === n - 1){
+      h = 0;
+    }else if(i === P.peak - 1){
+      h = maxH * randomFactor * irregularFactor;
+    }else{
+      const d = Math.abs(i - (P.peak - 1)) / (n - 1);
+      h = Math.sin((1 - d) * Math.PI) * maxH * randomFactor * irregularFactor;
+    }
+    pts.push({ s, h: h + P.baseOffset });
+  }
+
+  // 谷を深く抉る制御点。アウトラインと本線でズレないよう同じ値を使い回す
+  const base = {
+    variation: P.variation,
+    segments: 80,
+    controlH: (cur, next) => controlHCached(place, P, cur, next),
+    minH: P.baseOffset - P.inner,
+    blur: false,
+    blurColor: P.blurColor,
+    blurRadius: 10
+  };
+
+  if(P.outlineWidth > 0){
+    drawLocalPath(pts, place.s0, P.outlineWidth + P.lineWidth, P.outlineColor, base);
+  }
+  drawLocalPath(pts, place.s0, P.lineWidth, P.lineColor,
+    Object.assign({}, base, { blur: P.blur }));
+}
+
+// アウトラインと本線で同じ制御点を使うためのキャッシュ
+const controlCache = new Map();
+function controlHCached(place, P, cur, next){
+  const key = place.seed + ':' + cur.s.toFixed(2) + ':' + next.s.toFixed(2) +
+              ':' + P.concavity + ':' + P.height;
+  if(!controlCache.has(key)){
+    const rng = mulberry32((place.seed * 2654435761 + Math.round(cur.s * 16)) >>> 0);
+    controlCache.set(key, (cur.h + next.h) / 2 - P.height * P.concavity * (rng() * 0.5 + 0.75));
+  }
+  return controlCache.get(key);
+}
+
+/* ---- 動揺線（輪郭線に被さる縦線の束） ---- */
+
+function shakeParams(){
+  return {
+    span: numOf('k_span'),
+    center: numOf('k_center'),
+    dirMode: $('k_dir').value,
+    angle: numOf('k_angle'),
+    mainWidth: numOf('k_mainWidth'),
+    mainLength: numOf('k_mainLength'),
+    subWidth: numOf('k_subWidth'),
+    subLength: numOf('k_subLength'),
+    maxOffset: numOf('k_maxOffset'),
+    gap: numOf('k_gap'),
+    posRandom: numOf('k_posRandom') / 100,
+    tilt: numOf('k_tilt') / 100,
+    variation: numOf('k_variation') / 100,
+    mainColor: $('k_mainColor').value,
+    subColor: $('k_subColor').value,
+    blur: $('k_blur').checked,
+    blurColor: $('k_blurColor').value
+  };
+}
+
+function drawShake(place, P){
+  const rng = mulberry32(place.seed);
+  const span = place.span;
+  const maxLength = Math.max(P.mainLength, P.subLength);
+  // 線幅・間隔を極小にすると本数が爆発して再描画が重くなるため、1配置あたりの本数に上限を設ける
+  const MAX_LINES = 400;
+  const pitch = Math.max(P.mainWidth + P.subWidth + P.gap, span / MAX_LINES);
+
+  // 線の向き。dir=null なら輪郭の法線方向（従来）
+  let dir = null;
+  if(P.dirMode === 'vertical'){
+    dir = { x: 0, y: 1 };
+  }else if(P.dirMode === 'angle'){
+    const a = P.angle * Math.PI / 180;
+    dir = { x: Math.cos(a), y: Math.sin(a) };
+  }
+
+  const base = { variation: P.variation, segments: 40, blur: false, blurColor: P.blurColor, blurRadius: 5, dir };
+
+  // 向きを固定すると、輪郭が線と平行な区間では等間隔に並べても重なってしまう。
+  // 線と直交する方向の間隔が pitch に近づくよう、輪郭上の歩幅を補正する。
+  function stepAt(sAbs){
+    if(!dir) return pitch;
+    const f = frameAt(sAbs);
+    const tx = -f.ny, ty = f.nx;                       // 接線
+    const sinT = Math.abs(tx * dir.y - ty * dir.x);    // 接線と線方向のなす角
+    return pitch / Math.max(0.33, sinT);
+  }
+
+  let s = 0;
+  let guard = 0;
+  while(s < span && guard++ < 2000){
+    // 中心を輪郭線上に置くので、線が体の線に被さる
+    const jitter = (rng() * 2 - 1) * P.posRandom * maxLength / 2;
+    const center = P.center + jitter;
+    const offset = rng() * P.maxOffset;
+    const tiltMain = (rng() * 2 - 1) * P.tilt * P.mainLength * 0.4;
+    const tiltSub = (rng() * 2 - 1) * P.tilt * P.subLength * 0.4;
+
+    const mainPts = [
+      { s: s, h: center - P.mainLength / 2 },
+      { s: s + tiltMain, h: center + P.mainLength / 2 }
+    ];
+    const subPts = [
+      { s: s + P.mainWidth, h: center + offset - P.subLength / 2 },
+      { s: s + P.mainWidth + tiltSub, h: center + offset + P.subLength / 2 }
+    ];
+    const control = (cur, next) => (cur.h + next.h) / 2 + (next.h - cur.h) * 0.2 * (rng() * 0.5 + 0.75);
+
+    drawLocalPath(mainPts, place.s0, P.mainWidth, P.mainColor,
+      Object.assign({}, base, { controlH: control, blur: P.blur }));
+    drawLocalPath(subPts, place.s0, P.subWidth, P.subColor,
+      Object.assign({}, base, { controlH: control }));
+
+    s += stepAt(place.s0 + s) + (rng() * 2 - 1) * P.gap / 2;
+  }
+}
+
+/* =========================================================
+   6. 全体描画
+   ========================================================= */
+
+function render(){
+  if(!baseCanvas) return;
+  strokeCount = 0;
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.drawImage(baseCanvas, 0, 0);
+
+  if($('showMask').checked && mask){
+    const img = ctx.createImageData(maskW, maskH);
+    for(let i = 0; i < maskW * maskH; i++){
+      const v = mask[i] ? 90 : 255;
+      img.data[i * 4] = v;
+      img.data[i * 4 + 1] = mask[i] ? 160 : 255;
+      img.data[i * 4 + 2] = mask[i] ? 230 : 255;
+      img.data[i * 4 + 3] = 150;
+    }
+    const tmp = document.createElement('canvas');
+    tmp.width = maskW; tmp.height = maskH;
+    tmp.getContext('2d').putImageData(img, 0, 0);
+    ctx.drawImage(tmp, 0, 0);
+  }
+
+  if(!contour) return;
+
+  const startleP = startleParams();
+  const shakeP = shakeParams();
+  for(const place of placements){
+    ctx.save();
+    if(place.type === 'startle') drawStartle(place, startleP);
+    else drawShake(place, shakeP);
+    ctx.restore();
+  }
+
+  if($('showGuide').checked) drawGuide();
+  if(dragStart !== null && dragCurrent !== null) drawDragPreview();
+  if(hover) drawHover();
+}
+
+// カーソル位置から「どこに効果線が付くか」を示す
+function drawHover(){
+  const span = (currentType === 'startle') ? numOf('s_span') : numOf('k_span');
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,120,0,.85)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  strokeArc(hover.s - span / 2, span);
+  ctx.setLineDash([]);
+  const p = toWorld(hover.s, 0);
+  ctx.fillStyle = 'rgba(255,120,0,.9)';
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawGuide(){
+  ctx.save();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = 'rgba(0,190,255,.85)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  contour.pts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+  ctx.closePath();
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(255,140,0,.9)';
+  ctx.lineWidth = 3;
+  for(const place of placements) strokeArc(place.s0, place.span);
+  ctx.restore();
+}
+
+function drawDragPreview(){
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,60,60,.9)';
+  ctx.lineWidth = 3;
+  const [s0, span] = normalizeRange(dragStart, dragCurrent);
+  strokeArc(s0, span);
+  ctx.restore();
+}
+
+function strokeArc(s0, span){
+  ctx.beginPath();
+  const steps = Math.max(2, Math.round(span / 3));
+  for(let i = 0; i <= steps; i++){
+    const p = toWorld(s0 + span * (i / steps), 0);
+    i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
+  }
+  ctx.stroke();
+}
+
+// 閉曲線上での短い方の向きを採用して [開始s, 長さ] に正規化
+function normalizeRange(sa, sb){
+  let d = sb - sa;
+  const total = contour.total;
+  while(d > total / 2) d -= total;
+  while(d < -total / 2) d += total;
+  return d >= 0 ? [sa, d] : [sb, -d];
+}
+
+/* =========================================================
+   7. 輪郭の再構築
+   ========================================================= */
+
+function rebuildContour(){
+  if(!baseCanvas) return;
+  setStatus('輪郭を解析中...');
+  const tol = numOf('bgTol');
+  let m = buildMask(tol);
+  m = openMask(m, maskW, maskH, numOf('denoise'));
+  mask = m;
+
+  let count = 0;
+  for(let i = 0; i < m.length; i++) count += m[i];
+  if(count < 50){
+    contour = null;
+    setStatus('被写体を検出できませんでした。背景しきい値を調整してください。');
+    render();
+    return;
+  }
+
+  contour = buildContour(m, maskW, maskH, numOf('smooth'));
+  controlCache.clear();
+  if(!contour){
+    setStatus('輪郭を追跡できませんでした');
+  }else{
+    setStatus('輪郭 ' + contour.pts.length + '点 / 周長 ' + Math.round(contour.total) + 'px　クリックまたはドラッグで効果線を配置');
+  }
+  render();
+}
+
+function setStatus(text){ $('status').textContent = text; }
+
+function updatePlaceInfo(){
+  $('placeInfo').textContent = '配置数: ' + placements.length;
+}
+
+/* =========================================================
+   8. UI
+   ========================================================= */
+
+let currentType = 'startle';
+
+$('tabStartle').addEventListener('click', () => switchTab('startle'));
+$('tabShake').addEventListener('click', () => switchTab('shake'));
+
+function switchTab(type){
+  currentType = type;
+  $('tabStartle').classList.toggle('active', type === 'startle');
+  $('tabShake').classList.toggle('active', type === 'shake');
+  $('panelStartle').hidden = (type !== 'startle');
+  $('panelShake').hidden = (type === 'startle');
+}
+
+// スライダー値の表示と再描画
+document.querySelectorAll('input[type=range]').forEach(el => {
+  const label = $(el.id + 'V');
+  const sync = () => { if(label) label.textContent = el.value; };
+  sync();
+  el.addEventListener('input', () => {
+    sync();
+    if(el.id === 's_mountains'){
+      const peak = $('s_peak');
+      if(Number(peak.value) > Number(el.value)){
+        peak.value = el.value;
+        $('s_peakV').textContent = peak.value;
+      }
+    }
+    if(el.id === 'bgTol' || el.id === 'smooth' || el.id === 'denoise'){
+      rebuildContour();
+    }else{
+      controlCache.clear();
+      render();
+    }
+  });
+});
+
+document.querySelectorAll('input[type=color], input[type=checkbox]').forEach(el => {
+  el.addEventListener('input', render);
+  el.addEventListener('change', render);
+});
+
+document.querySelectorAll('select').forEach(el => {
+  el.addEventListener('change', render);
+});
+
+// ---- ファイル入力 ----
+$('btnOpen').addEventListener('click', () => $('file').click());
+$('file').addEventListener('change', e => { if(e.target.files[0]) loadFile(e.target.files[0]); });
+
+$('empty').addEventListener('click', () => $('file').click());
+
+// file:// では既定のドロップ動作がナビゲーション扱いになり
+// 「'file:' URLs are treated as unique security origins」がコンソールに出る。
+// キャプチャ段階で確実に抑止しておく。
+const overlay = $('dropOverlay');
+let dragDepth = 0;
+
+function stop(e){ e.preventDefault(); e.stopPropagation(); }
+
+['dragenter', 'dragover'].forEach(type => {
+  document.addEventListener(type, e => {
+    stop(e);
+    if(e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    if(type === 'dragenter') dragDepth++;
+    overlay.classList.add('on');
+  }, true);
+});
+
+document.addEventListener('dragleave', e => {
+  stop(e);
+  dragDepth = Math.max(0, dragDepth - 1);
+  if(dragDepth === 0) overlay.classList.remove('on');
+}, true);
+
+document.addEventListener('drop', e => {
+  stop(e);
+  dragDepth = 0;
+  overlay.classList.remove('on');
+  const dt = e.dataTransfer;
+  if(!dt){ setStatus('ドロップデータを取得できませんでした'); return; }
+  let file = dt.files && dt.files[0];
+  if(!file && dt.items){
+    for(const item of dt.items){
+      if(item.kind === 'file'){ file = item.getAsFile(); break; }
+    }
+  }
+  if(file) loadFile(file);
+  else setStatus('画像ファイルが見つかりませんでした');
+}, true);
+
+// ドラッグ系イベントを取りこぼしてオーバーレイが残ると、
+// 画面が暗いままになり効果線が見えなくなる。ポインタが動いたら必ず解除する。
+document.addEventListener('pointermove', () => {
+  if(dragDepth === 0 && overlay.classList.contains('on')) overlay.classList.remove('on');
+}, true);
+window.addEventListener('dragend', () => { dragDepth = 0; overlay.classList.remove('on'); });
+window.addEventListener('blur', () => { dragDepth = 0; overlay.classList.remove('on'); });
+
+window.addEventListener('paste', e => {
+  const items = e.clipboardData && e.clipboardData.items;
+  if(!items) return;
+  for(const item of items){
+    if(item.type.indexOf('image') === 0){ loadFile(item.getAsFile()); break; }
+  }
+});
+
+// ---- キャンバス上の配置操作 ----
+function canvasPoint(e){
+  const rect = cv.getBoundingClientRect();
+  return {
+    x: (e.clientX - rect.left) * (cv.width / rect.width),
+    y: (e.clientY - rect.top) * (cv.height / rect.height)
+  };
+}
+
+function addPlacement(s0, span, dist){
+  placements.push({ type: currentType, s0, span, seed: (seedCounter++ * 1103515 + 12345) >>> 0 });
+  updatePlaceInfo();
+  render();
+  const name = (currentType === 'startle') ? 'びくっびくっ' : '動揺線';
+  setStatus('配置しました: ' + name + ' / 範囲 ' + Math.round(span) + 'px / 描画 ' + strokeCount + '本' +
+    (dist > 60 ? '　※クリック位置は輪郭から ' + Math.round(dist) + 'px 離れています' : ''));
+}
+
+// ドラッグは pointer 系、単純クリックは click で受ける（どちらか一方でも動くように）
+cv.addEventListener('pointerdown', e => {
+  if(!contour) return;
+  try{ cv.setPointerCapture(e.pointerId); }catch(err){ /* 捕捉できない環境は無視 */ }
+  const p = canvasPoint(e);
+  dragFrom = p;
+  dragStart = nearestS(p.x, p.y).s;
+  dragCurrent = null;
+  didDrag = false;
+});
+
+cv.addEventListener('pointermove', e => {
+  if(!contour) return;
+  const p = canvasPoint(e);
+  hover = nearestS(p.x, p.y);
+  if(dragStart !== null){
+    if(dragFrom && Math.hypot(p.x - dragFrom.x, p.y - dragFrom.y) > 8) didDrag = true;
+    dragCurrent = hover.s;
+  }
+  render();
+});
+
+cv.addEventListener('pointerleave', () => { hover = null; render(); });
+
+cv.addEventListener('pointerup', e => {
+  if(dragStart === null) return;
+  const p = canvasPoint(e);
+  const [rs, rlen] = normalizeRange(dragStart, nearestS(p.x, p.y).s);
+  const dragged = didDrag && rlen >= 6;
+  dragStart = null;
+  dragCurrent = null;
+  if(dragged){
+    addPlacement(rs, rlen, 0);
+  }else{
+    render();   // クリック配置は click 側で行う
+  }
+});
+
+cv.addEventListener('pointercancel', () => { dragStart = null; dragCurrent = null; didDrag = false; render(); });
+
+cv.addEventListener('click', e => {
+  if(!contour){
+    setStatus(baseCanvas ? '輪郭が取れていません。背景しきい値を調整してください。' : '先に画像をドロップしてください');
+    return;
+  }
+  if(didDrag){ didDrag = false; return; }   // ドラッグ確定済みなら二重登録しない
+  const p = canvasPoint(e);
+  const near = nearestS(p.x, p.y);
+  const span = (currentType === 'startle') ? numOf('s_span') : numOf('k_span');
+  addPlacement(near.s - span / 2, span, near.dist);
+});
+
+// クリック操作が効かない場合の確認用も兼ねた一括配置
+$('btnSample').addEventListener('click', () => {
+  if(!contour){ setStatus('先に画像をドロップしてください'); return; }
+  const span = (currentType === 'startle') ? numOf('s_span') : numOf('k_span');
+  [0.05, 0.30, 0.55, 0.80].forEach(f => {
+    placements.push({
+      type: currentType,
+      s0: contour.total * f - span / 2,
+      span,
+      seed: (seedCounter++ * 1103515 + 12345) >>> 0
+    });
+  });
+  updatePlaceInfo();
+  render();
+  setStatus('サンプルを4か所に配置しました / 描画 ' + strokeCount + '本');
+});
+
+$('btnUndo').addEventListener('click', () => { placements.pop(); updatePlaceInfo(); render(); });
+$('btnClear').addEventListener('click', () => { placements.length = 0; updatePlaceInfo(); render(); });
+$('btnReseed').addEventListener('click', () => {
+  for(const place of placements) place.seed = (seedCounter++ * 1103515 + 12345) >>> 0;
+  controlCache.clear();
+  render();
+});
+
+$('btnSave').addEventListener('click', () => {
+  if(!baseCanvas) return;
+  const guide = $('showGuide').checked, maskOn = $('showMask').checked;
+  $('showGuide').checked = false;
+  $('showMask').checked = false;
+  render();
+  const a = document.createElement('a');
+  a.download = 'contour-effect.png';
+  a.href = cv.toDataURL('image/png');
+  a.click();
+  $('showGuide').checked = guide;
+  $('showMask').checked = maskOn;
+  render();
+});
+
+// 例外を画面下のステータスへ出す（file:// では原因が追いにくいため）
+window.addEventListener('error', e => {
+  setStatus('エラー: ' + e.message + ' (' + e.lineno + '行)');
+});
+
+updatePlaceInfo();
+// rev はキャッシュされた古いファイルを掴んでいないかの確認用
+setStatus('rev.3 / 画像をドロップしてください');
+</script>
+</body>
+</html>

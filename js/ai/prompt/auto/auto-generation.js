@@ -1,6 +1,6 @@
 async function autoMultiGenerate() {
 const loading=OP_showLoading({icon: 'process',step: 'Step1',substep: 'Multi Page',progress: 0},true);
-await new Promise(requestAnimationFrame);
+await waitNextFrame();
 
 try{
 let onePanelNumber=$("onePanelGenerateNumber").value;
@@ -18,7 +18,7 @@ break;
 OP_updateLoadingState(loading,{
 icon: 'process',step: 'Step2',substep: 'Page:'+(index+1)+'/'+guidList.length,progress: Math.round((index/guidList.length)*100)
 });
-await new Promise(requestAnimationFrame);
+await waitNextFrame();
 
 await chengeCanvasByGuid(guid);
 
@@ -47,7 +47,7 @@ if(OP_isCancelled()){
 break;
 }
 if (existsWaitQueue()) {
-await new Promise((r)=>setTimeout(r,2000));
+await waitAllQueuesIdle();
 continue;
 } else {
 break;

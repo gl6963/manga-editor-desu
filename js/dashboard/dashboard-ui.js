@@ -161,6 +161,7 @@ clearBtn.addEventListener('click',async function(){
 if(confirm(getText('dashboardConfirmClear'))){
 await PerformanceStorage.clearAllStats();
 await PromptFrequencyStorage.clearAll();
+await ApiCostStorage.clearAll();
 await refresh();
 }
 });
@@ -173,6 +174,15 @@ await PromptFrequencyStorage.clearAll();
 await refreshTopTags();
 await refreshWordcloud();
 await refreshStats();
+}
+});
+}
+var clearApiCostBtn=document.getElementById('dashboardClearApiCost');
+if(clearApiCostBtn){
+clearApiCostBtn.addEventListener('click',async function(){
+if(confirm(getText('dashboardConfirmClearApiCost'))){
+await ApiCostStorage.clearAll();
+await refreshApiCost();
 }
 });
 }
@@ -247,6 +257,7 @@ refreshCoOccurrence(),
 refreshModelStats(),
 refreshGoals(),
 refreshBadges(),
+refreshApiCost(),
 ]);
 }
 function formatDate(timestamp){
@@ -933,6 +944,33 @@ html+='</div>';
 });
 grid.innerHTML=html;
 }
+function formatUsd(value){
+return'$'+value.toFixed(4);
+}
+async function refreshApiCost(){
+var totals=await ApiCostStorage.getTotals();
+updateElement('dashboardApiCost',formatUsd(totals.costUsd));
+var tableBody=document.getElementById('dashboardApiCostTable');
+if(!tableBody)return;
+var list=await ApiCostStorage.getAll();
+if(list.length===0){
+tableBody.innerHTML='<tr><td colspan="7" class="api-cost-empty">'+escapeHtml(getText('dashboardNoData')||'No data available')+'</td></tr>';
+return;
+}
+var html='';
+list.forEach(function(entry){
+html+='<tr>';
+html+='<td>'+escapeHtml(entry.providerName||entry.providerId)+'</td>';
+html+='<td>'+escapeHtml(entry.modelId)+'</td>';
+html+='<td>'+entry.calls.toLocaleString()+'</td>';
+html+='<td>'+entry.promptTokens.toLocaleString()+'</td>';
+html+='<td>'+entry.completionTokens.toLocaleString()+'</td>';
+html+='<td>'+formatUsd(entry.costUsd)+'</td>';
+html+='<td>'+(entry.unpricedCalls>0?entry.unpricedCalls.toLocaleString():'-')+'</td>';
+html+='</tr>';
+});
+tableBody.innerHTML=html;
+}
 async function exportJSON(){
 var data=await PerformanceStorage.exportAllData();
 if(!data) return;
@@ -962,6 +1000,11 @@ rows.push([]);
 rows.push(['Model','Count']);
 data.modelStats.forEach(function(m){
 rows.push([m.name,m.count]);
+});
+rows.push([]);
+rows.push(['Service','Model','Calls','InputTokens','OutputTokens','EstimatedUSD','UnpricedCalls']);
+data.apiCost.forEach(function(c){
+rows.push([c.providerName||c.providerId,c.modelId,c.calls,c.promptTokens,c.completionTokens,c.costUsd.toFixed(4),c.unpricedCalls]);
 });
 var csv=rows.map(function(row){
 return row.map(function(cell){

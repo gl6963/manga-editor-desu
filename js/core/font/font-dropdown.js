@@ -213,8 +213,10 @@ dropdown.style.visibility = '';
         const option = this.createFontOption(font, data.color);
         option.addEventListener("click", () => {
 
+          // 画像テキストは文字ではなく画像。fontFamilyを持たせても描画は変わらず、
+          // 意味の無い履歴だけが1件増える。作り直しはCustomEventを受けた側が行う
           const activeObject = canvas.getActiveObject();
-          if(activeObject){
+          if(activeObject && !activeObject.imageTextType){
             activeObject.set("fontFamily", font.name);
             canvas.requestRenderAll();
             commitHistory();
@@ -267,6 +269,11 @@ dropdown.style.visibility = '';
 document.addEventListener("DOMContentLoaded", async () => {
   await fontManager.init();
   new FontSelector("fontSelector", "Arial");
+  // 画像テキストは選ぶたびにSVGを作り直すため専用のセレクタを持つ。
+  // ここで1つだけ作る。#text-area2-settingsの中に作ると
+  // switchText2Ui()が走るたびにインスタンスとリスナーが積み上がる
+  new FontSelector(T2_FONT_SELECTOR_ID, T2_FONT_DEFAULT);
+  t2ApplySelectedFont();
 
   document.addEventListener("click", (event) => {
     if (!event.target.closest(".fm-font-dropdown")) {

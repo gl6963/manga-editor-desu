@@ -118,7 +118,7 @@ const rightToLeft=llmStoryIsRightToLeft();
 const loading=OP_showLoading({
 icon: 'process',step: getText("storyCollecting"),substep: '',progress: 0
 },true);
-await new Promise(requestAnimationFrame);
+await waitNextFrame();
 const pageInfos=[];
 let cancelled=false;
 let plans=null;
@@ -143,7 +143,7 @@ if (!cancelled&&pageInfos.length>0) {
 OP_updateLoadingState(loading,{
 icon: 'process',step: getText("storyPlanning"),substep: '',progress: 100
 });
-await new Promise(requestAnimationFrame);
+await waitNextFrame();
 plans=await llmStoryPagePlan(story,pageInfos);
 }
 } finally {
@@ -436,7 +436,7 @@ const skippedPages=[];
 const loading=OP_showLoading({
 icon: 'process',step: getText("storyGenerating"),substep: '',progress: 0
 },true);
-await new Promise(requestAnimationFrame);
+await waitNextFrame();
 try {
 const outcomes=await llmStoryGeneratePagePrompts(result,pages,loading);
 const resultByGuid={};

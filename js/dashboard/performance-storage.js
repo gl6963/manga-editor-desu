@@ -545,6 +545,8 @@ var goalProgress=await getGoalProgress();
 var tagFrequencies=await PromptFrequencyStorage.getAllFrequencies();
 var tagStats=await PromptFrequencyStorage.getStats();
 var coOccurrence=await PromptFrequencyStorage.getCoOccurrence(50);
+var apiCost=await ApiCostStorage.getAll();
+var apiCostTotals=await ApiCostStorage.getTotals();
 return{
 exportDate:new Date().toISOString(),
 stats:allStats,
@@ -563,6 +565,8 @@ goalProgress:goalProgress,
 tagFrequencies:tagFrequencies,
 tagStats:tagStats,
 coOccurrence:coOccurrence,
+apiCost:apiCost,
+apiCostTotals:apiCostTotals,
 };
 }catch(error){
 dashboardPerfLogger.error('Error exporting data:',error);

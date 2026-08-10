@@ -11,6 +11,12 @@ canvas.getObjects().forEach(function(obj){
 if(obj.fontFamily){
 used.add(obj.fontFamily);
 }
+// 画像テキストは画像なのでfontFamilyを持たない。フォント名はimageTextParamsにある。
+// 拾わないと、そのフォントを画像テキストにしか使っていないプロジェクトを
+// 別環境で開いたとき、編集した瞬間に別の字体で描き直される
+if(obj.imageTextParams&&obj.imageTextParams[T2_FONT_PARAM_KEY]){
+used.add(obj.imageTextParams[T2_FONT_PARAM_KEY]);
+}
 if(obj.styles){
 Object.keys(obj.styles).forEach(function(line){
 const lineStyles=obj.styles[line];

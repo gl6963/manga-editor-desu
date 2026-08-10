@@ -75,14 +75,32 @@ await btmSaveProjectFile();
 // chengeCanvasByGuid()は履歴復元の完了を待たずに返る。applyHistoryState()の
 // canvas.loadFromJSON()がコールバック方式のため。待たずにキャンバスの中身を
 // 数えると0件になり、何もせずページだけが切り替わる
+// タブが非表示の間はポーリング間隔が伸びるため、隠れていた時間はタイムアウトに数えない。
+// 実時間で測ると読み込みは終わっているのに誤ってタイムアウトする
 async function btmWaitForPageReady(timeoutMs) {
 const limit=timeoutMs||60000;
 const start=performance.now();
+let hiddenTotal=0;
+let hiddenSince=document.visibilityState==='hidden'?performance.now():0;
+function onVisibilityChange(){
+if(document.visibilityState==='hidden'){
+hiddenSince=performance.now();
+}else if(hiddenSince){
+hiddenTotal+=performance.now()-hiddenSince;
+hiddenSince=0;
+}
+}
+document.addEventListener('visibilitychange',onVisibilityChange);
+try{
 while (isProjectBusy()) {
-if (performance.now()-start>limit) {
+const hidden=hiddenTotal+(hiddenSince?performance.now()-hiddenSince:0);
+if (performance.now()-start-hidden>limit) {
 throw new Error("btmWaitForPageReady: timed out waiting for the page to finish loading");
 }
-await new Promise(requestAnimationFrame);
+await waitNextFrame();
+}
+}finally{
+document.removeEventListener('visibilitychange',onVisibilityChange);
 }
 }
 

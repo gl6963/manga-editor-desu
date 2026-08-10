@@ -44,9 +44,12 @@
 /* ---------- 今のプリセット（js/ui/preset-panel.js） ----------
    押すとピッカーが開く。一覧を常時ここへ並べると設定が下へ押し出されるため、
    パネルには今のプリセットだけを置き、選ぶときだけ広いピッカーを開く */
+/* <button>の中身はブラウザ既定で無名ボックスに包まれ、overflow:hidden と重なると
+   見本画像の端が削られる。flexにして自前で並べる（ピッカーの .ppk-item と同じ） */
 .left_area .preset-current {
  flex: 0 0 auto;
- display: block;
+ display: flex;
+ flex-direction: column;
  width: calc(100% - 16px);
  margin: 8px 8px 4px;
  padding: 0;
@@ -70,6 +73,7 @@
 }
 
 .preset-current-row {
+ flex: 0 0 auto;
  display: flex;
  align-items: center;
  gap: 4px;
@@ -98,8 +102,10 @@
 /* .left_area button img の width:90% / margin:0 auto を上書きし、
    幅いっぱいの帯にして左端を名前と揃える */
 .left_area .preset-current .preset-current-thumb {
+ flex: 0 0 auto;
  display: block;
  width: 100%;
+ height: auto;
  margin: 0;
  background: rgba(128,128,128,0.12);
 }
@@ -107,6 +113,13 @@
    [hidden] の既定より強いため、ここで消す */
 .left_area .preset-current .preset-current-thumb[hidden] {
  display: none;
+}
+
+/* フォントは種類を跨ぐ設定なので、スクロールする本体ではなく
+   プリセットカードと同じ「常に見えている段」に置く */
+.preset-panel-font {
+ flex: 0 0 auto;
+ margin: 0 8px 6px;
 }
 
 /* ---------- 本体（ここだけがスクロールする） ---------- */

@@ -257,6 +257,18 @@
     font-size: 13px;
 }
 
+.api-cost-note {
+    color: var(--slider-accent);
+    padding: 8px 0 0;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.api-cost-empty {
+    color: var(--slider-accent);
+    text-align: center;
+}
+
 /* Heatmap Styles */
 .heatmap-container {
     overflow-x: auto;
@@ -748,6 +760,11 @@ body:not(.dark-mode) .tag-bar-container {
 }
 
 body:not(.dark-mode) .no-tags {
+    color: #767676;
+}
+
+body:not(.dark-mode) .api-cost-note,
+body:not(.dark-mode) .api-cost-empty {
     color: #767676;
 }
 

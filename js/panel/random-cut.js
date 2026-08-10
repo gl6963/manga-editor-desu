@@ -66,7 +66,7 @@ return cuts;
 
 async function generateMultipage(){
 const loading=OP_showLoading({icon: 'process',step: 'Step1',substep: 'Multi Page',progress: 0});
-await new Promise(requestAnimationFrame);
+await waitNextFrame();
 
 try{
 const pageCount=$("pageCount").value;
@@ -77,7 +77,7 @@ for (let page=1;page<=pageCount;page++) {
 OP_updateLoadingState(loading,{
 icon: 'process',step: 'Step2',substep: 'Page:'+page,progress: 50
 });
-await new Promise(requestAnimationFrame);
+await waitNextFrame();
 
 panelLogger.debug("----- "+page+" -----")
 if(selectedValue==='mPortrait'){

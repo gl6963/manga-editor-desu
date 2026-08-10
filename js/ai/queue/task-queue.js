@@ -4,6 +4,29 @@ this.concurrency=concurrency;
 this.queue=[];
 this.activeCount=0;
 this._nextItemId=0;
+this._idleWaiters=[];
+}
+
+// 空になるまで待つ。setTimeoutのポーリングは非表示タブで1分間隔まで間引かれるため、
+// 待つ側がタイマーではなくキューの完了で起きられるようにする
+whenIdle() {
+if(this.getTotalCount()===0){
+return Promise.resolve();
+}
+var self=this;
+return new Promise(function(resolve){
+self._idleWaiters.push(resolve);
+});
+}
+
+// 件数が0になり得る箇所すべてから呼ぶ（完了・個別取消・全取消）
+_notifyIdle() {
+if(this.getTotalCount()>0||this._idleWaiters.length===0){
+return;
+}
+var waiters=this._idleWaiters;
+this._idleWaiters=[];
+waiters.forEach(function(resolve){resolve();});
 }
 
 add(task) {
@@ -28,6 +51,7 @@ try{
 item.reject(new Error('Task cancelled'));
 }catch(e){}
 logger.debug("Queue item removed: "+itemId);
+this._notifyIdle();
 return true;
 }
 
@@ -47,6 +71,7 @@ logger.error("Task error:",error);
 } finally {
 this.activeCount--;
 this.processQueue();
+this._notifyIdle();
 }
 }
 
@@ -84,6 +109,7 @@ taskItem.reject(new Error('Queue cancelled'));
 });
 this.queue=[];
 logger.debug(`Queue cleared: ${clearedCount} tasks removed`);
+this._notifyIdle();
 return clearedCount;
 }
 }

@@ -266,6 +266,61 @@ syncObjectControls(activeObject)  // 共通コントロール・テキスト・�
 const position=t2BeginReplace(nowT2XxxStr);   // 変形とindexを退避し履歴を抑止して削除
 nowT2XxxStr=t2PlaceImageTextObject(img,'xxx',left,top);  // 退避した内容を適用し元のindexへ戻す
 ```
+
+### 種類の足し方（汎用ドライバ）
+`text-effect-presets.js`の`T2_EFFECT_PRESETS`に1件足すだけで、
+`generic-text-effect.js`が生成・更新・削除・パラメータUIまで面倒を見る。
+
+```javascript
+"neon":{
+region:T2_GLOW_REGION,          // フィルタ領域。発光やぼかしは既定だと切れる
+padding:1,                       // SVGの余白（文字サイズに対する比）
+colorInterpolation:"sRGB",       // 省略時はlinearRGB
+ref:40,                          // 見本SVGのfont-size。省略時は20
+light:{x:0.5,y:0.25,z:5},        // fePointLightの位置（幅/高さ/文字サイズに対する比）
+params:[t2ColorParam("EffectColor1","#00ffff"),T2_PARAM_ROUGHNESS],
+primitives:function(c){return [{type:"feTurbulence",attrs:{...}}];},  // フィルタの中身
+defs:function(c){return [gradientやpattern];},
+fill:function(c){return "url(#"+c.type+"-grad)";},   // 省略時は共通の塗り色
+stroke:function(c){return {color:...,width:...};},
+decorate:function(c){/* 採寸後。マスクや重ね描きを足す */}
+}
+```
+
+そのあと必要なのは3つだけ:
+1. `preset-panel.js`の`items`に`{value,labelKey:"imageTextName○○",hintKey:"imageTextDesc○○",img}`
+2. 8言語に`imageTextName○○` / `imageTextDesc○○`（新しいパラメータ名も同様にキーになる）
+3. `03_images/preset/text/t2_○○.svg`（見本画像）
+
+`text-2-manager.js`のswitch文は`T2_LEGACY_EFFECTS`という1つの表になっている。
+1種類1ファイルの旧実装（shadow等9種）だけがそこに載る。**新しい種類を足すときに
+manager側を触る必要はない**。
+
+守る点:
+- **長さは`t2Len()`、周波数は`t2Freq()`を通す**。見本の値を直接書くと、
+  文字サイズを変えただけで効果の粗さが別物になる（大きくすると細かい砂に見える）
+- **`fePointLight`の座標は`light`で比率指定する**。ユーザー座標の固定値を書くと
+  文字が大きいとき光源が文字の外に出て一切光らない
+- **色は`params`に出す**。見本の色を直書きすると利用者が変えられない
+
+### フォント
+専用の`FontSelector`（`#fontT2Selector`）を`#text-area2-settings`の**外**に1つだけ置く。
+中に入れると`switchText2Ui()`が走るたびにインスタンスとリスナーが積み上がる。
+
+```javascript
+document.addEventListener(T2_FONT_SELECTOR_ID,handler);  // FontSelectorはtargetId名のCustomEventを投げる
+t2ApplySelectedFont();   // baseStylesDefault を書き換える唯一の場所
+```
+- 全種類が`baseStylesDefault`を読む。`createText2()`/`updateText2()`が
+  組み立て直前に`t2ApplySelectedFont()`で最新にするので、種類ごとに取得を書かない
+- **`<img>`で読むSVGはOSに入っているフォントしか名前解決できない**。
+  `document.fonts`に足したFontFace（アップロードしたフォント）も外部URLのフォントも
+  見えず、黙って別の字体で描かれる。`t2FontIsRasterizable()`で弾いて理由を出す
+- フォント名はDOMの入力要素ではないため`t2CollectParams()`が明示的に足し、
+  復元は`syncImageTextControls()`が`t2SetSelectedFontName()`で行う
+- `collectUsedFontNames()`（`project-font.js`）も`imageTextParams`から拾う。
+  拾わないと、そのフォントを画像テキストにしか使っていないプロジェクトで
+  フォントが保存されない
 - `imageTextType` / `imageTextParams` をオブジェクトに保存し`commonProperties`に含める
 - 選択時は`syncImageTextControls()`がサイドバーを該当種類・値に戻し、
   以降の編集がそのオブジェクトに向くよう`t2_xxx_setCurrent()`を呼ぶ
@@ -278,6 +333,7 @@ nowT2XxxStr=t2PlaceImageTextObject(img,'xxx',left,top);  // 退避した内容�
 | 種類を選ぶ | `switchText2(type)` | 選択中の画像テキストがあればその現物を差し替え。無ければ設定を切り替えるだけ |
 | 挿入する | `text2Insert()` | ここだけがキャンバスに1つ増やす |
 | 値を変える | `updateText2()` | 編集対象（`t2GetCurrentObject()`）を作り直す。対象が無ければ何もしない |
+| 種類→処理 | `t2GetEffect(type)` | 旧実装は`T2_LEGACY_EFFECTS`、それ以外は汎用ドライバを返す |
 
 守る点:
 - **「選ぶ」で増やさない**。選ぶたびに新規作成すると、既定位置(50,100)固定のため

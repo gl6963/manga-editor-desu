@@ -1,11 +1,12 @@
 {
   "name": "Manga Editor Desu! Pro Edition",
   "short_name": "Manga Editor",
-  "description": "The Premier Standalone Manga Editing Platform for SD WebUI, Forge, ComfyUI",
+  "description": "A browser-based manga editor with panel layouts, speech bubbles, vertical text, screen tones and layers. Optional AI image generation through ComfyUI, RunPod ComfyUI, SD WebUI (A1111/Forge), Fal.ai, Grok or Ollama.",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "theme_color": "#121111",
   "id": "./",
   "orientation": "any",
   "categories": ["productivity", "utilities", "photo"],
@@ -40,17 +41,17 @@
   ],
   "screenshots": [
    {
-    "src": "03_images/PagePreview/Git/Preview.png",
+    "src": "03_images/PagePreview/Git/Preview-mini.png",
     "sizes": "1200x630",
     "type": "image/png",
-    "platform": "wide",
+    "form_factor": "wide",
     "label": "Manga Editor Preview"
    }
   ],
   "shortcuts": [
    {
     "name": "Start Editing",
-    "url": "03_images/icon/",
+    "url": "./",
     "icons": [
      {
       "src":"03_images/icon/icon_full_192_192.png",

@@ -55,6 +55,12 @@ Promise-based並行実行。プロバイダ別にキューが分かれる。
 | `grokQueue` | Grok | 1-10 |
 | `ollamaQueue` | Ollama | 1-10 |
 
+**キューの空きを`setTimeout`でポーリングしない。** 非表示タブのタイマーは1秒間隔まで、
+5分以上隠れていると1分間隔まで間引かれるため、1ページ終わるたびに最大1分止まる。
+`queue.whenIdle()`が完了通知で起こすので、`waitAllQueuesIdle()`（ai-management.js）を使う。
+通知漏れで進行が止まらないよう保険のタイマーでも起き、呼び出し側で`existsWaitQueue()`を
+再判定する。`_notifyIdle()`は件数が0になり得る3か所（完了・個別取消・全取消）すべてから呼ぶ。
+
 ## ロール割り当て（provider-registry.js）
 タスク種別ごとにどのプロバイダを使うか設定。行の定義は`ROLE_MATRIX_ROWS`（ai-roles.js）に
 集約してあり、マトリクスUIと接続状態チェックの両方がこれを参照する。
@@ -91,6 +97,28 @@ class LLMProvider extends AIProvider{
 ### Grok（grok-provider.js）
 - `https://api.x.ai/v1`、`Authorization: Bearer <key>`
 - **ブラウザ直叩き可**。`access-control-allow-origin: *` を返すため`file://`（`Origin: null`）でも通る
+- 単価は`GET /v1/language-models`から取得する（`getTokenPrices()`）。**単価表をコードに持たない。**
+  値上げ・新モデル追加のたびに嘘の金額を出すため。単位はUSDセント/1億トークンなので
+  `XAI_PRICE_UNIT_USD`（1e-10）でUSD/トークンへ換算する
+- `long_context_threshold`を超える入力は`*_long_context`の単価に切り替える。
+  キャッシュ済みトークン・画像トークンは`usage.prompt_tokens_details`の実測値で単価を分ける
+
+### 外部API利用料の計上（ダッシュボード）
+`LLMProvider.chat()`が応答を受けた直後に`_recordUsage()`を1回呼ぶだけで計上する。
+**戻り値は`string`のまま変えない。** `{content,usage}`にすると呼び出し側（llm-prompt /
+llm-story / llm-storyboard / llm-dialogue）を全部直すことになり修正漏れの温床になるため。
+
+- 対象は`needsApiKey()`が真のプロバイダだけ。Ollamaはローカルなので計上しない
+  （「単価不明」と出すと有料に見える）
+- `_recordUsage()`はawaitしない（単価取得のfetchでchatを待たせないため）。
+  非同期のまま投げっぱなしにすると unhandled rejection になるので**内部でtry/catchして必ずログに出す**
+- **単価が取れない項目にトークンが出ていたらその呼び出しは金額に足さず`unpricedCalls`で数える**
+  （`_calcCostUsd()`がnullを返す）。0円として足すと総額を実際より安く見せるため。
+  画面ではその件数を「単価不明」列に出す
+- 保存は`ApiCostStorage`（`js/dashboard/api-cost-storage.js`、localforage
+  `MangaEditor_Performance`/`apiCostStats`）。キーは`cost_<providerId>_<modelId>`
+- 表示はダッシュボードの「外部API利用料（推定）」セクションとサマリーカード。
+  実際の請求額と一致する保証はないので注記を必ず出す
 
 ### Ollama（ollama-provider.js）
 - 既定`http://127.0.0.1:11434` + `/v1`。APIキー不要

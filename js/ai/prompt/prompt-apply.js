@@ -91,7 +91,7 @@ icon: 'process',step: stepText,
 substep: getText("storyPages")+" "+(index+1)+" / "+guidList.length,
 progress: Math.round((index/guidList.length)*100)
 });
-await new Promise(requestAnimationFrame);
+await waitNextFrame();
 
 // 表示中のページは読み直さない。LZ4の展開と再圧縮が丸ごと1往復無駄になる
 if (getCanvasGUID()!==guid) {

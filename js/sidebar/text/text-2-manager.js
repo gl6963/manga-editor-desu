@@ -1,16 +1,3 @@
-const MODE_T2_SHADOW="shadow";
-const MODE_T2_aurora="aurora";
-const MODE_T2_broken="broken";
-const MODE_T2_cloud="cloud";
-const MODE_T2_layered="layered";
-const MODE_T2_mesh="mesh";
-const MODE_T2_night="night";
-const MODE_T2_scratch="scratch";
-const MODE_T2_thrill="thrill";
-const MODE_T2_water="water";
-const MODE_T2_wild="wild";
-const MODE_T2_zebra="zebra";
-
 var t2_text=null;
 var t2_fontSize=null;
 var t2_lineHeight=null;
@@ -45,6 +32,113 @@ const T2_INSERT_TOP=100;
 const T2_INSERT_STEP=20;
 const T2_INSERT_WRAP=8;
 let t2InsertCount=0;
+
+// 種類ごとの入口をひとつの表にまとめる。
+// create/update/delete/選択中の出し入れ/固有UI をswitch文に分けると
+// 種類を足すたびに5か所へ書き足すことになり、書き漏らしたところだけが動かなくなる。
+//
+// ここに載るのは1種類1ファイルで書かれた旧実装だけ。
+// 新しい種類は text-effect-presets.js に1件足せば t2GetEffect() が拾う
+const T2_LEGACY_EFFECTS={
+shadow:{
+create:function(left,top){t2_shadow_createSvg(left,top);},
+update:function(){t2_shadow_updateAll();},
+clear:function(){t2_shadow_deleteSvg();},
+setCurrent:function(obj){t2_shadow_setCurrent(obj);},
+getCurrent:function(){return nowT2ShadowStr;},
+controls:function(type){
+var html='';
+html+=addSlider(type+'-ShadowSize1','ShadowSize1',0,3,sidebarValueMap.getOrDefault(type+'-ShadowSize1',1));
+html+=addSlider(type+'-ShadowOpacity1','ShadowOpacity1',0,1,sidebarValueMap.getOrDefault(type+'-ShadowOpacity1',1),0.1);
+html+=addColor(type+'-ShadowColor1','ShadowColor1',sidebarValueMap.getOrDefault(type+'-ShadowColor1','#ebe7e0'));
+html+=addSlider(type+'-ShadowSize2','ShadowSize2',0,5,sidebarValueMap.getOrDefault(type+'-ShadowSize2',5));
+html+=addSlider(type+'-ShadowOpacity2','ShadowOpacity2',0,1,sidebarValueMap.getOrDefault(type+'-ShadowOpacity2',1),0.1);
+html+=addColor(type+'-ShadowColor2','ShadowColor2',sidebarValueMap.getOrDefault(type+'-ShadowColor2','#35322a'));
+return html;
+},
+elements:function(type){
+t2_shadow1Size=$(type+'-ShadowSize1');
+t2_shadow1Opacity=$(type+'-ShadowOpacity1');
+t2_shadow1Color=$(type+'-ShadowColor1');
+t2_shadow2Size=$(type+'-ShadowSize2');
+t2_shadow2Opacity=$(type+'-ShadowOpacity2');
+t2_shadow2Color=$(type+'-ShadowColor2');
+return [t2_shadow1Size,t2_shadow1Opacity,t2_shadow1Color,
+t2_shadow2Size,t2_shadow2Opacity,t2_shadow2Color];
+}
+},
+broken:{
+create:function(left,top){t2_broken_createSvg(left,top);},
+update:function(){t2_broken_updateAll();},
+clear:function(){t2_broken_deleteSvg();},
+setCurrent:function(obj){t2_broken_setCurrent(obj);},
+getCurrent:function(){return nowT2BrokenStr;}
+},
+cloud:{
+create:function(left,top){t2_cloud_createSvg(left,top);},
+update:function(){t2_cloud_updateAll();},
+clear:function(){t2_cloud_deleteSvg();},
+setCurrent:function(obj){t2_cloud_setCurrent(obj);},
+getCurrent:function(){return nowT2CloudStr;}
+},
+layered:{
+create:function(left,top){t2_layered_createSvg(left,top);},
+update:function(){t2_layered_updateAll();},
+clear:function(){t2_layered_deleteSvg();},
+setCurrent:function(obj){t2_layered_setCurrent(obj);},
+getCurrent:function(){return nowT2LayeredStr;}
+},
+mesh:{
+create:function(left,top){t2_mesh_createSvg(left,top);},
+update:function(){t2_mesh_updateAll();},
+clear:function(){t2_mesh_deleteSvg();},
+setCurrent:function(obj){t2_mesh_setCurrent(obj);},
+getCurrent:function(){return nowT2MeshStr;}
+},
+scratch:{
+create:function(left,top){t2_scratch_createSvg(left,top);},
+update:function(){t2_scratch_updateAll();},
+clear:function(){t2_scratch_deleteSvg();},
+setCurrent:function(obj){t2_scratch_setCurrent(obj);},
+getCurrent:function(){return nowT2ScratchStr;}
+},
+thrill:{
+create:function(left,top){t2_thrill_createSvg(left,top);},
+update:function(){t2_thrill_updateAll();},
+clear:function(){t2_thrill_deleteSvg();},
+setCurrent:function(obj){t2_thrill_setCurrent(obj);},
+getCurrent:function(){return nowT2ThrillStr;}
+},
+wild:{
+create:function(left,top){t2_wild_createSvg(left,top);},
+update:function(){t2_wild_updateAll();},
+clear:function(){t2_wild_deleteSvg();},
+setCurrent:function(obj){t2_wild_setCurrent(obj);},
+getCurrent:function(){return nowT2WildStr;}
+},
+zebra:{
+create:function(left,top){t2_zebra_createSvg(left,top);},
+update:function(){t2_zebra_updateAll();},
+clear:function(){t2_zebra_deleteSvg();},
+setCurrent:function(obj){t2_zebra_setCurrent(obj);},
+getCurrent:function(){return nowT2ZebraStr;}
+}
+};
+
+function t2GetEffect(type){
+if(T2_LEGACY_EFFECTS[type]){
+return T2_LEGACY_EFFECTS[type];
+}
+if(T2_EFFECT_PRESETS[type]){
+return t2GenericEffect(type);
+}
+textLogger.error("unknown image text type: "+type);
+return null;
+}
+
+function t2HasEffect(type){
+return!!T2_LEGACY_EFFECTS[type]||!!T2_EFFECT_PRESETS[type];
+}
 
 function t2CaptureCommonValues(type) {
 var values={};
@@ -88,6 +182,11 @@ function switchText2(type) {
 if (type===nowText2) {
 return;
 }
+// 知らない種類でnowText2を書き換えると、以降の更新も挿入も効かない状態になる
+if (!t2HasEffect(type)) {
+textLogger.error("unknown image text type: "+type);
+return;
+}
 
 var editing=t2GetSelectedImageText();
 var carried=nowText2 ? t2CaptureCommonValues(nowText2) : null;
@@ -129,8 +228,29 @@ EventDelegator.register('insertImageText',function () {
 text2Insert();
 });
 
+// FontSelectorはフォントを選ぶとtargetId名のCustomEventをdocumentへ投げる。
+// 選択肢の一覧はfmFontDataで共通なので、画像テキストで使えないものはここで弾く
+let t2LastUsableFont=T2_FONT_DEFAULT;
+document.addEventListener(T2_FONT_SELECTOR_ID,function (event) {
+var fontName=event.detail.fontName;
+if (!t2FontIsRasterizable(fontName)) {
+// 適用してしまうと選んだ字体と違う字体で描かれ、
+// 何が起きたのか分からないまま出力まで通ってしまう
+createToastError(getText("imageTextFontNotUsable"),fontName,4000);
+t2SetSelectedFontName(t2LastUsableFont);
+return;
+}
+t2LastUsableFont=fontName;
+t2ApplySelectedFont();
+updateText2();
+});
+
 
 function switchText2Ui(type) {
+var effect=t2GetEffect(type);
+if (!effect) {
+return;
+}
 let settingsHTML='';
 
 elementsT2.forEach(element=>{
@@ -141,8 +261,6 @@ element=null;
 
 //Common settings.
 var cName="";
-// cName = "fontT2Selector";
-// settingsHTML += "<div id='fontT2Selector'></div>"
 cName="Text";
 settingsHTML+=addTextArea(type+'-'+cName,cName,sidebarValueMap.getOrDefault(type+'-'+cName,'New Text'));
 cName="FontSize";
@@ -158,47 +276,9 @@ settingsHTML+=addColor(type+'-'+cName,cName,sidebarValueMap.getOrDefault(type+'-
 cName="FillOpacity";
 settingsHTML+=addSlider(type+'-'+cName,cName,0,1,sidebarValueMap.getOrDefault(type+'-'+cName,1),0.1);
 
-
-
-switch (type) {
-case MODE_T2_aurora:
-break;
-case MODE_T2_broken:
-break;
-case MODE_T2_cloud :
-break;
-case MODE_T2_layered:
-break;
-case MODE_T2_mesh  :
-break;
-case MODE_T2_night :
-break;
-case MODE_T2_scratch:
-break;
-case MODE_T2_thrill:
-break;
-case MODE_T2_water :
-break;
-case MODE_T2_wild  :
-break;
-case MODE_T2_zebra :
-break;
-
-case MODE_T2_SHADOW:
-cName="ShadowSize1";
-settingsHTML+=addSlider(type+'-'+cName,cName,0,3,sidebarValueMap.getOrDefault(type+'-'+cName,1));
-cName="ShadowOpacity1";
-settingsHTML+=addSlider(type+'-'+cName,cName,0,1,sidebarValueMap.getOrDefault(type+'-'+cName,1),0.1);
-cName="ShadowColor1";
-settingsHTML+=addColor(type+'-'+cName,cName,sidebarValueMap.getOrDefault(type+'-'+cName,'#ebe7e0'));
-
-cName="ShadowSize2";
-settingsHTML+=addSlider(type+'-'+cName,cName,0,5,sidebarValueMap.getOrDefault(type+'-'+cName,5));
-cName="ShadowOpacity2";
-settingsHTML+=addSlider(type+'-'+cName,cName,0,1,sidebarValueMap.getOrDefault(type+'-'+cName,1),0.1);
-cName="ShadowColor2";
-settingsHTML+=addColor(type+'-'+cName,cName,sidebarValueMap.getOrDefault(type+'-'+cName,'#35322a'));
-break;
+// 種類ごとの設定。持たない種類は何も足さない
+if (effect.controls) {
+settingsHTML+=effect.controls(type);
 }
 
 $('text-area2-settings').innerHTML=settingsHTML;
@@ -222,57 +302,14 @@ t2_align_r=$("T2-align-right");
 t2_orientation_v=$("T2-Orientation-vertical");
 t2_orientation_l=$("T2-Orientation-horizontal");
 
-
-switch (type) {
-case MODE_T2_aurora:
-break;
-case MODE_T2_broken:
-break;
-case MODE_T2_cloud :
-break;
-case MODE_T2_layered:
-break;
-case MODE_T2_mesh  :
-break;
-case MODE_T2_night :
-break;
-case MODE_T2_scratch:
-break;
-case MODE_T2_thrill:
-break;
-case MODE_T2_water :
-break;
-case MODE_T2_wild  :
-break;
-case MODE_T2_zebra :
-break;
-case MODE_T2_SHADOW:
-t2_shadow1Size=$(type+'-'+"ShadowSize1");
-t2_shadow1Opacity=$(type+'-'+"ShadowOpacity1");
-t2_shadow1Color=$(type+'-'+"ShadowColor1");
-t2_shadow2Size=$(type+'-'+"ShadowSize2");
-t2_shadow2Opacity=$(type+'-'+"ShadowOpacity2");
-t2_shadow2Color=$(type+'-'+"ShadowColor2");
-break;
-}
-
-// new FontSelector("fontT2Selector", "Font");
-
 elementsT2=[
 t2_text,
 t2_fontSize,
 t2_lineHeight,
 t2_letterSpacing,
 t2_fillColor,
-t2_fillOpacity,
-
-t2_shadow1Size,
-t2_shadow1Opacity,
-t2_shadow1Color,
-t2_shadow2Size,
-t2_shadow2Opacity,
-t2_shadow2Color
-];
+t2_fillOpacity
+].concat(effect.elements ? effect.elements(type) : []);
 
 buttonElementsT2=[
 t2_align_l,
@@ -293,8 +330,6 @@ presetPanelSetActive('text2',type);
 }
 
 function clearT2Settings() {
-// document.removeEventListener("fontT2Selector", handleFont);
-
 elementsT2.forEach(element=>{
 if (element) {
 element.removeEventListener("input",saveValueMap);
@@ -321,15 +356,7 @@ const debouncedUpdate=debounceCustomText(()=>{
 updateText2();
 },50);
 
-const handleFont=(e)=>{
-updateText2();
-};
-
 function addT2EventListener(){
-// document.addEventListener("fontT2Selector", handleFont);
-
-
-
 elementsT2.forEach(element=>{
 if (element) {
 element.addEventListener('input',()=>{
@@ -343,13 +370,10 @@ if (element) {
 element.addEventListener('click',()=>{
 saveValueMap(element);
 updateText2();
-
 });
 }
 });
 }
-
-
 
 function updateText2(){
 // 編集対象が無いときは何もしない。ここで作り直すと、挿入していないのに
@@ -357,181 +381,37 @@ function updateText2(){
 if(!t2GetCurrentObject()){
 return;
 }
-switch (nowText2) {
-case MODE_T2_aurora:
-t2_aurora_updateAll();
-break;
-case MODE_T2_broken:
-t2_broken_updateAll();
-break;
-case MODE_T2_cloud :
-t2_cloud_updateAll();
-break;
-case MODE_T2_layered:
-t2_layered_updateAll();
-break;
-case MODE_T2_mesh  :
-t2_mesh_updateAll();
-break;
-case MODE_T2_night :
-t2_nightlights_updateAll();
-break;
-case MODE_T2_scratch:
-t2_scratch_updateAll();
-break;
-case MODE_T2_thrill:
-t2_thrill_updateAll();
-break;
-case MODE_T2_water :
-t2_water_updateAll();
-break;
-case MODE_T2_wild  :
-t2_wild_updateAll();
-break;
-case MODE_T2_zebra :
-t2_zebra_updateAll();
-break;
-case MODE_T2_SHADOW:
-t2_shadow_updateAll();
-break;
-default:
-textLogger.error("unknown type",type);
-break;
+var effect=t2GetEffect(nowText2);
+if(effect){
+// 1種類1ファイルの旧実装はbaseStylesDefaultを直接読む。
+// SVGを組み立てる手前で必ず通るこことcreateText2()で最新にしておく
+t2ApplySelectedFont();
+effect.update();
 }
 }
-
 
 // left/topを渡さないと各createSvgの既定位置になる。差し替え時は
 // t2BeginReplace()が退避した変形が優先されるため位置は引き継がれる
 function createText2(type,left,top){
-let nowImageTextObject=null;
-switch (type) {
-case MODE_T2_aurora:
-t2_aurora_createSvg(left,top);
-break;
-case MODE_T2_broken:
-t2_broken_createSvg(left,top);
-break;
-case MODE_T2_cloud :
-t2_cloud_createSvg(left,top);
-break;
-case MODE_T2_layered:
-t2_layered_createSvg(left,top);
-break;
-case MODE_T2_mesh  :
-t2_mesh_createSvg(left,top);
-break;
-case MODE_T2_night :
-t2_nightlights_createSvg(left,top);
-break;
-case MODE_T2_scratch:
-t2_scratch_createSvg(left,top);
-break;
-case MODE_T2_thrill:
-t2_thrill_createSvg(left,top);
-break;
-case MODE_T2_water :
-t2_water_createSvg(left,top);
-break;
-case MODE_T2_wild  :
-t2_wild_createSvg(left,top);
-break;
-case MODE_T2_zebra :
-t2_zebra_createSvg(left,top);
-break;
-case MODE_T2_SHADOW:
-t2_shadow_createSvg(left,top);
-nowImageTextObject=nowT2ShadowStr;
-break;
-default:
-textLogger.error("unknown type",type);
-break;
+var effect=t2GetEffect(type);
+if(effect){
+t2ApplySelectedFont();
+effect.create(left,top);
 }
 }
 
 function deleteText2(){
-switch (nowText2) {
-case MODE_T2_aurora:
-t2_aurora_deleteSvg();
-break;
-case MODE_T2_broken:
-t2_broken_deleteSvg();
-break;
-case MODE_T2_cloud :
-t2_cloud_deleteSvg();
-break;
-case MODE_T2_layered:
-t2_layered_deleteSvg();
-break;
-case MODE_T2_mesh  :
-t2_mesh_deleteSvg();
-break;
-case MODE_T2_night :
-t2_nightlights_deleteSvg();
-break;
-case MODE_T2_scratch:
-t2_scratch_deleteSvg();
-break;
-case MODE_T2_thrill:
-t2_thrill_deleteSvg();
-break;
-case MODE_T2_water :
-t2_water_deleteSvg();
-break;
-case MODE_T2_wild  :
-t2_wild_deleteSvg();
-break;
-case MODE_T2_zebra :
-t2_zebra_deleteSvg();
-break;
-case MODE_T2_SHADOW:
-t2_shadow_deleteSvg();
-break;
-default:
-textLogger.error("unknown type",type);
-break;
+var effect=t2GetEffect(nowText2);
+if(effect){
+effect.clear();
 }
 }
-
-
-function clearActiveT2Button() {
-// $(MODE_T2_SHADOW + 'Button').classList.remove('active-button');
-}
-
-const t2SetCurrentMap={
-aurora:function(obj){t2_aurora_setCurrent(obj);},
-broken:function(obj){t2_broken_setCurrent(obj);},
-cloud:function(obj){t2_cloud_setCurrent(obj);},
-layered:function(obj){t2_layered_setCurrent(obj);},
-mesh:function(obj){t2_mesh_setCurrent(obj);},
-scratch:function(obj){t2_scratch_setCurrent(obj);},
-shadow:function(obj){t2_shadow_setCurrent(obj);},
-thrill:function(obj){t2_thrill_setCurrent(obj);},
-water:function(obj){t2_water_setCurrent(obj);},
-wild:function(obj){t2_wild_setCurrent(obj);},
-zebra:function(obj){t2_zebra_setCurrent(obj);}
-};
-
-// t2SetCurrentMapの取得側。今どのオブジェクトを編集しているかの判定に使う
-const t2GetCurrentMap={
-aurora:function(){return nowT2AuroraStr;},
-broken:function(){return nowT2BrokenStr;},
-cloud:function(){return nowT2CloudStr;},
-layered:function(){return nowT2LayeredStr;},
-mesh:function(){return nowT2MeshStr;},
-scratch:function(){return nowT2ScratchStr;},
-shadow:function(){return nowT2ShadowStr;},
-thrill:function(){return nowT2ThrillStr;},
-water:function(){return nowT2WaterStr;},
-wild:function(){return nowT2WildStr;},
-zebra:function(){return nowT2ZebraStr;}
-};
 
 function t2GetCurrentObject(){
-if(!nowText2||!t2GetCurrentMap[nowText2]){
+if(!nowText2||!t2HasEffect(nowText2)){
 return null;
 }
-return t2GetCurrentMap[nowText2]();
+return t2GetEffect(nowText2).getCurrent();
 }
 
 // キャンバス上の画像テキストを選び直したとき、サイドバーをその種類・値に戻し、
@@ -542,7 +422,7 @@ if(!activeObject||!activeObject.imageTextType){
 return;
 }
 var type=activeObject.imageTextType;
-if(!t2SetCurrentMap[type]){
+if(!t2HasEffect(type)){
 textLogger.error("unknown imageTextType: "+type);
 return;
 }
@@ -559,7 +439,13 @@ addT2EventListener();
 // 種類が同じでも必ず選び直した相手の値へ入れ替える。
 // 入れ替えないと、アアアを選んだあとイイイを選んでもアアアの値が残る
 restoreT2SettingValues(params);
-t2SetCurrentMap[type](activeObject);
+// フォントは入力要素ではないためrestoreT2SettingValues()の対象外。
+// この機能より前に作った画像テキストはキーを持たないので、その場合は今の選択を残す
+if(params[T2_FONT_PARAM_KEY]){
+t2SetSelectedFontName(params[T2_FONT_PARAM_KEY]);
+t2LastUsableFont=params[T2_FONT_PARAM_KEY];
+}
+t2GetEffect(type).setCurrent(activeObject);
 }
 
 function restoreT2SettingValues(params){

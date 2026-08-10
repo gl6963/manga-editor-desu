@@ -16,6 +16,17 @@
 - レベル: TRACE, DEBUG, INFO, WARN, ERROR, SILENT（デフォルトWARN）
 - 使用例: `logger.debug("msg");`, `comfyuiLogger.error("msg");`
 
+## 非表示タブでの待ち
+- `await new Promise(requestAnimationFrame)`を直接書かない。**非表示タブ（裏タブ・最小化・
+  他ウィンドウで完全に隠れた状態）ではrequestAnimationFrameが一度も発火せず、そこで
+  一括処理が永久に止まる。** `waitNextFrame()`（`js/core/util/js-util.js`）を使う。
+  隠れている間は描画自体が不要なので`MessageChannel`で次のタスクへ回す
+- `setTimeout`のポーリングも非表示タブでは1秒間隔まで、5分以上隠れていると1分間隔まで
+  間引かれる。完了を待つ用途では通知で起こす仕組みを用意する（例: `TaskQueue.whenIdle()`）
+- 経過時間でタイムアウトさせるループは、隠れていた時間を差し引く。実時間で測ると
+  処理は終わっているのに誤ってタイムアウトする（`btmWaitForPageReady()`）
+- WebSocketの受信は間引かれないため、ComfyUIの生成完了待ちは影響を受けない
+
 ## フォーマットスクリプト
 ```bash
 npm run format

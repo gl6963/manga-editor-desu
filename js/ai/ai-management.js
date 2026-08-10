@@ -87,6 +87,19 @@ return true;
 return false;
 }
 
+function getAllQueues() {
+return[sdQueue,comfyuiQueue,falaiQueue,grokQueue,ollamaQueue];
+}
+
+// 全キューが空になるまで待つ。キューの完了通知で起きるので非表示タブでも間引かれない。
+// 通知漏れがあっても進行が止まらないよう保険のタイマーでも起こし、呼び出し側で再判定する
+const QUEUE_IDLE_SAFETY_MS=5000;
+async function waitAllQueuesIdle() {
+const idle=Promise.all(getAllQueues().map(function(queue){return queue.whenIdle();}));
+const safety=new Promise(function(resolve){setTimeout(resolve,QUEUE_IDLE_SAFETY_MS);});
+await Promise.race([idle,safety]);
+}
+
 function clearAllQueues() {
 const sdCleared=sdQueue.clearQueue();
 const comfyCleared=comfyuiQueue.clearQueue();

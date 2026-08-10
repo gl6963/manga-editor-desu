@@ -190,6 +190,7 @@ const _dbgFabric=SimpleLogger('DBG-fabric',LogLevel.WARN);
 const dashboardTagLogger=SimpleLogger('dashboard-tag',LogLevel.WARN);
 const dashboardPerfLogger=SimpleLogger('dashboard-perf',LogLevel.WARN);
 const dashboardLogger=SimpleLogger('dashboard',LogLevel.WARN);
+const apiCostLogger=SimpleLogger('apiCost',LogLevel.WARN);
 const usLogger=SimpleLogger('unifiedSettings',LogLevel.WARN);
 const msLogger=SimpleLogger('modelSettings',LogLevel.WARN);
 const raLogger=SimpleLogger('roleAssignUI',LogLevel.WARN);

@@ -84,17 +84,25 @@ button.type='button';
 button.className='ppk-item'+(item.value===state.currentValue ? ' is-current' : '');
 button.dataset.value=item.value;
 
+// 名前と説明は1行にまとめる。縦に積むと説明の行数が項目ごとに違い、
+// 同じ行の項目が高い方へ引き伸ばされて見本画像が切れる
+var head=document.createElement('span');
+head.className='ppk-item-head';
+
 var name=document.createElement('span');
 name.className='ppk-item-name';
 name.textContent=label;
-button.appendChild(name);
+head.appendChild(name);
 
 if (hint) {
 var hintEl=document.createElement('span');
 hintEl.className='ppk-item-hint';
 hintEl.textContent=hint;
-button.appendChild(hintEl);
+head.appendChild(hintEl);
 }
+button.appendChild(head);
+// 1行に収めると長い説明は端で切れるため、全文はカーソルを重ねれば読めるようにする
+button.title=hint ? label+'：'+hint : label;
 
 // 名前だけでは区別できないもの（GLFXのDot ScreenとColor Halftone等）が
 // あるため、見本画像に効果を掛けて並べる

@@ -106,7 +106,7 @@ if (onProgress) {
 onProgress(i,targets.length);
 }
 // 1枚ごとに描画を通さないと処理中ずっと画面が固まる
-await new Promise(requestAnimationFrame);
+await waitNextFrame();
 try {
 await effectApplyToImage(type,targets[i]);
 } catch (error) {
@@ -161,7 +161,7 @@ async function effectApplyToCurrentPage(type) {
 const loading=OP_showLoading({
 icon: 'process',step: getText("effectScopePage"),substep: '',progress: 0
 },true);
-await new Promise(requestAnimationFrame);
+await waitNextFrame();
 let result=null;
 try {
 // ページ切り替え直後は履歴復元が走っており、待たずに数えるとオブジェクトが0件になる
@@ -208,7 +208,7 @@ let pageCount=0;
 const loading=OP_showLoading({
 icon: 'process',step: getText("effectScopeAllPages"),substep: '',progress: 0
 },true);
-await new Promise(requestAnimationFrame);
+await waitNextFrame();
 try {
 // ページを離れる前に保留中のコミットを確定しないと直前の変更が失われる
 flushHistory();
@@ -224,7 +224,7 @@ icon: 'process',step: getText("effectScopeAllPages"),
 substep: getText("effectBatchPages")+" "+(index+1)+" / "+guidList.length,
 progress: Math.round((index/guidList.length)*100)
 });
-await new Promise(requestAnimationFrame);
+await waitNextFrame();
 
 // 表示中のページは読み直さない。LZ4の展開と再圧縮が丸ごと1往復無駄になる。
 // 離れる前の保存はループ前のバックアップと各ページ処理後の保存で済んでいるので
@@ -347,7 +347,7 @@ return;
 const loading=OP_showLoading({
 icon: 'file',step: getText("effectRestoreBatch"),substep: '',progress: 0
 });
-await new Promise(requestAnimationFrame);
+await waitNextFrame();
 try {
 btmProjectsMap.clear();
 const container=$("btm-image-container");

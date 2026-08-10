@@ -38,7 +38,8 @@ result = result.replace(/[ \t]+\]/g, ']');
 result = result.replace(/\{[ \t]+/g, '{');
 result = result.replace(/[ \t]+\}/g, '}');
 for (let i = 0; i < preserved.length; i++) {
-result = result.replace(`__PRESERVED_${i}__`, preserved[i]);
+// 関数で返す。文字列を直接渡すと復元対象に含まれる$'や$&が置換パターンとして解釈されファイルが壊れる
+result = result.replace(`__PRESERVED_${i}__`, () => preserved[i]);
 }
 return result;
 }

@@ -10,6 +10,112 @@
 // },
 //マージされるので追加日ごとにyyyyMMddHHmmss_SSSをTopKeyに入れます。個別の翻訳はKey名・翻訳文を任意に付けてください。ただし被らないように。
 const resources = {
+"20260803120000_001":{
+"ja":{
+"dashboardApiCost":"API費用",
+"dashboardApiCostSection":"外部API利用料（推定）",
+"dashboardApiCostService":"サービス",
+"dashboardApiCostModel":"モデル",
+"dashboardApiCostInput":"入力",
+"dashboardApiCostOutput":"出力",
+"dashboardApiCostEstimated":"推定額(USD)",
+"dashboardApiCostUnpriced":"単価不明",
+"dashboardClearApiCost":"利用料をクリア",
+"dashboardConfirmClearApiCost":"外部APIの利用料の記録を削除しますか？",
+"dashboardApiCostNote":"各APIが公開している単価をもとにした概算です。実際の請求額とは異なる場合があります。"
+},
+"en":{
+"dashboardApiCost":"API Cost",
+"dashboardApiCostSection":"External API Cost (estimated)",
+"dashboardApiCostService":"Service",
+"dashboardApiCostModel":"Model",
+"dashboardApiCostInput":"Input",
+"dashboardApiCostOutput":"Output",
+"dashboardApiCostEstimated":"Est. (USD)",
+"dashboardApiCostUnpriced":"No price",
+"dashboardClearApiCost":"Clear Cost",
+"dashboardConfirmClearApiCost":"Delete the recorded external API cost?",
+"dashboardApiCostNote":"Estimated from the rates published by each API. It may differ from your actual bill."
+},
+"ko":{
+"dashboardApiCost":"API 비용",
+"dashboardApiCostSection":"외부 API 이용료 (추정)",
+"dashboardApiCostService":"서비스",
+"dashboardApiCostModel":"모델",
+"dashboardApiCostInput":"입력",
+"dashboardApiCostOutput":"출력",
+"dashboardApiCostEstimated":"추정액(USD)",
+"dashboardApiCostUnpriced":"단가 불명",
+"dashboardClearApiCost":"이용료 초기화",
+"dashboardConfirmClearApiCost":"외부 API 이용료 기록을 삭제할까요?",
+"dashboardApiCostNote":"각 API가 공개한 단가를 기준으로 한 개산입니다. 실제 청구액과 다를 수 있습니다."
+},
+"fr":{
+"dashboardApiCost":"Coût API",
+"dashboardApiCostSection":"Coût des API externes (estimé)",
+"dashboardApiCostService":"Service",
+"dashboardApiCostModel":"Modèle",
+"dashboardApiCostInput":"Entrée",
+"dashboardApiCostOutput":"Sortie",
+"dashboardApiCostEstimated":"Est. (USD)",
+"dashboardApiCostUnpriced":"Tarif inconnu",
+"dashboardClearApiCost":"Effacer le coût",
+"dashboardConfirmClearApiCost":"Supprimer l'historique du coût des API externes ?",
+"dashboardApiCostNote":"Estimation basée sur les tarifs publiés par chaque API. Le montant réel peut différer."
+},
+"zh":{
+"dashboardApiCost":"API 费用",
+"dashboardApiCostSection":"外部 API 费用（估算）",
+"dashboardApiCostService":"服务",
+"dashboardApiCostModel":"模型",
+"dashboardApiCostInput":"输入",
+"dashboardApiCostOutput":"输出",
+"dashboardApiCostEstimated":"估算(USD)",
+"dashboardApiCostUnpriced":"单价未知",
+"dashboardClearApiCost":"清除费用",
+"dashboardConfirmClearApiCost":"要删除外部 API 的费用记录吗？",
+"dashboardApiCostNote":"基于各 API 公布的单价估算，可能与实际账单不同。"
+},
+"ru":{
+"dashboardApiCost":"Расход API",
+"dashboardApiCostSection":"Расходы на внешние API (оценка)",
+"dashboardApiCostService":"Сервис",
+"dashboardApiCostModel":"Модель",
+"dashboardApiCostInput":"Вход",
+"dashboardApiCostOutput":"Выход",
+"dashboardApiCostEstimated":"Оценка (USD)",
+"dashboardApiCostUnpriced":"Нет тарифа",
+"dashboardClearApiCost":"Очистить расходы",
+"dashboardConfirmClearApiCost":"Удалить записи о расходах на внешние API?",
+"dashboardApiCostNote":"Оценка по тарифам, публикуемым каждым API. Фактический счёт может отличаться."
+},
+"es":{
+"dashboardApiCost":"Coste API",
+"dashboardApiCostSection":"Coste de API externas (estimado)",
+"dashboardApiCostService":"Servicio",
+"dashboardApiCostModel":"Modelo",
+"dashboardApiCostInput":"Entrada",
+"dashboardApiCostOutput":"Salida",
+"dashboardApiCostEstimated":"Est. (USD)",
+"dashboardApiCostUnpriced":"Sin tarifa",
+"dashboardClearApiCost":"Borrar coste",
+"dashboardConfirmClearApiCost":"¿Eliminar el registro de coste de las API externas?",
+"dashboardApiCostNote":"Estimación basada en las tarifas publicadas por cada API. Puede diferir de la factura real."
+},
+"de":{
+"dashboardApiCost":"API-Kosten",
+"dashboardApiCostSection":"Kosten externer APIs (geschätzt)",
+"dashboardApiCostService":"Dienst",
+"dashboardApiCostModel":"Modell",
+"dashboardApiCostInput":"Eingabe",
+"dashboardApiCostOutput":"Ausgabe",
+"dashboardApiCostEstimated":"Schätzung (USD)",
+"dashboardApiCostUnpriced":"Kein Preis",
+"dashboardClearApiCost":"Kosten löschen",
+"dashboardConfirmClearApiCost":"Aufzeichnung der Kosten externer APIs löschen?",
+"dashboardApiCostNote":"Schätzung anhand der von der jeweiligen API veröffentlichten Preise. Die tatsächliche Rechnung kann abweichen."
+}
+},
 "20260802210000_001":{
 "ja":{
 "storyLocationLabel":"ロケーション設定（任意）",
