@@ -46,13 +46,17 @@ OP_updateLoadingState(loading,{icon: 'process',step: 'Step3',substep: 'Process 2
 var url=window.URL.createObjectURL(mergeLz4Blob);
 var a=document.createElement("a");
 a.href=url;
-a.download="DESU-Project.lz4";
+// 保存のたびに同じ名前だと、どれが最新か分からず上書きの警告も出ない
+a.download="DESU-Project_"+getFormattedDateTime()+"_"+lz4BlobList.length+"p.lz4";
 
 document.body.appendChild(a);
 a.click();
 document.body.removeChild(a);
 window.URL.revokeObjectURL(url);
-AutoSaveManager.clearAutoSave();
+// ファイルへ保存しても自動保存データは消さない。
+// 消すと、保存した後の作業がクラッシュで失われたときに戻せる場所が無くなる。
+// 自動保存は次の周期で同じキーへ上書きされるため、残しても溜まり続けることはない
+UnsavedGuard.markSaved();
 })
 .catch((error)=>{
 projectLogger.error("error",error);
@@ -74,10 +78,20 @@ document.body.appendChild(fileInput);
 fileInput.click();
 
 fileInput.onchange=async function () {
+var file=this.files[0];
+if(!file){
+document.body.removeChild(fileInput);
+return;
+}
+var loadMode=await askProjectLoadMode();
+if(!loadMode){
+document.body.removeChild(fileInput);
+return;
+}
+
 const loading=OP_showLoading({icon: 'process',step: 'Step1',substep: 'Load Project',progress: 0});
 
 try {
-var file=this.files[0];
 if (file) {
 const fileBuffer=await file.arrayBuffer();
 const fileName=file.name.toLowerCase();
@@ -100,6 +114,10 @@ hasNestedZip=true;
 }
 });
 
+// 展開に成功してから畳む。展開が失敗する可能性がある間に消すと、
+// 読み込めなかったのに手元のページだけ失う
+if(loadMode==='replace')clearAllProjectPages();
+
 if (hasNestedZip) {
 OP_updateLoadingState(loading,{icon: 'process',step: 'Step4',substep: 'UnZip:',progress: 40});
 firstLoadedGuid=await processZip(zip);
@@ -114,6 +132,7 @@ OP_updateLoadingState(loading,{icon: 'process',step: 'Step2',substep: 'UnLz4',pr
 let bufferFileLz4List=await lz4Compressor.unLz4FilesByBuffer(fileBuffer);
 
 OP_updateLoadingState(loading,{icon: 'process',step: 'Step3',substep: 'UnLz4',progress: 25});
+if(loadMode==='replace')clearAllProjectPages();
 firstLoadedGuid=await multiLoadLz4(bufferFileLz4List);
 
 OP_updateLoadingState(loading,{icon: 'process',step: 'Step4',substep: 'UnLz4',progress: 85});
@@ -125,11 +144,15 @@ createToastError(title,message,4000);
 
 if (firstLoadedGuid) {
 OP_updateLoadingState(loading,{icon: 'process',step: 'Step5',substep: 'Open Page 1',progress: 90});
-if(btmShouldSaveCurrentPage()){
+// 「後ろに追加する」のときだけ、読み込む前に開いていたページを一覧へ戻す。
+// 「置き換える」で保存すると、消したはずのページが末尾に生き返る
+if(loadMode==='append'&&btmShouldSaveCurrentPage()){
 await btmSaveProjectFile(null,false);
 }
 await chengeCanvasByGuid(firstLoadedGuid);
 btmUpdateHandleText();
+// 読み込んだ直後はファイルと同じ内容なので、離脱警告の対象から外す
+UnsavedGuard.markSaved();
 }
 }
 } catch (error) {
@@ -142,6 +165,40 @@ OP_hideLoading(loading);
 });
 });
 
+
+// 開いているページを全て畳む。btmProjectsMapとボトムバーのDOMは対で消さないと、
+// 一覧に残った見出しから消えたページを開こうとして落ちる
+function clearAllProjectPages(){
+btmProjectsMap.clear();
+var container=$("btm-image-container");
+if(container)container.innerHTML='';
+}
+
+// 読み込んだページを今のページと入れ替えるのか、後ろに足すのかを先に聞く。
+// 黙って後ろに足すと、別プロジェクトのページが混ざったまま保存されてしまう
+async function askProjectLoadMode(){
+// 起動直後の空ページ1枚は「失うもの」ではないので選ばせない。
+// ページは作られた時点で一覧へ登録されるため（btmRegisterCurrentPage）、
+// 件数が0か、今のページだけかで判断する。
+// btmShouldSaveCurrentPage()は登録済みなら常にtrueを返すのでここには使えない。
+// このとき'append'にすると空のページ1が先頭に残ったままになるため'replace'を返す
+var pageCount=btmGetGuidsSize();
+var onlyCurrentPage=(pageCount===0)||(pageCount===1&&btmProjectsMap.has(getCanvasGUID()));
+if(onlyCurrentPage&&getContentObjectCount()===0)return 'replace';
+var message=getText('projectLoadModeBody');
+if(UnsavedGuard.isDirty()){
+message+='\n'+getText('projectLoadModeUnsaved');
+}
+return await showConfirmDialog({
+titleKey:'projectLoadModeTitle',
+message:message,
+cancelKey:'projectLoadModeCancel',
+choices:[
+{key:'replace',textKey:'projectLoadModeReplace',secondary:true,danger:true},
+{key:'append',textKey:'projectLoadModeAppend'}
+]
+});
+}
 
 function findCanvasGuid(obj) {
 if (typeof obj==='string') {
@@ -222,6 +279,12 @@ falaiModelI2I:{id:'falaiModelI2I',default:''},
 falaiModelUpscale:{id:'falaiModelUpscale',default:''},
 falaiModelRembg:{id:'falaiModelRembg',default:''},
 falaiConcurrency:{id:'falaiConcurrency',default:'1'},
+googleImageApiKey:{id:'googleImageApiKey',default:''},
+googleImageModelT2I:{id:'googleImageModelT2I',default:'gemini-3.1-flash-lite-image'},
+googleImageModelI2I:{id:'googleImageModelI2I',default:'gemini-3.1-flash-lite-image'},
+googleImageSize:{id:'googleImageSize',default:'1K'},
+googleImageConcurrency:{id:'googleImageConcurrency',default:'1'},
+referenceDescribeInPrompt:{id:'referenceDescribeInPrompt',default:true,type:'checkbox'},
 grokApiKey:{id:'grokApiKey',default:''},
 grokModelText:{id:'grokModelText',default:''},
 grokModelVision:{id:'grokModelVision',default:''},
@@ -327,11 +390,14 @@ el.appendChild(opt);
 el.value=text;
 }
 
+// 保存された設定が無い初回でも、既定値をUIへ書き込むところまで必ず通す。
+// 途中で return すると、UIは空欄なのに内部の basePrompt には既定値が入ったままになり、
+// 画面に出ていない文字列・サイズで生成されてしまう。
+// 既定値の出どころは js/core/settings.js の basePrompt と SETTINGS_SCHEMA の default だけとし、
+// UIはそれを写したものにする（起動時のトーストは出さない。毎回出ると本当のエラーが埋もれる）
 function loadSettingsLocalStrage(){
-createToast('Settings Load',['Loading settings...','Load Completed!!'],1500);
 var stored=localStorage.getItem('localSettingsData');
-if(!stored)return;
-var data=JSON.parse(stored);
+var data=stored?JSON.parse(stored):{};
 Object.keys(SETTINGS_SCHEMA).forEach(function(key){
 var cfg=SETTINGS_SCHEMA[key];
 var el=$(cfg.id);
@@ -342,7 +408,7 @@ else applySettingValue(el,val);
 });
 var bgEl=$('bg-color');
 bgEl.dispatchEvent(new Event('input',{bubbles:true,cancelable:true}));
-svgPagging=data.canvasMarginFromPanel||20;
+svgPagging=(data.canvasMarginFromPanel!==undefined)?data.canvasMarginFromPanel:SETTINGS_SCHEMA.canvasMarginFromPanel.default;
 Object.keys(BASEPROMPT_SCHEMA).forEach(function(key){
 var cfg=BASEPROMPT_SCHEMA[key];
 var val=(data[key]!==undefined)?data[key]:basePrompt[cfg.key];
@@ -438,17 +504,46 @@ setTimeout(function(){location.reload();},1500);
 });
 }
 
+// 起動時に出るモーダルの順番はここ1か所で決める。
+// 言語 → 自動保存の復元 → チュートリアルの案内。
+// 各モーダルに「相手が出ていたら待つ」判定を持たせると、増やすたびに漏れるため、
+// 待ち合わせは行わず、この並びだけを唯一の順序とする。
+// 復元を先にすると、言語未選択のまま英語で「消すかどうか」を迫ることになる
+async function runBootSequence(){
+try{
+// 自動保存の開始はダイアログを待たない。init()はもうダイアログを出さないので
+// 順番に関係が無く、待たせると言語を選ぶまでの間だけ自動保存が止まる
+// （オーバーレイはポインタを塞ぐがキー操作は通るため、その間も編集はできる）。
+// 復元前にタイマーが回っても、白紙のキャンバスは
+// btmShouldSaveCurrentPage()===false かつ btmGetGuidsSize()===0 で保存対象にならず、
+// 復元中は isProjectBusy() で弾かれるため、復元データを上書きすることはない
+await AutoSaveManager.init();
+await TutorialManager.startupLanguageStep();
+var recovered=await AutoSaveManager.checkRecovery();
+// 前回の続きを戻した人に「はじめての漫画作成」を被せない。
+// 見送った場合の再開先は Help メニューの Tutorial
+if(!recovered)await TutorialManager.startupTutorialStep();
+}catch(e){
+projectLogger.error("Boot sequence failed:",e);
+}
+}
+
 document.addEventListener('DOMContentLoaded',function() {
 loadSettingsLocalStrage();
 changeView("layer-panel",$('view_layers_checkbox').checked);
 changeView("controls",$('view_controls_checkbox').checked);
 if(DEBUG_FLAGS.settingsHighlight)toggleSettingsHighlight(true);
-AutoSaveManager.init();
+runBootSequence();
 initSettingsAutoSave();
 });
 
 var settingsAutoSaveTimer=null;
+// 「設定値自動保存」の可否はここで見る。呼び出し側ごとに判定を書くと、
+// 呼び出しが増えるたびに書き漏らす（ロール割り当てだけ無条件に保存されていた）。
+// 明示的な保存は saveSettingsLocalStrage() を直接呼ぶこと。この関数を通してはいけない
 function debouncedSettingsSave(){
+var chk=$('settingsAutoSaveCheckbox');
+if(!chk||!chk.checked)return;
 if(settingsAutoSaveTimer)clearTimeout(settingsAutoSaveTimer);
 settingsAutoSaveTimer=setTimeout(function(){
 saveSettingsLocalStrage(true);

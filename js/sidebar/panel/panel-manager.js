@@ -14,6 +14,9 @@ false
 
 $("canvas-container").addEventListener("drop",async function (e) {
 e.preventDefault();
+// ファイル以外も落ちてくる（設定資料のサムネイルなど）。
+// 素通しにすると file.type で落ちるため、ここで見る
+if(!e.dataTransfer.files||!e.dataTransfer.files.length)return;
 var file=e.dataTransfer.files[0];
 var canvasElement=canvas.getElement();
 var rect=canvasElement.getBoundingClientRect();
@@ -25,8 +28,8 @@ if (file.type==='image/svg+xml') {
 var reader=new FileReader();
 reader.onload=function(event) {
 var svgText=event.target.result;
-panelLogger.info("[drop SVG] stateStack.length="+stateStack.length+" objectCount="+getObjectCount()+" canvasGUID="+getCanvasGUID());
-if (stateStack.length>=2&&getObjectCount()>0) {
+panelLogger.info("[drop SVG] stateStack.length="+stateStack.length+" contentObjectCount="+getContentObjectCount()+" canvasGUID="+getCanvasGUID());
+if (stateStack.length>=2&&getContentObjectCount()>0) {
 panelLogger.info("[drop SVG] putImageInFrame branch");
 var canvasX=x/canvasContinerScale;
 var canvasY=y/canvasContinerScale;
@@ -58,8 +61,8 @@ reader.onload=function (f) {
 var data=f.target.result;
 
 fabric.Image.fromURL(data,function (img) {
-panelLogger.info("[drop] stateStack.length="+stateStack.length+" objectCount="+getObjectCount()+" canvasGUID="+getCanvasGUID()+" btmProjectsMap.size="+btmProjectsMap.size);
-if (stateStack.length>=2&&getObjectCount()>0) {
+panelLogger.info("[drop] stateStack.length="+stateStack.length+" contentObjectCount="+getContentObjectCount()+" canvasGUID="+getCanvasGUID()+" btmProjectsMap.size="+btmProjectsMap.size);
+if (stateStack.length>=2&&getContentObjectCount()>0) {
 panelLogger.info("[drop] putImageInFrame branch (existing content)");
 var canvasX=x/canvasContinerScale;
 var canvasY=y/canvasContinerScale;
@@ -68,7 +71,7 @@ putImageInFrame(img,canvasX,canvasY);
 panelLogger.info("[drop] addInitialImageToCanvas branch (first image on canvas)");
 addInitialImageToCanvas(img);
 }
-panelLogger.info("[drop] after image added: stateStack.length="+stateStack.length+" objectCount="+getObjectCount());
+panelLogger.info("[drop] after image added: stateStack.length="+stateStack.length+" contentObjectCount="+getContentObjectCount());
 
 setImage2ImageInitPrompt(img);
 });
@@ -210,25 +213,202 @@ return obj;
 }
 
 
+// 落とし先のコマを最前面から探す。外接矩形ではなくコマの実際の形で見る
+// （isPointInShape）。矩形で見ると、斜めのコマや重なったコマでは
+// ポインタが乗っていないコマに入る
 function findTargetFrame(x,y) {
-//console.log( "findTargetFrame:x y, ", x, " ", y );
-
-let objects=canvas.getObjects().reverse();
-for (let i=0;i<objects.length;i++) {
-if (isShapes(objects[i])) {
-let frameBounds=objects[i].getBoundingRect(true);
-if (
-x>=frameBounds.left&&
-x<=frameBounds.left+frameBounds.width&&
-y>=frameBounds.top&&
-y<=frameBounds.top+frameBounds.height
-) {
-return canvas.getObjects().length-1-i;
-}
+let objects=canvas.getObjects();
+for (let i=objects.length-1;i>=0;i--) {
+if (isShapes(objects[i])&&isPointInShape(objects[i],x,y)) {
+return i;
 }
 }
 return-1;
 }
+
+// 点の上にあるコマ。トーンや図形ではなくコマ（isPanel）だけを見る。
+// 自分自身は除く
+function findPanelUnderPoint(x,y,excludeObject) {
+var objects=canvas.getObjects();
+for (var i=objects.length-1;i>=0;i--) {
+var obj=objects[i];
+if (obj===excludeObject) {
+continue;
+}
+if (isPanel(obj)&&isPointInShape(obj,x,y)) {
+return obj;
+}
+}
+return null;
+}
+
+
+// ロックの案内を出してよいのは、ふつうに選んで動かす状態のときだけ。
+// ナイフ・ペン・吹き出しの各モードは、モードの都合で全件を選択不可にする
+function isPlainSelectMode() {
+if (isKnifeMode||canvas.isDrawingMode) {
+return false;
+}
+if (ModeManager.getCurrent()!==ModeManager.MODE.SELECT) {
+return false;
+}
+return true;
+}
+
+
+// ---- コマと中身のリンクの追随 ------------------------------------------
+// clipPathは絶対座標で作られるため、置いた時のコマの形のまま固定される。
+// 絵をコマの外へ動かしても、コマを消しても、その形の切り抜きだけが残り
+// 画面から絵が消える。配置・移動・削除の各所へ直しを撒くと漏れるので、
+// 「移動が確定した時」「オブジェクトが外れた時」のイベント1か所へ寄せる。
+
+// 表示制限と親子リンクだけを外す。オブジェクトそのものは残す
+function releasePanelLink(child) {
+if (child.removeSettings) {
+child.removeSettings();
+}
+child.clipPath=undefined;
+child.dirty=true;
+}
+
+// 今いる場所から所属コマを判定し直す。別のコマへ入っていれば乗り換え、
+// どのコマにも入っていなければ表示制限を外す
+function relinkToPanelUnderObject(obj) {
+if (!obj||!obj.relatedPoly) {
+return false;
+}
+if (isPanel(obj)||!isPanel(obj.relatedPoly)) {
+return false;
+}
+var center=getAbsoluteCenterPoint(obj);
+var nextFrame=findPanelUnderPoint(center.x,center.y,obj);
+if (nextFrame===obj.relatedPoly) {
+return false;
+}
+panelLogger.debug("[relink] "+obj.name+" : "+obj.relatedPoly.name+" -> "+(nextFrame?nextFrame.name:"none"));
+releasePanelLink(obj);
+if (nextFrame) {
+moveSettings(obj,nextFrame);
+setGUID(nextFrame,obj);
+}
+return true;
+}
+
+// 複製されたオブジェクトのコマとのリンクを整える。**複製直後に必ず通す。**
+// `clone()` は `relatedPoly` も `guid` も引き継がないのに、`clipPath` だけは
+// 元のコマの位置と形を写した静的なコピーとして付いてくる。そのまま動かすと、
+// リンクが無いので追随もせず、存在しない切り抜きの外へ出て画面から消える。
+// 複製の入口が複数ある（右クリックの複製・Ctrl+C/V）ため、入口ごとに書かずここへ寄せる。
+// sourceObj は複製元。分かるなら渡す（省略可）。分かる場合は元と同じコマを優先する
+function relinkClonedObject(cloned,sourceObj) {
+if (!cloned) {
+return;
+}
+// 静的なコピーは必ず落とす。リンクを張り直せたときは moveSettings が作り直す
+cloned.clipPath=undefined;
+cloned.dirty=true;
+if (isPanel(cloned)) {
+return;
+}
+var center=getAbsoluteCenterPoint(cloned);
+var frame=findPanelUnderPoint(center.x,center.y,cloned);
+// 重なったコマの上では最前面のコマが返るため、複製だけ別のコマに入ることがある。
+// 元がコマの中にあり、複製もそのコマの中に落ちているなら元と同じコマにする
+if (sourceObj&&isPanel(sourceObj.relatedPoly)&&
+canvas.getObjects().indexOf(sourceObj.relatedPoly)!==-1&&
+isPointInShape(sourceObj.relatedPoly,center.x,center.y)) {
+frame=sourceObj.relatedPoly;
+}
+if (!frame) {
+return;
+}
+moveSettings(cloned,frame);
+setGUID(frame,cloned);
+}
+
+// コマを消したとき、中に入れた絵・トーンは残す。ただし消えたコマの形の
+// 表示制限と親子リンクは外す。外さないと、キャンバスに無いコマの形で
+// 切り抜かれたまま残り、動かすと欠ける。
+// 消す経路がDeleteキー・右クリック・レイヤーの✕と複数あるため、
+// オブジェクトが外れたこの1か所で揃える
+function releasePanelChildren(panel) {
+if (!panel.guids||panel.guids.length===0) {
+return;
+}
+panel.guids.slice().forEach(function (guid) {
+var child=getObjectByGUID(guid);
+if (!child||child.relatedPoly!==panel) {
+return;
+}
+releasePanelLink(child);
+});
+}
+
+document.addEventListener('DOMContentLoaded',function () {
+canvas.on('object:modified',function (e) {
+var target=e.target;
+if (!target) {
+return;
+}
+var changed=false;
+if (target.type==='activeSelection') {
+target.getObjects().forEach(function (obj) {
+changed=relinkToPanelUnderObject(obj)||changed;
+});
+} else {
+changed=relinkToPanelUnderObject(target);
+}
+if (changed) {
+canvas.requestRenderAll();
+updateLayerPanel();
+// clipPath・relatedPolyは直接代入で書き換えるため、自動コミット網では拾えない
+commitHistoryDebounced();
+}
+});
+
+canvas.on('object:removed',function (e) {
+// Undo/Redoの復元はキャンバスを一度空にしてから作り直す。
+// そこで外すと、作り直しの元になるオブジェクトを触ることになる
+if (isHistoryRestoreInProgress()) {
+return;
+}
+if (!e.target||!isPanel(e.target)) {
+return;
+}
+releasePanelChildren(e.target);
+});
+
+// コマは既定でロックされて生まれる（loadSVGPlusReset / panel-template.js）。
+// 押しても選択枠が出ない理由が画面に何も出ないため、壊れているように見える。
+// カーソルで示し、押されたらレイヤーの鍵を目立たせてそこから外せるようにする
+canvas.on('mouse:over',function (e) {
+var obj=e.target;
+if (!obj) {
+return;
+}
+if (!isPlainSelectMode()) {
+// モード中は全件を一律に選択不可にする経路があるため、ロックとは区別する
+obj.hoverCursor=null;
+return;
+}
+obj.hoverCursor=obj.selectable?null:'not-allowed';
+});
+
+canvas.on('mouse:up',function (e) {
+var obj=e.target;
+if (!obj||obj.selectable) {
+return;
+}
+if (!isPlainSelectMode()) {
+return;
+}
+// 吹き出しの当たり判定用の矩形は、仕組みとして選択させないもの
+if (obj.customType==="freehandBubbleRect") {
+return;
+}
+hintLockedLayer(obj);
+});
+});
 
 function isWithin(image,frame) {
 let frameBounds=frame.getBoundingRect(true);
@@ -436,15 +616,41 @@ return scale;
 }
 
 
+// コマは既定でロックされて生まれる。ロックが原因で選べないのか、
+// そもそも選んでいないのかを言い分けるために使う
+function getFirstLockedPanel() {
+var objects=canvas.getObjects();
+for (var i=0;i<objects.length;i++) {
+if (isPanel(objects[i])&&!objects[i].selectable) {
+return objects[i];
+}
+}
+return null;
+}
+
 function Edit() {
 var poly=canvas.getActiveObject();
 var editButton=$("edit");
 if (!poly) {
-createToastError(getText("editModeNotPanel"),"");
+// ひな形直後のコマはロックされて生まれるため、キャンバスを押しても選べない。
+// 「押しても何も起きない」で終わらせず、次の一手まで出す
+var lockedPanel=getFirstLockedPanel();
+if (lockedPanel) {
+createToastError(getText("editModeNeedUnlockTitle"),getText("editModeNeedUnlockBody"));
+hintLockedLayer(lockedPanel);
+} else {
+createToastError(getText("editModeNotPanel"),getText("editModeSelectPanelBody"));
+}
 return;
 }
 if (!isPanel(poly)) {
-createToastError(getText("editModeNotPanel"),"");
+createToastError(getText("editModeNotPanel"),getText("editModeSelectPanelBody"));
+return;
+}
+if (!poly.selectable&&!poly.edit) {
+// ロックされたコマは点をつかめない。入っても操作できないモードには入れない
+createToastError(getText("editModeNeedUnlockTitle"),getText("editModeNeedUnlockBody"));
+hintLockedLayer(poly);
 return;
 }
 if (!(poly instanceof fabric.Polygon)) {
@@ -455,7 +661,17 @@ if (!poly.points||poly.points.length<3) {
 createToastError(getText("editModeNoPoints"),"");
 return;
 }
-poly.edit=!poly.edit;
+// 「今どのモードか」「案内文」「モード解除ボタンの点灯」は ModeManager が持つ。
+// clearAll() が走るので、点のコントロールを組み立てる前に呼ぶ。
+// clearAll() は edit.clear() 経由で poly.edit を false へ戻すため、
+// トグル（!poly.edit）ではなく先に決めた値を入れる
+var willEdit=!poly.edit;
+if (willEdit) {
+ModeManager.edit.enable();
+} else {
+ModeManager.clearAll();
+}
+poly.edit=willEdit;
 if (poly.edit) {
 var lastControl=poly.points.length-1;
 poly.cornerStyle="circle";
@@ -472,13 +688,12 @@ pointIndex: index,
 });
 return acc;
 },{});
-activeClearButton();
+// モード解除ボタンの点灯と案内文は ModeManager が持つ（直呼びしない）
 editButton.classList.add("selected");
 editButton.querySelector("span").textContent=getText("editModeOff");
 } else {
 poly.cornerStyle="rect";
 poly.controls=fabric.Object.prototype.controls;
-nonActiveClearButton();
 editButton.classList.remove("selected");
 editButton.querySelector("span").textContent=getText("editModeOn");
 }
@@ -487,9 +702,28 @@ canvas.requestRenderAll();
 updateLayerPanel();
 }
 
-function changePanelStrokeWidth(value) {
+// コマ設定は選んでいるコマにだけ効く。未選択・コマ以外を選んでいるときは
+// 何も起きず、壊れているように見える。4つの入口が同じ前提を持つので、
+// ここ1か所で理由を出す。つまみを動かす間に積み上がらないよう、
+// トーストが消えるまで（4秒）は出し直さない
+var PANEL_TARGET_WARN_INTERVAL=4000;
+var lastPanelTargetWarnAt=0;
+function requirePanelTarget() {
 var activeObject=canvas.getActiveObject();
 if (isPanel(activeObject)) {
+return activeObject;
+}
+var now=Date.now();
+if (now-lastPanelTargetWarnAt>=PANEL_TARGET_WARN_INTERVAL) {
+lastPanelTargetWarnAt=now;
+createToastError(getText("panelSettingNoTargetTitle"),getText("panelSettingNoTargetBody"));
+}
+return null;
+}
+
+function changePanelStrokeWidth(value) {
+var activeObject=requirePanelTarget();
+if (activeObject) {
 activeObject.set({
 strokeWidth: parseFloat(value),
 strokeUniform: true,
@@ -499,16 +733,16 @@ afterPanelValueChange(activeObject);
 }
 }
 function changePanelStrokeColor(value) {
-var activeObject=canvas.getActiveObject();
-if (isPanel(activeObject)) {
+var activeObject=requirePanelTarget();
+if (activeObject) {
 activeObject.set("stroke",value);
 canvas.requestRenderAll();
 afterPanelValueChange(activeObject);
 }
 }
 function changePanelOpacity(value) {
-var activeObject=canvas.getActiveObject();
-if (isPanel(activeObject)) {
+var activeObject=requirePanelTarget();
+if (activeObject) {
 const opacity=value/100;
 activeObject.set("opacity",opacity);
 canvas.requestRenderAll();
@@ -516,8 +750,8 @@ afterPanelValueChange(activeObject);
 }
 }
 function changePanelFillColor(value) {
-var activeObject=canvas.getActiveObject();
-if (isPanel(activeObject)) {
+var activeObject=requirePanelTarget();
+if (activeObject) {
 activeObject.set("fill",value);
 canvas.requestRenderAll();
 afterPanelValueChange(activeObject);
@@ -548,7 +782,24 @@ canvas.requestRenderAll();
 }
 
 
-function panelAllChange() {
+// 全てのコマを1回で書き換える。個別に戻す手立てが無いため、必ず確認を通す
+async function panelAllChange() {
+var panelCount=canvas.getObjects().filter(function (obj) {
+return isPanel(obj);
+}).length;
+if (panelCount===0) {
+createToastError(getText("panelAllChangeNoPanelTitle"),getText("panelAllChangeNoPanelBody"));
+return;
+}
+var ok=await showConfirmDialog({
+titleKey: 'panelAllChangeConfirmTitle',
+message: i18next.t('panelAllChangeConfirmBody',{num: panelCount}),
+danger: true
+});
+if (!ok) {
+return;
+}
+// await の間にコマが増減している可能性があるため、値も対象も取り直す
 var strokeWidthValue=$("panelStrokeWidth").value;
 var strokeColorValue=$("panelStrokeColor").value;
 var opacityValue=$("panelOpacity").value;
@@ -569,6 +820,9 @@ _dbgLogger.debug("[panelAllChange] AFTER obj.strokeWidth="+obj.strokeWidth+" obj
 }
 });
 canvas.requestRenderAll();
+// 確認ダイアログを閉じた後に値を書き換えるため、クリックに紐づく自動コミットには
+// 間に合わない。ここで履歴に積んでUndoで戻せるようにする
+commitHistoryDebounced();
 }
 
 function setPanelValue(obj) {
@@ -692,7 +946,7 @@ promptTexts.length=0;
 } else {
 canvas.getObjects().forEach((obj)=>{
 if (isPanel(obj)) {
-let viewText=obj.name+"\n\nPrompt\n"+(obj.text2img_prompt||'nothing');
+let viewText=obj.name+"\n\n"+getText("viewPromptLabel")+"\n"+(obj.text2img_prompt||getText("viewPromptEmpty"));
 const wrappedText=wrapText(viewText,obj.width*obj.scaleX-20,16);
 const text=new fabric.Text(wrappedText,{
 left: obj.left+10,

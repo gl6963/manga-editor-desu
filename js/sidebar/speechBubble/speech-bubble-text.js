@@ -236,12 +236,11 @@ evented: true,
 renderOnAddRemove: true,
 targetObject: svgObj,
 };
-newTextbox=new VerticalTextbox("new",style);
+newTextbox=new VerticalTextbox(getText("sbDefaultText"),style);
 } else {
+// 既定文言は内接矩形の寸法（例: 203x126）だったため、消し忘れるとそのまま原稿に残った
 newTextbox=new fabric.Textbox(
-`${Math.round(rectWidth * scaleWidth)}x${Math.round(
-        rectHeight * scaleHeight
-      )}`,
+getText("sbDefaultText"),
 {
 left: svgObj.left+rectX*scaleWidth+(rectWidth*scaleWidth)/2,
 top: svgObj.top+rectY*scaleHeight+(rectHeight*scaleHeight)/2,

@@ -13,6 +13,8 @@ let btmIgnoreClose=false;
 var btmNavLeft=null;
 var btmNavCenter=null;
 var btmNavRight=null;
+var btmHandleLabel=null;
+var btmHandleCount=null;
 
 function btmToggleDrawer() {
 btmDrawer.classList.toggle("btm-closed");
@@ -28,13 +30,21 @@ btmUpdateHandleText();
 function btmUpdateHandleText() {
 if(!btmNavCenter)return;
 var isClosed=btmDrawer.classList.contains("btm-closed");
-var stateText=isClosed?"OPEN":"CLOSE";
 var totalPages=btmGetGuidsSize();
 var currentGuid=getCanvasGUID();
 var currentIndex=btmGetGuidIndex(currentGuid);
-var pageText=totalPages>0?" "+(currentIndex+1)+"/"+totalPages:"";
 var ctrlKey=isMacOs?"⌘+B":"Ctrl+B";
-btmNavCenter.textContent=stateText+pageText+" ("+ctrlKey+")";
+// OPEN/CLOSEだけでは複数ページを並べる場所だと読めないため、ページ一覧と明示する。
+// data-i18nを付け直しておくと、言語切替のupdateContent()がそのまま訳し直す
+var labelKey=isClosed?"pageDrawerOpen":"pageDrawerClose";
+btmHandleLabel.setAttribute("data-i18n",labelKey);
+btmHandleLabel.textContent=getText(labelKey);
+var pageText="";
+if(totalPages>0){
+// 現在ページが一覧に無い状態を「0/n」と出すと1ページ目にいるように誤読される
+pageText=currentIndex>=0?" "+(currentIndex+1)+"/"+totalPages:" -/"+totalPages;
+}
+btmHandleCount.textContent=pageText+" ("+ctrlKey+")";
 if(currentIndex>0){
 btmNavLeft.textContent="\u2190 "+currentIndex+"(Alt+\u2190)";
 btmNavLeft.style.visibility="visible";
@@ -65,11 +75,23 @@ return canvas.getObjects().some(obj=>!obj.isInitMessage);
 
 // 保留中のコミットを確定してから保存判定する。
 // 先に判定すると、直前の変更が履歴に入る前にページを離れて変更が失われる
-async function btmSaveCurrentPage() {
+async function btmSaveCurrentPage(openDrawer=true) {
 flushHistory();
 if(btmShouldSaveCurrentPage()){
-await btmSaveProjectFile();
+await btmSaveProjectFile(null,openDrawer);
 }
+}
+
+// ページを作った直後・作り直した直後に呼ぶ、ボトムバーへの登録口。
+// ページはbtmSaveProjectFile()が走った時にしかbtmProjectsMapへ載らないため、
+// 自動保存やページ移動といった保存の機会が来るまで一覧に出ず、
+// btmGetGuidIndex()が-1のままページ番号・Alt+←→・サムネイルが成り立たなかった。
+// さらに中身が無いとbtmShouldSaveCurrentPage()が偽になり、
+// 空のまま別ページへ移るとページごと消えていた。
+// 中身が空でもここで登録するため、作った覚えのあるページが黙って消えない。
+// 登録経路はこの1か所に寄せ、呼び出し側でbtmProjectsMapを直接触らない
+async function btmRegisterCurrentPage(openDrawer) {
+await btmSaveProjectFile(null,openDrawer===true);
 }
 
 // chengeCanvasByGuid()は履歴復元の完了を待たずに返る。applyHistoryState()の
@@ -148,6 +170,8 @@ pageNumber.textContent=index+1;
 const moveLeftBtn=document.createElement("button");
 moveLeftBtn.innerHTML="←";
 moveLeftBtn.className="btm-move-btn btm-move-left";
+moveLeftBtn.setAttribute("aria-label",getText("pageMoveLeftLabel"));
+moveLeftBtn.title=getText("pageMoveLeftLabel");
 moveLeftBtn.addEventListener("click",(e)=>{
 e.stopPropagation();
 const currentIndex=btmGetGuidIndex(guid);
@@ -172,6 +196,8 @@ btmUpdateHandleText();
 const moveRightBtn=document.createElement("button");
 moveRightBtn.innerHTML="→";
 moveRightBtn.className="btm-move-btn btm-move-right";
+moveRightBtn.setAttribute("aria-label",getText("pageMoveRightLabel"));
+moveRightBtn.title=getText("pageMoveRightLabel");
 moveRightBtn.addEventListener("click",(e)=>{
 e.stopPropagation();
 const currentIndex=btmGetGuidIndex(guid);
@@ -185,9 +211,21 @@ updateAllPageNumbers();
 const deleteBtn=document.createElement("button");
 deleteBtn.textContent="🗑";
 deleteBtn.className="btm-delete-btn";
+deleteBtn.setAttribute("aria-label",getText("pageDeleteLabel"));
+deleteBtn.title=getText("pageDeleteLabel");
 deleteBtn.addEventListener("click",async (e)=>{
 e.stopPropagation();
 if(isProjectBusy())return;
+// Undoはページ単位の履歴しか持たないため、削除したページは元に戻せない
+var confirmed=await showConfirmDialog({
+titleKey:'confirmDeletePageTitle',
+message:i18next.t('confirmDeletePageBody',{page:btmGetGuidIndex(guid)+1}),
+danger:true
+});
+if(!confirmed)return;
+if(isProjectBusy())return;
+// ダイアログを開いている間に他の処理がページを動かしている場合があるため取り直す
+if(!btmProjectsMap.has(guid))return;
 var isCurrentPage=(getCanvasGUID()===guid);
 var deletedIndex=btmGetGuidIndex(guid);
 btmProjectsMap.delete(guid);
@@ -204,7 +242,8 @@ await chengeCanvasByGuid(btmGetGuidByIndex(targetIndex));
 // キャンバスに内容を残すと、一覧に無いページを編集し続けることになる
 initImageHistory();
 setCanvasGUID();
-await btmSaveProjectFile();
+showEmptyPageMessage();
+await btmRegisterCurrentPage(true);
 }
 btmUpdateScrollButtons();
 updateAllPageNumbers();
@@ -387,6 +426,13 @@ btmNavigatePage(-1);
 });
 btmNavCenter=document.createElement("span");
 btmNavCenter.className="btm-nav-center";
+// 訳す部分とページ番号を別の要素に分ける。混ぜるとdata-i18nの
+// innerHTML差し替えで番号まで消える
+btmHandleLabel=document.createElement("span");
+btmHandleCount=document.createElement("span");
+btmHandleCount.className="btm-handle-count";
+btmNavCenter.appendChild(btmHandleLabel);
+btmNavCenter.appendChild(btmHandleCount);
 btmNavRight=document.createElement("span");
 btmNavRight.className="btm-nav-right";
 btmNavRight.addEventListener("click",function(e){
@@ -532,25 +578,19 @@ var newGuid=generateGUID();
 var w,h;
 if(selectedSize==="portrait"){w=210;h=297;}
 else{w=297;h=210;}
-setPageSizeMm(w,h);
-var pc=document.createElement('canvas');
-pc.width=100;
-pc.height=Math.round(100*h/w);
-var pctx=pc.getContext('2d');
-pctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--color-tertiary').trim()||'#505050';
-pctx.fillRect(0,0,pc.width,pc.height);
-var placeholderUrl=pc.toDataURL('image/jpeg',0.5);
-if(btmShouldSaveCurrentPage()){
-await btmSaveProjectFile(null,false);
-}
-btmAddImage({href:placeholderUrl},null,newGuid,true);
-reorderImages(currentIndex+1,newGuid);
+// 離れる前に今のページを確定する。原稿サイズ(mm)はこの後の
+// resizeCanvasToObject()が決めるので、ここで書き換えると
+// 今のページに次のページのサイズが記録されてしまう
+await btmSaveCurrentPage(false);
 withoutHistory(function(){
 resizeCanvasToObject(w,h);
 });
 initImageHistory();
 setCanvasGUID(newGuid);
-await btmSaveProjectFile(newGuid,false);
+// 中身は空で揃える。案内文はページの中身とは数えない
+showEmptyPageMessage();
+await btmRegisterCurrentPage(true);
+reorderImages(currentIndex+1,newGuid);
 updateAllPageNumbers();
 btmUpdateHandleText();
 });

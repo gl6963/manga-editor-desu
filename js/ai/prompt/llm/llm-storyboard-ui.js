@@ -13,11 +13,22 @@ if(existing)existing.remove();
 llmStoryboardResult=null;
 }
 
-function openLLMStoryboardWindow(){
-if(hasNotRole(AI_ROLES.Text2Prompt)){
-createToastError(i18next.t('llmStoryboardTitle'),i18next.t('llmErrorNoProvider'));
-return;
+// 割り当てが無いことをトーストだけで言うと、消えたあと次の一手がどこにも残らない。
+// 同じ文面をウインドウの状態行にも置き、そこから生成AI設定を開けるようにする
+function llmStoryboardShowNoProvider(statusEl){
+var howTo=i18next.t('llmErrorNoProviderHowTo',{role:getText('roleText2Prompt')});
+createToastError(i18next.t('llmStoryboardTitle'),[i18next.t('llmErrorNoProvider'),howTo],1000*8);
+statusEl.textContent=i18next.t('llmErrorNoProvider')+' '+howTo;
+var button=document.createElement('button');
+button.type='button';
+button.textContent=getText('llmOpenAISettings');
+button.addEventListener('click',function(){
+unifiedSettingsWindow.open();
+});
+statusEl.appendChild(button);
 }
+
+function openLLMStoryboardWindow(){
 closeLLMStoryboardWindow();
 var win=document.createElement('div');
 win.className='floating-windowPromptClass llm-storyboard-window';
@@ -48,11 +59,21 @@ makeDraggable(win);
 
 var generateButton=$('llmStoryboardGenerate');
 var statusEl=$('llmStoryboardStatus');
+// 開いた時点で割り当てが無いことを出す。押さないと分からないと、
+// 入力し終わってから使えないことに気づくことになる
+if(hasNotRole(AI_ROLES.Text2Prompt)){
+llmStoryboardShowNoProvider(statusEl);
+}
 
 generateButton.addEventListener('click',async function(){
 var synopsis=$('llmStoryboardInput').value.trim();
 if(!synopsis){
 statusEl.textContent=i18next.t('llmStoryboardNeedInput');
+return;
+}
+// 押した時にも見る。開いたままで設定を直した人が、開き直さずに続けられる
+if(hasNotRole(AI_ROLES.Text2Prompt)){
+llmStoryboardShowNoProvider(statusEl);
 return;
 }
 generateButton.disabled=true;

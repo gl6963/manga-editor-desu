@@ -383,9 +383,8 @@ canvas2DataURL:function(multiplier,format){
 return canvas.toDataURL({format:format,multiplier:multiplier});
 },
 
-getCropAndDownloadLinkByMultiplier:function(multiplier,format){
-var cropped=canvas.toDataURL({format:format,multiplier:multiplier});
-function getFormattedDateTime(){
+// ダウンロードするファイル名に付ける日時。画像もプロジェクトも同じ書式にする
+getFormattedDateTime:function(){
 var date=new Date();
 var yyyy=date.getFullYear();
 var MM=('0'+(date.getMonth()+1)).slice(-2);
@@ -395,35 +394,65 @@ var mm=('0'+date.getMinutes()).slice(-2);
 var ss=('0'+date.getSeconds()).slice(-2);
 var SSS=('00'+date.getMilliseconds()).slice(-3);
 return yyyy+MM+dd+'_'+hh+mm+ss+'_'+SSS;
-}
+},
+
+getCropAndDownloadLinkByMultiplier:function(multiplier,format){
+var cropped=canvas.toDataURL({format:format,multiplier:multiplier});
 var link=document.createElement('a');
-link.download='DESU-'+getFormattedDateTime()+'.'+format;
+link.download='DESU-'+ImageUtil.getFormattedDateTime()+'.'+format;
 link.href=cropped;
 return link;
 },
 
-getCropAndDownloadLink:function(){
-if(!hasProjectPageSize){
-createToast(getText("pageSizeUnknownTitle"),getText("pageSizeUnknownMessage"));
-}
+// 出力倍率と、実際に書き出されるピクセル寸法を求める。
+// 倍率は幅と高さの必要倍率のうち大きい方なので、原稿サイズ(mm)は
+// 「これより小さくならない」下限であって、出力寸法そのものではない。
+// キャンバスの縦横比が原稿と違うと、片側はmmから求まる値より大きくなる。
+// メニューの表示と実際の出力で同じ値を使うため、計算はここ1か所に置く
+getOutputPixelSize:function(){
 var pageSize=getPageSizeMm();
-var pageWidthInches=pageSize.width/25.4;
-var pageHeightInches=pageSize.height/25.4;
 var dpi=parseFloat($('outputDpi').value);
 var canvasWidthPixels=canvas.width;
 var canvasHeightPixels=canvas.height;
-var targetWidthPixels=pageWidthInches*dpi;
-var targetHeightPixels=pageHeightInches*dpi;
+var targetWidthPixels=(pageSize.width/25.4)*dpi;
+var targetHeightPixels=(pageSize.height/25.4)*dpi;
 // 原稿の向きとキャンバスの向きが食い違う場合は用紙の縦横を入れ替える
 if((canvasWidthPixels>canvasHeightPixels)!==(targetWidthPixels>targetHeightPixels)){
 var swap=targetWidthPixels;
 targetWidthPixels=targetHeightPixels;
 targetHeightPixels=swap;
 }
-var multiplierWidth=targetWidthPixels/canvasWidthPixels;
-var multiplierHeight=targetHeightPixels/canvasHeightPixels;
-var multiplier=Math.max(multiplierWidth,multiplierHeight);
-return ImageUtil.getCropAndDownloadLinkByMultiplier(multiplier,'png');
+var multiplier=Math.max(targetWidthPixels/canvasWidthPixels,targetHeightPixels/canvasHeightPixels);
+return {
+multiplier:multiplier,
+width:Math.round(canvasWidthPixels*multiplier),
+height:Math.round(canvasHeightPixels*multiplier),
+dpi:dpi,
+pageWidthMm:pageSize.width,
+pageHeightMm:pageSize.height
+};
+},
+
+// 出力寸法をメニューから読めるようにする。
+// 呼ぶ側を増やすと更新漏れが出るため、更新の入口はこの関数だけにする
+updateOutputSizeHint:function(){
+var targets=document.querySelectorAll('.output-pixel-size-value');
+if(!targets.length)return;
+var text='';
+if($('outputDpi')){
+var size=ImageUtil.getOutputPixelSize();
+if(isFinite(size.width)&&isFinite(size.height)&&size.width>0&&size.height>0){
+text=size.width+' x '+size.height+' px';
+}
+}
+targets.forEach(function(el){el.textContent=text;});
+},
+
+getCropAndDownloadLink:function(){
+if(!hasProjectPageSize){
+createToast(getText("pageSizeUnknownTitle"),getText("pageSizeUnknownMessage"));
+}
+return ImageUtil.getCropAndDownloadLinkByMultiplier(ImageUtil.getOutputPixelSize().multiplier,'png');
 },
 
 clipCopy:function(){
@@ -557,7 +586,9 @@ var replaceImageByDataURL=ImageUtil.replaceImageByDataURL;
 var sendHtmlCanvas2FabricCanvas=ImageUtil.sendHtmlCanvas2FabricCanvas;
 var blobUrlToDataUrl=ImageUtil.blobUrlToDataUrl;
 var canvas2DataURL=ImageUtil.canvas2DataURL;
+var getFormattedDateTime=ImageUtil.getFormattedDateTime;
 var getCropAndDownloadLinkByMultiplier=ImageUtil.getCropAndDownloadLinkByMultiplier;
+var getOutputPixelSize=ImageUtil.getOutputPixelSize;
 var getCropAndDownloadLink=ImageUtil.getCropAndDownloadLink;
 var clipCopy=ImageUtil.clipCopy;
 var cropAndDownload=ImageUtil.cropAndDownload;
@@ -569,3 +600,20 @@ var getHeight=ImageUtil.getHeight;
 var hexToRgba=ImageUtil.hexToRgba;
 var rgbToHex=ImageUtil.rgbToHex;
 var rgbaToHex=ImageUtil.rgbaToHex;
+
+// 出力寸法の表示を更新する引き金。
+// 値が変わりうるのは「DPI・原稿サイズを打ち替えたとき」と「キャンバスの大きさが変わったとき」。
+// 後者は入口が多いため個別に呼ばず、メニューを開いた時点で取り直す
+document.addEventListener('DOMContentLoaded',function(){
+ImageUtil.updateOutputSizeHint();
+document.addEventListener('input',function(e){
+if(!e.target||!e.target.id)return;
+if(e.target.id==='outputDpi'||e.target.id==='pageWidthMm'||e.target.id==='pageHeightMm'){
+ImageUtil.updateOutputSizeHint();
+}
+});
+// Bootstrapのドロップダウンは開く直前にこのイベントをトグル要素から発火し、documentまで上がってくる
+document.addEventListener('show.bs.dropdown',function(){
+ImageUtil.updateOutputSizeHint();
+});
+});

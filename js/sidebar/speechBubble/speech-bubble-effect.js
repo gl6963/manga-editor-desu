@@ -149,6 +149,18 @@ return 10;
 return null;
 }
 
+// 吹き出しに文字が付いているときはその文字を選び、そのまま書き替えられる状態にする。
+// 文字なし（focus線・Nothing）のときは吹き出し本体を選んだままにする
+function focusSpeechBubbleText(svgObject) {
+const textbox=getSpeechBubbleTextBySVG(svgObject);
+if(!textbox||!textbox.editable){
+return;
+}
+canvas.setActiveObject(textbox);
+textbox.enterEditing();
+textbox.selectAll();
+}
+
 function loadSpeechBubbleSVGReadOnly(svgString,name) {
 fabric.loadSVGFromString(svgString,function (objects,options) {
 
@@ -169,11 +181,12 @@ svgObject.baseScaleX=svgObject.scaleX;
 svgObject.baseScaleY=svgObject.scaleY;
 
 svgObject.set({
-left: 50,
 selectable: true,
 hasControls: true,
 hasBorders: true
 });
+// 左上固定だと既存の吹き出しに重なり、増えたことが見た目で分からなかった
+placeNewObject(svgObject);
 
 const selectedValue=getSelectedValueByGroup("sbTextGroup");
 if (name.startsWith("90_focus_")||selectedValue==="Nothing") {
@@ -186,7 +199,9 @@ createSpeechBubbleMetrics(svgObject,svgData);
 }
 canvas.setActiveObject(svgObject);
 changeSpeechBubble();
-canvas.discardActiveObject();
+// 置いた直後に選択を外すと、本体クリック→文字をダブルクリックするまで
+// 書き始められなかった。文字が付く吹き出しはそのまま入力へ入る
+focusSpeechBubbleText(svgObject);
 canvas.renderAll();
 updateLayerPanel();
 });

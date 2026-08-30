@@ -85,6 +85,30 @@ img ? resolve({img,responseData}) : reject(new Error('Failed to create a fabric.
 });
 }
 
+// キャンバスへ置かずに画像だけ返す経路。設定資料をその場で作るために使う。
+// 置き先が無いので handleSuccessfulGeneration() は通らない（seedの書き戻しも無い）
+async function sdwebuiT2IDetached(request,spinnerId) {
+try {
+var p=sdQueue.add(()=>{setCurrentAiTask(spinnerId);return sdwebuiGenerateImage(detachedRequestLayer(request),sdwebuiFetchText2Image);});
+updateAiTaskCancelInfo(spinnerId,{queueName:'sd',queueItemId:p._queueItemId});
+const result=await p;
+if (!result||!result.img) {
+createToastError("Generation error","");
+return null;
+}
+return imageObject2Base64ImageEffectKeep(result.img);
+} catch (error) {
+if(error.message==='Queue cancelled'||error.message==='Task cancelled'){
+sdwebuiLogger.debug("Detached generation cancelled by user");
+return null;
+}
+sdwebuiLogger.error("sdwebuiT2IDetached",error);
+return null;
+} finally {
+removeSpinner(spinnerId);
+}
+}
+
 async function sdwebuiRembgProcessQueue(layer,spinnerId) {
 sdwebuiLogger.debug("Processing queue for rembg");
 try {

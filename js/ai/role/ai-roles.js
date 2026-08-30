@@ -14,7 +14,6 @@ I2I_Angle: "I2I_Angle",
 Temp: "Temp",
 Text2Prompt: "Text2Prompt",
 Image2Prompt_LLM: "Image2Prompt_LLM",
-Text2Text: "Text2Text",
 };
 
 const roles={
@@ -30,13 +29,11 @@ AI_ROLES.PutSeed
 ],
 GROK: [
 AI_ROLES.Text2Prompt,
-AI_ROLES.Image2Prompt_LLM,
-AI_ROLES.Text2Text
+AI_ROLES.Image2Prompt_LLM
 ],
 OLLAMA: [
 AI_ROLES.Text2Prompt,
-AI_ROLES.Image2Prompt_LLM,
-AI_ROLES.Text2Text
+AI_ROLES.Image2Prompt_LLM
 ],
 COMFYUI: [
 AI_ROLES.Text2Image,
@@ -59,10 +56,18 @@ AI_ROLES.Text2Image,
 AI_ROLES.Image2Image,
 AI_ROLES.Upscaler,
 AI_ROLES.RemoveBG
+],
+GOOGLE_IMAGE: [
+AI_ROLES.Text2Image,
+AI_ROLES.Image2Image
 ]
 };
 
-// 使用サービス表の行定義。マトリクスUIと接続状態チェックの両方がこれを見る
+// 使用サービス表の行定義。マトリクスUIと接続状態チェックの両方がこれを見る。
+// labelKeyは表示名だけを持つ。保存キーはロール名の文字列（`Image2Prompt_DEEPDOORU`等）なので、
+// 表示名を直しても保存済みの設定は壊れない。逆にロール名は変えないこと。
+// `Image2Prompt_DEEPDOORU`が実際に呼ぶのは`sdwebuiInterrogate(layer,"deepdanbooru")`で、
+// 表示名の綴りは`DeepDanbooru`が正しい（`DEEPDOORU`は誤記だった）
 const ROLE_MATRIX_ROWS=[
 {role:AI_ROLES.Text2Image,labelKey:'roleText2Image'},
 {role:AI_ROLES.Image2Image,labelKey:'roleImage2Image'},
@@ -73,8 +78,7 @@ const ROLE_MATRIX_ROWS=[
 {role:AI_ROLES.Image2Prompt_CLIP,labelKey:'roleInterrogateCLIP'},
 {role:AI_ROLES.Image2Prompt_DEEPDOORU,labelKey:'roleInterrogateDEEPDOORU'},
 {role:AI_ROLES.Text2Prompt,labelKey:'roleText2Prompt'},
-{role:AI_ROLES.Image2Prompt_LLM,labelKey:'roleImage2PromptLLM'},
-{role:AI_ROLES.Text2Text,labelKey:'roleText2Text'}
+{role:AI_ROLES.Image2Prompt_LLM,labelKey:'roleImage2PromptLLM'}
 ];
 
 const ROLE_NONE='none';

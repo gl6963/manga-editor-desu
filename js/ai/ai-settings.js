@@ -17,6 +17,7 @@ providerRegistry.register(new LocalComfyUIProvider());
 providerRegistry.register(new LocalSDWebUIProvider());
 providerRegistry.register(new RunPodComfyUIProvider());
 providerRegistry.register(new FalAIProvider());
+providerRegistry.register(new GoogleImageProvider());
 providerRegistry.register(new GrokProvider());
 providerRegistry.register(new OllamaProvider());
 providerRegistry.mapApiMode(apis.COMFYUI,'localComfyUI');
@@ -87,6 +88,17 @@ btn.style.display=el&&el.value?'inline-block':'none';
 allowedFalaiSelectIds.forEach(function(id){
 $(id).addEventListener('change',function(){updateFalaiModelBtnVisibility(id);});
 updateFalaiModelBtnVisibility(id);
+});
+
+$('googleImageApiKeyToggle').addEventListener('click',function(event){
+event.stopPropagation();
+var input=$('googleImageApiKey');
+input.type=input.type==='password'?'text':'password';
+});
+// モデル一覧はAPIから取らない（画像生成モデルかどうかが models.list からは判別できないため）。
+// キーを入れ直したら接続状態だけ取り直す
+$('googleImageApiKey').addEventListener('change',function(){
+apiHeartbeat();
 });
 
 var grokProvider=providerRegistry.get('grok');

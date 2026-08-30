@@ -129,3 +129,52 @@
   bottom: 20px;
   right: 20px;
  }
+/* 読み終える前に消えないよう、手で閉じられるようにする */
+.toast-achievement{
+  position: relative;
+}
+.toast-close{
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  opacity: 0.6;
+  font-size: 0.8rem;
+  line-height: 1;
+  padding: 2px 5px;
+  margin: 0;
+  cursor: pointer;
+}
+.toast-close:hover{
+  opacity: 1;
+  background: transparent;
+}
+.toast-close:focus-visible{
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}
+.toast-title{
+  padding-right: 1.2rem;
+}
+/* 右パネルの操作を塞がないよう、余白部分ではクリックを通し、幅と高さを画面に合わせて抑える */
+#sp-manga-toastContainer{
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+  max-width: min(26rem, 45vw);
+  max-height: 45vh;
+}
+#sp-manga-toastContainer > .toast-achievement{
+  pointer-events: auto;
+  max-width: 100%;
+}
+/* 同じ内容が繰り返されたときの回数表示 */
+.toast-repeat{
+  margin-left: 0.4em;
+  font-size: 0.85em;
+  opacity: 0.75;
+}

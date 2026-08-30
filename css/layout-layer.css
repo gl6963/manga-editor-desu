@@ -108,6 +108,52 @@ opacity: 1;
 color: #ff6b6b;
 }
 
+/* キャンバスで押されたロック中のオブジェクトの鍵。
+   解除の入口がここしかないため、押された直後だけ位置を示す */
+.layer-buttons button.layer-lock-hint {
+border-color: var(--layer-active-border);
+color: var(--layer-active-border);
+animation: layer-lock-hint-pulse 1s ease-in-out infinite;
+}
+
+@keyframes layer-lock-hint-pulse {
+0%,100% { box-shadow: 0 0 0 0 rgba(160,48,48,0.7); }
+50% { box-shadow: 0 0 0 4px rgba(160,48,48,0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+.layer-buttons button.layer-lock-hint {
+animation: none;
+box-shadow: 0 0 0 2px var(--layer-active-border);
+}
+}
+
+.layer-ref-count {
+display: inline-flex;
+align-items: center;
+gap: 2px;
+height: 20px;
+padding: 0 4px;
+margin-right: 3px;
+border: 1px solid var(--layer-btn-border);
+background: var(--layer-btn-bg);
+color: var(--text-color-B);
+border-radius: var(--fjm-button-border-radius);
+font-size: 10px;
+line-height: 1;
+white-space: nowrap;
+cursor: pointer;
+}
+
+.layer-ref-count:hover {
+background-color: var(--layer-btn-hover);
+color: var(--text-color-A);
+}
+
+.layer-ref-count .material-icons {
+font-size: 13px;
+}
+
 .layer-btn-separator {
 width: 1px;
 height: 14px;

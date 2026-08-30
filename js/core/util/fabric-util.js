@@ -56,6 +56,53 @@ function isShapes(activeObject) {
 return (activeObject&&['path','rect','circle','triangle','polygon'].includes(activeObject.type));
 }
 
+// 多角形の内外判定（交差数）。頂点はキャンバス基準の絶対座標で渡す
+function isPointInPolygonPoints(points,x,y) {
+var inside=false;
+for (var i=0,j=points.length-1;i<points.length;j=i++) {
+var xi=points[i].x,yi=points[i].y;
+var xj=points[j].x,yj=points[j].y;
+if (((yi>y)!==(yj>y))&&(x<((xj-xi)*(y-yi))/(yj-yi)+xi)) {
+inside=!inside;
+}
+}
+return inside;
+}
+
+// 頂点をキャンバス基準の絶対座標へ直す。clipPathを作るときと同じ変換
+// （fabric-management.js の updateClipPath）
+function getAbsolutePolygonPoints(shape) {
+var matrix=shape.calcTransformMatrix();
+return shape.points.map(function (point) {
+return fabric.util.transformPoint({
+x: point.x-shape.pathOffset.x,
+y: point.y-shape.pathOffset.y
+},matrix);
+});
+}
+
+// コマの実際の形に点が入っているかを見る。外接矩形で見ると、斜めのコマや
+// 重なったコマでは、ポインタが乗っていないコマに入る。
+// polygon以外（rect/circle/path）は形の情報を持たないため外接矩形のまま
+function isPointInShape(shape,x,y) {
+if (shape.type==="polygon"&&shape.points&&shape.points.length>=3) {
+return isPointInPolygonPoints(getAbsolutePolygonPoints(shape),x,y);
+}
+var bounds=shape.getBoundingRect(true);
+return x>=bounds.left&&x<=bounds.left+bounds.width&&
+y>=bounds.top&&y<=bounds.top+bounds.height;
+}
+
+// 複数選択（activeSelection）の中のオブジェクトは left/top がグループ基準になる。
+// どのコマの上にいるかはキャンバス基準で見る必要がある
+function getAbsoluteCenterPoint(obj) {
+var center=obj.getCenterPoint();
+if (obj.group) {
+return fabric.util.transformPoint(center,obj.group.calcTransformMatrix());
+}
+return center;
+}
+
 function isPutImage(activeObject) {
 
 if (activeObject.isIcon) {
@@ -102,15 +149,30 @@ canvasHeight: canvas.getHeight(),
 if (obj.clipPath) {
 logger.trace('saveInitialState:obj.name:'+obj.name,"obj.clipPath",obj.clipPath);
 
+// strokeWidthは再フィットでは使わないが、上のobj.initialと同じ形にしておく。
+// 復元後はupdateClipPath()が作り直したclipPathに対して上のブロック（strokeWidthあり）が
+// 走るため、ここで省くと復元前後でJSONが変わり、重複除去がすり抜けてRedoが消える
 obj.clipPath.initial={
 left: obj.clipPath.left,
 top: obj.clipPath.top,
 scaleX: obj.clipPath.scaleX,
 scaleY: obj.clipPath.scaleY,
+strokeWidth: obj.clipPath.strokeWidth,
 canvasWidth: canvas.getWidth(),
 canvasHeight: canvas.getHeight(),
 };
 }
+}
+
+// resizeCanvas() は再フィットのたびに initial.strokeWidth から線幅を計算し直す。
+// 意図して線幅を変えたときはここで基準も更新しないと、再フィットで元の太さへ巻き戻る。
+// 履歴の復元も再フィットを通るため、Undoで縁が消える形で現れる。
+// initial は「initial.canvasWidth のときの値」なので、今の倍率で割って戻す
+function refreshInitialStrokeWidth(obj) {
+if (!obj||!obj.initial||!obj.initial.canvasWidth) {
+return;
+}
+obj.initial.strokeWidth=obj.strokeWidth/(canvas.getWidth()/obj.initial.canvasWidth);
 }
 
 function setText2ImageInitPrompt(object) {
@@ -697,11 +759,13 @@ canvasWidth: activeObject.canvas.getWidth(),
 canvasHeight: activeObject.canvas.getHeight(),
 };
 
+// saveInitialState()と同じ形で持つ。欠けると復元前後でJSONが変わる
 activeObject.clipPath.initial={
 left: activeObject.clipPath.left,
 top: activeObject.clipPath.top,
 scaleX: activeObject.clipPath.scaleX,
 scaleY: activeObject.clipPath.scaleY,
+strokeWidth: activeObject.clipPath.strokeWidth,
 canvasWidth: activeObject.canvas.getWidth(),
 canvasHeight: activeObject.canvas.getHeight(),
 };
@@ -768,6 +832,17 @@ return objescts.length;
 }else{
 return 0;
 }
+}
+
+// 起動直後のキャンバスには案内テキスト(initMessage)が1個載っている。
+// 「白紙かどうか」の判定にgetObjectCount()を使うと必ず1以上になるため、
+// 目印(isInitMessage)を除いた実体の数を返す
+function getContentObjectCount() {
+var objects=canvas.getObjects();
+if(!objects){
+return 0;
+}
+return objects.filter(function(obj){return!obj.isInitMessage;}).length;
 }
 
 
@@ -906,7 +981,13 @@ originY: 'center',
 selectable: false,
 hoverCursor: 'default',
 // ページが空かどうかの判定（btmShouldSaveCurrentPage）で除外するための目印
-isInitMessage: true
+isInitMessage: true,
+// 案内文はページの中身ではないので canvas.toJSON() に載せない。載せると、
+// 案内文を出したまま保存された時点でJSONへ入り、開き直したときに
+// isInitMessage（commonPropertiesに無いため復元されない）を失った
+// 「消せないテキスト」として残り、書き出した画像にも写る。
+// ページは作られた時点で保存されるため、出したまま保存される場面が必ず起きる
+excludeFromExport: true
 });
 
 setNotSave(text);

@@ -24,6 +24,70 @@ createToastError(title,messages,time=4000)
 ```
 - 成功: `toast-nier`テーマ、エラー: `toast-dbd`テーマ
 - Bootstrap Toast APIベース
+- 本文は`textContent`で描く。外部APIの応答文がそのまま渡ることがあるためHTMLとして解釈させない
+- ポインタが乗っている間はカウントダウンが止まり、`.toast-close`（×）で手動でも閉じられる。
+  制御は`startProgressBar()`1か所にあるので、呼び出し側は何もしなくてよい
+- `role`/`aria-live`はエラーなら`alert`/`assertive`、それ以外は`status`/`polite`
+- **同時に見えるのは`TOAST_MAX_VISIBLE`枚まで**。溢れたら情報から先に閉じ、エラーは残す。
+  右下に積み上がると右パネル下部（Width/Seed/Generate）が押せなくなるため
+- **同じ内容は積まずに回数だけ増える**。判定キーは「エラーかどうか＋タイトル＋本文」で、
+  一致したら`.toast-repeat`に`×N`を出して表示時間を取り直す。
+  押すたびに新しい枚数が増える作りにしないこと
+- 容器（`#sp-manga-toastContainer`）は`pointer-events:none`。余白部分のクリックは
+  下の右パネルへ通る。トースト本体だけが`pointer-events:auto`
+
+## 確認ダイアログ（js/ui/util/confirm-dialog.js）
+元に戻せない操作の前に必ず通す。各所でモーダルをベタ書きすると
+閉じ方（×・Esc・背景クリック）が揃わなくなるため、入口をここ1つにしている。
+```javascript
+var ok=await showConfirmDialog({
+  titleKey:'confirmDeletePageTitle',
+  message:i18next.t('confirmDeletePageBody',{page:1}),  // messageKeyでも可
+  danger:true
+});
+if(!ok)return;
+```
+- ×・Esc・背景クリック・キャンセルはすべて「取り消し」に揃えてある
+- `FocusTrap`でTab循環と閉じた後のフォーカス復帰も入る
+- 初期フォーカスは誤操作を防ぐため取り消し側
+- await後は状態が変わっている可能性があるため、対象の存在とインデックスを取り直す
+
+3択以上が要るときは`choices`を渡す。戻り値は選ばれた`key`、取り消しは`false`。
+```javascript
+var r=await showConfirmDialog({
+  titleKey:'projectLoadModeTitle',
+  message:message,
+  cancelKey:'projectLoadModeCancel',
+  choices:[
+    {key:'replace',textKey:'projectLoadModeReplace',secondary:true,danger:true},
+    {key:'append', textKey:'projectLoadModeAppend'}
+  ]
+});
+if(!r)return;            // ×・Esc・背景クリック・取り消し
+if(r==='replace'){...}
+```
+- `choices`を渡さないときの戻り値（`true`/`false`）と見た目は変わらない。
+  取り消しはどちらの形でも`false`なので、既存の`if(!ok)`判定はそのまま通る
+- `secondary:true`は取り消しと同じ塗り＋アクセント枠。`danger:true`と併せると赤字になる。
+  消す側の選択肢を主ボタンと同じ塗りにすると押し間違えるため、必ず`secondary`と併用する
+- 消す選択肢はこのダイアログ1枚で完了させず、もう一段`showConfirmDialog()`を通す
+  （例: `js/core/auto-save.js`の自動保存データ削除）
+
+判断材料が文章だけでは足りないときは`content`にDOM要素を渡す。文字列は受け取らない
+（HTML文字列を渡せるようにすると、翻訳文をそのまま差し込む使い方に流れる）。
+```javascript
+await showConfirmDialog({
+  titleKey:'autoSaveRecoveryTitle',
+  message:msg,
+  content:buildRecoverySummary(metadata,pages),  // 呼び出し側が組んだ要素
+  wide:true,                                     // 一覧や図を出す幅に広げる
+  choices:[...]
+});
+```
+- 中身のスタイルは呼び出し側のCSSに置く（例: `css/ui/recovery-dialog.css`）。
+  `confirm-dialog.css`が持つのは`.confirm-dialog-content`の余白と`is-wide`の幅だけ
+- ページ数のように件数が読めないものは、`content`側で`max-height`＋スクロールにする。
+  ダイアログごと伸びるとボタンが画面外へ出る
 
 ## モーダル
 HTML動的挿入＋CSSオーバーレイ。パターン:
@@ -37,6 +101,23 @@ setupSlider(slider,classname,addButton=true)
 ```
 スライダーにup/downボタンとラベルを自動付与。
 
+**ラベルの原文と表示値は別の属性に持つ。**
+- `data-i18n-label="キー"` … 翻訳キー。`updateContent()`と`applyLabelTranslations()`が
+  ここから`data-label`へ訳を書く。**この2つだけが`data-label`の書き手**
+- `data-label` … ラベルの原文（訳された文字列）
+- `data-value-text` … 今の値（`：14`のように区切りごと）。`setupSlider()`だけが書く
+- 表示は`.input-container::before`が`attr(data-label) attr(data-value-text)`で連結する
+
+以前は`data-label`へ「ラベル：値」をまとめて上書きしていた。すると言語を切り替えても
+次にスライダーの値が動いた瞬間に切替前の言語のラベルへ戻り、英語のまま固定された
+（監査#21・#39）。**`data-label`に値を混ぜないこと。**
+
+`aria-label`はスライダーとup/downボタンに付くが、これは`data-label`の変化を
+`MutationObserver`で1か所で拾って取り直している。呼び出し側は何もしなくてよい。
+
+`js/sidebar/sidebar-ui.js`の`addSlider()`のように`innerHTML`で作る場合も
+`data-i18n-label`を必ず付ける。付けないと言語切替で取り残される。
+
 ## レイヤーパネル更新（layer-management.js）
 `updateLayerPanel()`はデバウンス付き（60ms最小間隔）。
 ```
@@ -45,6 +126,35 @@ updateLayerPanel() → 60ms throttle → executeUpdate() → DOM全再構築
 - GUID階層でネスト表示
 - Material Designアイコンでレイヤー種別を識別
 - プレビューサムネイル表示
+
+**行は全体が選択のあたり判定。** 行のほとんどを名前の入力欄`.layer-name`が占め、
+テキストレイヤーにはサムネイルも付かないため、入力欄がクリックを止めると押して選択
+できる場所が行に残らない。入力欄は既定で`readOnly`にし、`mousedown`で
+`preventDefault()`してフォーカスを取らせず、クリックは行の選択へ通す。
+
+**名前の編集はダブルクリック。編集中かどうかはDOMに置かない。**
+`executeUpdate()`は毎回`layerContent.innerHTML=""`で全部作り直すうえ、60msの
+デバウンスで**遅れて**走ることもある。入力欄に状態を持たせると、編集を始めた直後の
+作り直しでフォーカスごと消える。編集中の行は`layerNameEditGuid`（GUID）で覚え、
+作り直しの最後に`beginLayerNameEdit()`で戻す。
+
+そのための約束事が4つある。
+
+- **dblclickは行ではなく`#layer-content`で受ける**（`onLayerNameDblclick`）。1回目の
+  クリックで行が作り直されると2回のクリックの対象が別物になり、dblclickは行ではなく
+  共通の祖先へ飛ぶ。対象から辿れないときは`elementFromPoint()`で引き直す。
+  行に付けると、素早く2回押したときだけ動く不安定な操作になる
+- **作り直し中の`blur`は編集終了と見なさない**（`layerPanelRebuilding`）。行ごと
+  消えるときも`blur`は飛ぶ
+- **終了は`blur`だけに頼らない**。Enter/Escapeからも`endLayerNameEdit()`を呼ぶ
+- **作り直しの先頭で、フォーカスが名前欄から離れていたら編集を畳む。** 畳まないと
+  `blur`を取り逃したときに作り直しのたびに名前欄がフォーカスを奪い続け、
+  キャンバス上の文字入力ができなくなる
+
+**表示する値と書き込む値を揃える。** テキストレイヤーの行は本文（`layer.text`）を
+出しつつ入力は`layer.name`へ書いていたため、打った文字が作り直しのたびに本文へ
+戻っていた。名前を付けるまでは`layer.name`を`layer.text`に同期させ、付けたら
+`layer.nameEdited`を立てて同期を止める（`nameEdited`は`commonProperties`にある）。
 
 ## CSS変数（root.css）
 ```css
@@ -231,6 +341,20 @@ pointerdownの時点で暗幕を消すと直後のmousedownが下のキャンバ
 - 後から`innerHTML`で差し込んだ`data-i18n`要素は`applyLabelTranslations()`では
   翻訳されない（あちらは`data-i18n-label`専用）。`updateContent()`を呼ぶ
 
+## アイコンのみのボタン
+`<i class="material-icons">swap_horiz</i>`だけのボタンは、支援技術にリガチャ文字
+（"swap_horiz"）がそのまま読み上げられる。名前は`addTooltipByElement()` /
+`addTooltip()` / `addTooltipsByAttribute()`の中で`aria-label`と`title`が
+同時に付くので、**ツールチップを登録すれば足りる**。個々のボタンに手で
+`aria-label`を書くと必ず抜ける。
+
+HTML側は`data-tip="翻訳キー"`を付けるだけでよい（`addTooltipsByAttribute()`が走査する）。
+文型が同じで名前だけ変わるものは`data-tip-name`で`{{name}}`へ差し込む。
+
+## フォーカス
+`css/form.css`の`button{}`直後に`:focus-visible`があり、全ボタン・リンクに効く。
+個別CSSで`outline:none`を書くときは、必ず枠線や影で代替を用意する。
+
 ## 永続化
 | ストア | 用途 |
 |--------|------|
@@ -239,12 +363,126 @@ pointerdownの時点で暗幕を消すと直後のmousedownが下のキャンバ
 - `SettingsRepository`: TTL付きget/set対応
 - `localforage.createInstance({name:'xxx'})` で用途別インスタンス
 
+### サイドバーの入力値（sidebar-ui.js）
+`sidebarValueMap` → localStorageの`sidebarValues`。書き込みは
+`saveValueMap(element)`（`element.id`と`element.value`）で、**保存されるのは
+「設定の自動保存」がONのときだけ**。
+
+入力要素を持たない値（フォント名など）は`saveValueMapByKey(key,value)`で同じ入れ物へ
+入れる。`FontSelector`は`persist`を渡したインスタンスだけが`font:<targetId>`のキーで
+保存し、次回起動時の既定になる。オブジェクトメニューのセレクタのように「選択中の
+オブジェクトの書体」を映すものには持たせない（前回の選択で上書きされ対象と食い違う）。
+復元時は`fontManager.existsFont()`で存在を確かめ、消えている書体名は表示しない
+（無い書体名を出すと、実際には別の書体で描かれているのに気付けない）。
+
 ## ModeManager
-操作モード切り替え: SELECT, FREEHAND, KNIFE, PEN各種, CROP
+操作モード切り替え: SELECT, FREEHAND, KNIFE, CROP, PANEL_EDIT, PEN各種, TONE各種
 ```javascript
 ModeManager.getCurrent()
 ModeManager.MODE.SELECT
 ```
+
+### モードの入り口は必ず ModeManager.change() を通す
+モードごとにフラグを直接書き換えると、`getCurrent()`が実態と食い違い、
+案内文も「モード解除」ボタンも点かないモードが残る。入り口は各モードの
+`enable()`（内部で`change()`が走る）に寄せ、`_enable()`は`change()`からだけ呼ぶ。
+
+| モード | 入り口 | 実処理 | `change()`を通るか |
+|--------|--------|--------|--------------------|
+| ナイフ | `changeKnifeMode()` → `ModeManager.knife.toggle()` | `knife._enable` / `knife.disable` | 通る |
+| トーン | `switchMangaTone(type)` → `ModeManager.change(type)` | `applyMangaTone` / `endMangaTone` | 通る |
+| ペン | `switchPencilType(type)` → `ModeManager.change(type)` | `applyPencilType` / `endPencil` | 通る |
+| コマ編集 | `ModeManager.edit.enable()` | `panel-manager.js` の `Edit()` | 通る |
+| クロップ | `startCropMode()`（mode-change.js） | `startCropMode` | **通らない**（未対応） |
+| 吹き出し | `sb*Button`のclick（speech-bubble-freehand.js） | `setDrawingMode` / `setSelectionMode` | **通らない**（未対応） |
+
+「通らない」モードは`getCurrent()`が`'select'`のままで案内文も出ない。
+解除だけは`clearAll()`が各`disable()`を呼ぶので効く。新しくモードを足すときは
+必ず`change()`を通す側に作ること。
+
+**入り切りのフラグは、モードAPIを呼ぶ「前」に読むこと。** `clearAll()`は各モードの
+`disable()`を通ってフラグを落とすため、呼んだ「後」に`flag=!flag`とすると
+OFFにしたつもりがONに戻る。判定結果を先に変数へ取ってから分岐する。
+
+```javascript
+var willEdit=!poly.edit;                 // 先に決める
+if(willEdit){ModeManager.edit.enable();}else{ModeManager.clearAll();}
+poly.edit=willEdit;
+```
+
+**モードごとの状態変数を他の用途と共有しない。** トーンは`nowTone`（今どのトーンか）に
+描いた画像を入れていたため、同じトーンを選び直しても終了と判定されず二重に置かれていた。
+画像は`nowToneImage`のようにその効果専用に持つ（`nowSnowTone` / `nowToneNoise`と同じ）。
+
+**単独でも呼ばれる`disable()`は、抜けた状態まで揃える。** `ModeManager.knife.disable()`は
+「ナイフだけ畳んで別モードへ移る」経路（`updateKnifeMode()`）から`clearAll()`を介さずに
+呼ばれるため、`_current`を`SELECT`へ戻し案内文も消す。ここで`clearAll()`を使うと
+呼び出し元が直前に入れた`currentMode`まで消える。
+
+`change()`は先頭で`clearAll()`を呼ぶ。**コマ編集のように「入り口を呼んだ後に
+自分で状態を組み立てる」モードは、組み立てる前に`enable()`を呼ぶこと**。
+後から呼ぶと`clearAll()`が組み立て直後の状態を戻してしまう。
+
+### モード中のロックは退避して戻す（`ModeManager.lock`）
+コマは`selectable:false`で生まれる。モードに入るときに全件を一律に書き換えて
+抜けるときに`selectable:true`へ戻すと、**ロックしていたコマまで動くようになる**。
+
+```javascript
+ModeManager.lock.apply({selectable:false})     // 書き換えるプロパティだけを退避してから適用
+ModeManager.lock.restore()                     // 退避値へ戻し、退避を捨てる
+ModeManager.lock.inherit(source,target)        // モード中に増えたものへ退避ごと引き継ぐ
+```
+- 退避はオブジェクトの`_modeLockBackup`に置く。退避が無いもの（モード中に増えたもの）は触らない
+- 「退避が無ければ既定値」にしない。既定値へ倒すと元のロックが消える
+- `clearAll()`の最後に`restore()`が走る。モード側で個別に書き戻さない
+- `apply()`を重ねて呼んでも退避は最初の1回だけ取る。Shift中の一時解除のように
+  モードの上からもう一度当てても、モードに入る前の値が残る
+- **`excludeFromLayerPanel`が付くものは対象外**（ナイフの分割線・吹き出しの下描きと
+  当たり判定用の矩形・切り抜き枠）。除外は`lock._isTarget()`の1か所にあるので
+  呼び出し側に書かない。書かせると、書き忘れた経路で分割線や切り抜き枠が掴めるようになる
+- 除外の判定は`apply()`にだけ置く。`restore()`は「退避が付いているものを戻す」だけにする。
+  `restore()`でも除外を見ると、モード中にそのフラグが付いたオブジェクトの退避が残り続ける
+
+モード中に生まれたオブジェクト（ナイフの分割で増えたコマなど）は退避を持たないため、
+抜けても元へ戻らず兄弟とロック状態が食い違う。元になったオブジェクトから引き継ぐ:
+
+```javascript
+canvas.add(polygon1);                          // object:added がモードの値を当てる
+ModeManager.lock.inherit(polygon,polygon1);    // 退避と今の値を分割元から引き継ぐ
+```
+`source`に退避が無い（＝モードの外）ときは引き継ぐものが無い。`selectable`は
+呼び出し側が`source`から写す。ここで既定値を当てると元のロックが消える。
+- **モードの中の一時解除（Shift押下中だけ選択可）で`restore()`を呼ばない。**
+  戻す先はモードに入る前ではなくモード中の状態。`restore()`は退避ごと捨てるため、
+  抜けるときに戻すものが無くなる。離したときはモード自身の状態を`apply()`で当て直す
+  （`fabric-management.js`のShift、`speech-bubble-freehand.js`の`updateObjectSelectability()`）
+- **一時解除で足すプロパティを増やさない。** モードが`{selectable}`だけを退避したなら
+  一時解除も`{selectable}`だけにする。退避に無いプロパティは`restore()`で戻らない
+- **モード中に作ったオブジェクトが既存のものと同じ扱いを受けるべきなら、
+  退避も引き継がせる。** ナイフの分割で生まれるコマは分割元の`_modeLockBackup`を
+  写している（`knife-split-engine.js`の`inheritPanelLockState()`）。
+  写さないと、抜けたときに兄弟のコマだけ元のロックへ戻って食い違う
+
+### キャンバス上の案内文（`#canvas-help-text`）
+`ModeManager.help._defs`にモードと翻訳キーを1行足すだけで、
+`change()`で出て`clearAll()`で消える。表示処理をモード側に書かない。
+
+**例外は吹き出しの座標モードだけ。** 「4点以上打ってから始点をクリック」という
+確定条件は打った点数で文言が変わるため、固定文の`_defs`では表せない。
+`speech-bubble-freehand.js`の`updateFreehandPointHelpText()`が直接出し入れしている。
+`_defs`にも登録すると同じ場所を2か所から書くことになるので、登録していない。
+
+```javascript
+_defs:{ knife:{key:'knifeHelpText',highlight:'Esc'} }
+```
+`highlight`は文中のその文字列を`.help-key`で強調する。**訳文に必ずその文字列を
+含めること**（含まれない訳は強調されない）。案内文には「今どのモードか」
+「何をすればよいか」「どう抜けるか」の3つを入れる。ヘッダーは1行しか
+余裕が無いので短くする。
+
+### 「モード解除(ESC)」ボタン
+点灯条件は`ModeManager._current!==MODE.SELECT`だけで決める（`ModeManager.button`）。
+モードごとに点け外しを書くと点かないモードが残る。
 
 ## 選択オブジェクトと各パネルの同期（object-control-sync.js）
 同じ設定（不透明度・線幅・色・フォントサイズ）が複数のパネルに存在するため、

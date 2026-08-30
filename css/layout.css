@@ -73,6 +73,26 @@
  box-shadow: 0 2px 4px rgba(0,0,0,0.08);
 }
 
+/* Undo/Redoは履歴の端では押しても何も起きない。押せる見た目のままだと
+   「効かない」のか「もう戻れない」のかが区別できないため、無効を見た目で示す */
+.area-header button:disabled {
+ opacity: 0.35;
+ cursor: not-allowed;
+}
+
+.zoom-level {
+ margin-left: 6px;
+ padding: 0 4px;
+ font-size: 11px;
+ font-weight: normal;
+ color: var(--text-color-B);
+ /* 90%と100%で位置が跳ねないように文字数ぶんの余地を取る。
+    px指定にすると文字サイズを変えたときに合わなくなる */
+ display: inline-block;
+ min-width: 4ch;
+ text-align: center;
+}
+
 .canvas-help-text {
  display: none;
  margin-left: 8px;
@@ -379,6 +399,15 @@ color: var(--text-color-C);
 
 .dropdown-item-mini-text {
  width: var(--dropdown-item-mini-text-width);
+}
+
+/* 実際に書き出されるピクセル寸法。原稿サイズ(mm)は下限でしかないため、結果を数字で見せる */
+.output-pixel-size-value {
+ margin-left: auto;
+ padding-left: 0.6em;
+ font-size: 0.8em;
+ opacity: 0.85;
+ white-space: nowrap;
 }
 
 .form-row {

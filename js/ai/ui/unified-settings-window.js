@@ -1,8 +1,14 @@
 var unifiedSettingsWindow=(function(){
 var overlayEl=null;
+// 他のダイアログ・ピッカーと閉じ方を揃えるため、Esc も FocusTrap 経由でここに寄せる
+var focusTrap=null;
 function open(){
 if(!overlayEl)overlayEl=$('unifiedSettingsOverlay');
 overlayEl.classList.add('active');
+if(!focusTrap){
+focusTrap=FocusTrap.create(overlayEl.querySelector('.us-window'),close);
+FocusTrap.activate(focusTrap);
+}
 roleAssignmentUI.buildMatrix();
 var falaiProvider=providerRegistry.get('falai');
 if(falaiProvider&&falaiProvider.getApiKey()&&isProviderInUse('falai')){
@@ -12,6 +18,10 @@ llmFetchModelsIfConfigured();
 }
 function close(){
 if(!overlayEl)return;
+if(focusTrap){
+FocusTrap.deactivate(focusTrap);
+focusTrap=null;
+}
 overlayEl.classList.remove('active');
 }
 function apply(){

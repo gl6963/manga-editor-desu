@@ -90,6 +90,23 @@ text-align:right;
 color:rgba(255,255,255,0.9);
 }
 
+.btm-handle-count {
+margin-left:6px;
+}
+
+/* ===== Hint ===== */
+.btm-drawer-hint {
+padding:8px 16px 0 16px;
+font-size:11px;
+line-height:1.4;
+color:rgba(255,255,255,0.45);
+white-space:normal;
+}
+
+.light-mode .btm-drawer-hint {
+color:rgba(0,0,0,0.5);
+}
+
 /* ===== Content ===== */
 .btm-drawer-content {
 padding:10px 12px;

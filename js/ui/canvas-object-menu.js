@@ -32,7 +32,8 @@ var menuIconMap={
 "canvasFit":"aspect_ratio",
 "boldOn":"format_bold",
 "boldOff":"format_bold",
-"copyAndPast":"content_copy"
+"copyAndPast":"content_copy",
+"referenceSheet":"photo_library"
 };
 
 var menuAiActions=["generate","rembg","upscale","inpaint","angleGenerate"];
@@ -172,6 +173,7 @@ var rembg=createObjectMenuButton('rembg');
 var upscale=createObjectMenuButton('upscale');
 var inpaint=createObjectMenuButton('inpaint');
 var angleGenerate=createObjectMenuButton('angleGenerate');
+var referenceSheet=createObjectMenuButton('referenceSheet');
 var clearAllClipPaths=createObjectMenuButton('clearAllClipPaths');
 
 var clearTopClipPath=createObjectMenuButton('clearTopClipPath');
@@ -221,6 +223,9 @@ menuItems.push(createObjectMenuGroupHeader('menuGroupOperation'));
 menuItems.push(visible,movement,edit,knife,duplicate);
 var aiItems=[];
 if(hasRole(AI_ROLES.Text2Image))aiItems.push(generate);
+// 対応していないサービスでも出す。**ここで隠すと、なぜ資料が効かないのかを読む場所が無くなる**
+// （送られるかどうかはウインドウ側が理由付きで出す）
+aiItems.push(referenceSheet);
 if(aiItems.length>0){
 menuItems.push(createObjectMenuGroupHeader('menuGroupAI'));
 menuItems=menuItems.concat(aiItems);
@@ -240,6 +245,8 @@ if(hasRole(AI_ROLES.Image2Image))aiItems.push(generate);
 if(hasRole(AI_ROLES.RemoveBG))aiItems.push(rembg);
 if(hasRole(AI_ROLES.Upscaler))aiItems.push(upscale);
 if(hasRole(AI_ROLES.I2I_Angle))aiItems.push(angleGenerate);
+// 絵はコマ枠の設定を見る（getReferenceHost）。コマの外の絵はその絵自身が対象になる
+aiItems.push(referenceSheet);
 if(aiItems.length>0){
 menuItems.push(createObjectMenuGroupHeader('menuGroupAI'));
 menuItems=menuItems.concat(aiItems);
@@ -553,6 +560,12 @@ break;
 case 'angleGenerate':
 openAngleEditor(activeObject);
 break;
+case 'referenceSheet':
+// 押したコマをそのまま対象にする。開いてから選び直させると、
+// どのコマを直していたのか分からなくなる
+referenceSheetWindow.open(activeObject);
+closeMenu();
+return;
 case 'generate':
 if(isPanel(activeObject)){
 var spinner=createSpinner(getGUID(activeObject),'T2I');
@@ -582,6 +595,14 @@ left:cloned.left+10,
 top:cloned.top+10
 });
 canvas.add(cloned);
+// 複製は relatedPoly も guid も持たず、clipPath だけが元コマ位置の静的コピーとして残る。
+// リンクを張り直さないと、動かしたときに見えない切り抜きの外へ出て消える
+relinkClonedObject(cloned,activeObject);
+updateLayerPanel();
+canvas.requestRenderAll();
+// clone() は画像では非同期に戻る。switch の後の commitHistory では
+// 複製が乗る前の状態を撮ってしまうため、ここでも積む
+commitHistory();
 });
 break;
 case 'moveUp':
@@ -631,7 +652,9 @@ removeClipPath(activeObject,action);
 break;
 case 'cropImage':
 if(isImage(activeObject)){
-startCropMode(activeObject);
+// startCropMode() を直接呼ぶと ModeManager.clearAll() を通らず、
+// 動いていたモード（トーン等）がそのまま残って案内文だけ奪われる（監査 #10）
+ModeManager.crop.enable(activeObject);
 }
 break;
 case 'boldOn':

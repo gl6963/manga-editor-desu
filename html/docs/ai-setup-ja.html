@@ -78,11 +78,11 @@
 <tr><td>RunPod ComfyUI</td><td>ご自身のPod</td><td>PodのURL</td><td>ComfyUIと同じ</td></tr>
 <tr><td>SD WebUI（A1111 / Forge）</td><td>お使いのマシン</td><td>起動オプション</td><td>Text2Image、Image2Image、背景削除、CLIP・DeepDanbooru解析、ADetailer</td></tr>
 <tr><td>Fal.ai</td><td>クラウド</td><td>APIキー</td><td>Text2Image、Image2Image、高解像度化、背景削除</td></tr>
-<tr><td>Grok（xAI）</td><td>クラウド</td><td>APIキー</td><td>言語モデル処理：文章からのプロンプト生成、画像からのプロンプト生成、ストーリーからコマのプロンプト、セリフの推敲・翻訳</td></tr>
+<tr><td>Grok（xAI）</td><td>クラウド</td><td>APIキー</td><td>言語モデル処理：文章からのプロンプト生成、画像からのプロンプト生成、ストーリーからコマのプロンプト</td></tr>
 <tr><td>Ollama</td><td>お使いのマシン</td><td>環境変数</td><td>Grokと同じ言語モデル処理</td></tr>
 </tbody>
 </table>
-<p>1つに絞る必要はありません。処理の種類ごとに独立して振り分けられるため、画像生成はローカルのComfyUI、セリフの翻訳はGrok、といった構成が可能です。</p>
+<p>1つに絞る必要はありません。処理の種類ごとに独立して振り分けられるため、画像生成はローカルのComfyUI、ストーリーからコマのプロンプト生成はGrok、といった構成が可能です。</p>
 </div>
 
 <h2>起動オプションが必要な理由</h2>
@@ -181,7 +181,6 @@ Environment="OLLAMA_ORIGINS=*"</code></pre>
 <tr><td>DeepDanbooru解析</td><td>SD WebUI</td></tr>
 <tr><td>文章を英語プロンプト化</td><td>Grok、Ollama</td></tr>
 <tr><td>画像からプロンプト化</td><td>Grok、Ollama</td></tr>
-<tr><td>セリフの推敲・翻訳</td><td>Grok、Ollama</td></tr>
 </tbody>
 </table>
 <p>SD WebUI での背景削除には、SD WebUI 側に rembg 拡張機能が導入されている必要があります。同様に ADetailer にも、SD WebUI または Forge 側の ADetailer 拡張機能が必要です。</p>

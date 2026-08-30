@@ -22,7 +22,6 @@ tmpCtxToneNoise.scale(3,3);
 }
 
 function toneNoiseEnd() {
-nowTone=null;
 if (tmpCanvasToneNoise) {
 if (tmpCanvasToneNoise.parentNode) {
 tmpCanvasToneNoise.parentNode.removeChild(tmpCanvasToneNoise);

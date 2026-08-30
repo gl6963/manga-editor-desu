@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -Command \"(New-Object Media.SoundPlayer 'C:\\Windows\\Media\\tada.wav').PlaySync()\""
+            "command": "node \"C:/Users/sanka/.claude/scripts/play-sound.js\""
           }
         ]
       }
@@ -51,7 +51,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -Command \"(New-Object Media.SoundPlayer 'C:\\Windows\\Media\\tada.wav').PlaySync()\""
+            "command": "node \"C:/Users/sanka/.claude/scripts/play-sound.js\""
           }
         ]
       }

@@ -20,14 +20,35 @@
 - `llm_doc/ai-system.md` - AI画像生成の修正時。プロバイダ構成、TaskQueue、ロール割り当て、ComfyUIワークフロー
 - `llm_doc/manga-page-guideline.md` - 漫画のページを作る指針。LLMプロンプトはここから作る（これが正）
 - `llm_doc/prompt-composition.md` - コマのプロンプトを作る処理を触るとき。漫画の構図と画像生成AIの差、効くタグと効かないタグ、見切れ対策
+- `llm_doc/reference-image.md` - 設定資料（参照画像）を触るとき。Nano Bananaへ複数画像を送る仕組み、送る順と説明文の対応、モデルごとの対応差、キャンバスへ置かない生成
+- `llm_doc/text-decoration.md` - テキスト装飾プリセットを触るとき。文字を重ねて描く仕組み、Fabricのキャッシュ余白、値の持ち方
+- `llm_doc/tone-conversion.md` - カラーを白黒（トーン化）を触るとき。現行実装の3つの原因、線と面の分離、整数格子の網点、やってはいけない事
 - `llm_doc/layer-structure.md` - レイヤーやキャンバスオブジェクトの操作時。GUID連携、リンク機構、AIタスク進捗管理
 - `llm_doc/coding-rules.md` - コードを書く前に確認。命名規則、ログ出力、npm run format の挙動
 - `llm_doc/history-and-data.md` - Undo/Redo周りや画像保存の修正時。履歴スタック操作、data:URL制約
 - `llm_doc/translation.md` - UI文言を追加するとき。i18nextのキー書式と8言語の記載例
 - `llm_doc/chrome.md` - Chrome拡張連携の修正時。通信制約と接続手順
+- `llm_doc/ai-verification.md` - AI機能を触る前に確認。Inpaintのマスクが効いていない原因2つ、ComfyUI環境の実測、`file://`でできること・できないこと
 - `llm_doc/review-checklist.md` - コード修正後の見落とし防止。頻出問題と確認回数
+- `llm_doc/balloon-geometry.md` - 吹き出しの輪郭生成（スーパー楕円・オフセット多角形・周期ノイズ・しっぽ）を触るときだけ
+- `llm_doc/ux-open-items.md` - 2026-08-26の操作性監査の積み残し。見送った判断と未検証項目のみ（全文は`99_doc/`）
 
 
 ## 除外フォルダ
 検索・読み込み対象外:
-`json_js`, `test`, `third`, `01_build`, `02_images_svg`, `03_images`, `99_doc`, `font`
+`json_js`, `test`, `third`, `01_build`, `02_images_svg`, `03_images`, `99_doc`, `font`, `poc`
+`js/ui/third/` も同様（i18next本体335KB、`base-translation/`8言語計226KB）
+
+## コンテキストを膨らませない
+過去52セッションの実測では、課金の7割が「一度入れた内容が以降の全API呼び出しで再送される分」だった。
+入れた瞬間の大きさより、**入れた物が何回のやり取りにわたって居座るか**が効く。
+
+- ファイルを丸ごと読まない。`grep -n` で位置を出してから `sed -n '開始,終了p'` で範囲だけ取る。
+  `index.html`（2,994行）はセクションが `<!-- ===== Panel: Text ===== -->` の形で入っているので、まずそれを探す
+- 一度読んだファイルを読み直さない。既にコンテキストにあるものを取り直しても内容は変わらない
+- ブラウザでのUI確認は、まず `read_page` / `get_page_text` / `read_console_messages` のテキストで済ませる。
+  スクリーンショットは目で見ないと判断できない場面だけにする（1枚≒1,200トークンが以降ずっと残る）
+- サブエージェントは「多数のファイルを横断して結論だけ要る」ときに使う。
+  場所が分かっている単発の確認は自分で `grep` する（サブエージェントは起動ごとにCLAUDE.mdとシステムプロンプトを読み直す）
+- 自分のセッションログ（`~/.claude/projects/`）を読まない
+- 1セッションのやり取りが200回を超えるとコンテキストが300kを超える。作業の区切りで `/clear` をユーザーに勧める

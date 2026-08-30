@@ -17,11 +17,12 @@ image: requestData["uploadFileName"]
 });
 }
 if(Type=='Inpaint'){
+builder.migrateLegacyMaskPlaceholder();
 builder.updateNodesByInputName({
 image: requestData["uploadFileName"]
 });
 if(requestData["maskFileName"]){
-builder.updateValueByTargetValue("inpaint_mask.png",requestData["maskFileName"]);
+builder.updateValueByTargetValue(COMFY_MASK_PLACEHOLDER,requestData["maskFileName"]);
 }
 if(requestData["inpaintDenoise"]!==undefined){
 builder.updateNodesByInputName({
@@ -91,23 +92,26 @@ return null;
 var objectInfo=await response.json();
 await repo.saveObjectInfo(objectInfo);
 comfyuiLogger.info("ObjectInfo fetched on demand: "+Object.keys(objectInfo).length+" nodes");
-return Object.keys(objectInfo);
+return objectInfo;
 }catch(error){
 comfyuiLogger.error("ObjectInfo fetch error: "+(error instanceof Error?error.name+" "+error.message:error));
 return null;
 }
 }
 
-async function checkWorkflowNodeVsComfyUI(workflowClassTypes,repo){
-var nodeNames=await repo.getNodeNames();
-if(nodeNames.length===0){
-nodeNames=await fetchAndSaveComfyObjectInfo(repo);
-if(nodeNames===null||nodeNames.length===0){
+// ノードの有無と、選択肢が列挙されている入力の値（モデル名・sampler_name等）を続けて照合する。
+// 値の照合はノードが揃っていて初めて意味を持つので、ノード欠落を先に返す
+async function checkWorkflowNodeVsComfyUI(workflow,repo){
+var objectInfo=await repo.getObjectInfo();
+if(!objectInfo||Object.keys(objectInfo).length===0){
+objectInfo=await fetchAndSaveComfyObjectInfo(repo);
+if(!objectInfo||Object.keys(objectInfo).length===0){
 createToastError(getText("comfyObjectInfoErrorTitle"),getText("comfyObjectInfoErrorMessage"),1000*10);
 return false;
 }
 }
-var setB=new Set(nodeNames);
+var setB=new Set(Object.keys(objectInfo));
+var workflowClassTypes=getClassTypeOnlyByJson(workflow);
 var result=[];
 for(var i=0;i<workflowClassTypes.length;i++){
 var item=workflowClassTypes[i];
@@ -118,14 +122,26 @@ result.push(item);
 if(result.length>0){
 result.unshift("---");
 result.push("---");
-createToastError('Check ComfyUI Node! Not Exists!',result,1000*10);
+// ノード名だけを並べても何をすればいいのか読めないので、手順を1行目に置く。
+// resultはこのあとshowNodeErrorGuide()へ渡すため、トースト用の配列は別に作る
+createToastError(getText('missingNode'),[getText('comfyMissingNodeAction')].concat(result),1000*10);
 if(typeof ComfyUIGuide!=='undefined'){
 ComfyUIGuide.showNodeErrorGuide(result);
 }
 return false;
-}else{
-return true;
 }
+var mismatches=comfyCollectValueMismatches(workflow,objectInfo);
+if(mismatches.length>0){
+var lines=mismatches.map(comfyFormatValueMismatch);
+comfyuiLogger.error("Workflow value mismatch: "+lines.join(" / "));
+var toastLines=["---"].concat(lines,["---"]);
+createToastError(getText('comfyMissingValue'),[getText('comfyMissingValueAction')].concat(toastLines),1000*10);
+if(typeof ComfyUIGuide!=='undefined'){
+ComfyUIGuide.showValueErrorGuide(lines);
+}
+return false;
+}
+return true;
 }
 
 async function notExistsWorkflowNodeVsComfyUI(workflowClassType,repo){

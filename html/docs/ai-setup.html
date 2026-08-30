@@ -78,11 +78,11 @@
 <tr><td>RunPod ComfyUI</td><td>Your RunPod pod</td><td>The pod URL</td><td>Same as ComfyUI</td></tr>
 <tr><td>SD WebUI (A1111 / Forge)</td><td>Your machine</td><td>Launch flags</td><td>Text-to-image, image-to-image, background removal, CLIP and DeepDanbooru interrogation, ADetailer</td></tr>
 <tr><td>Fal.ai</td><td>Cloud</td><td>An API key</td><td>Text-to-image, image-to-image, upscale, background removal</td></tr>
-<tr><td>Grok (xAI)</td><td>Cloud</td><td>An API key</td><td>Language model tasks: prompts from text, prompts from images, story to panel prompts, dialogue polishing and translation</td></tr>
+<tr><td>Grok (xAI)</td><td>Cloud</td><td>An API key</td><td>Language model tasks: prompts from text, prompts from images, story to panel prompts</td></tr>
 <tr><td>Ollama</td><td>Your machine</td><td>An environment variable</td><td>Same language model tasks as Grok</td></tr>
 </tbody>
 </table>
-<p>You do not have to pick one. Each task type is routed independently, so a local ComfyUI can generate images while Grok handles dialogue translation.</p>
+<p>You do not have to pick one. Each task type is routed independently, so a local ComfyUI can generate images while Grok turns your story into panel prompts.</p>
 </div>
 
 <h2>Why a launch flag is needed</h2>
@@ -181,7 +181,6 @@ Environment="OLLAMA_ORIGINS=*"</code></pre>
 <tr><td>DeepDanbooru interrogation</td><td>SD WebUI</td></tr>
 <tr><td>Text to Prompt</td><td>Grok, Ollama</td></tr>
 <tr><td>Image to Prompt</td><td>Grok, Ollama</td></tr>
-<tr><td>Dialogue &amp; Translation</td><td>Grok, Ollama</td></tr>
 </tbody>
 </table>
 <p>Background removal on SD WebUI relies on the rembg extension being installed there. ADetailer likewise requires the ADetailer extension in SD WebUI or Forge.</p>

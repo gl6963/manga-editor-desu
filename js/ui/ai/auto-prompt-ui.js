@@ -5,7 +5,7 @@ var otherControlsMini=$("other-controls-mini");
 otherControlsMini.innerHTML=`
 <div class="control textarea-control">
     <div class="textarea-label-wrapper">
-        <label class="textarea-label" for="textarea">Prompt</label>
+        <label class="textarea-label" for="textarea" data-i18n="apPrompt">${getText('apPrompt')}</label>
     </div>
     <textarea id="text2img_prompt" name="textarea" placeholder=" ">${
       layer.text2img_prompt || ""
@@ -13,34 +13,35 @@ otherControlsMini.innerHTML=`
 </div>
 <div class="control textarea-control">
     <div class="textarea-label-wrapper">
-        <label class="textarea-label" for="textarea">Negative</label>
+        <label class="textarea-label" for="textarea" data-i18n="apNegative">${getText('apNegative')}</label>
     </div>
     <textarea id="text2img_negative" name="textarea" placeholder=" ">${
       layer.text2img_negative || ""
     }</textarea>
 </div>
-                    
+
 <div class="dual-number-control">
     <div class="control">
         <input type="number" id="text2img_width" name="number-input-1" placeholder=" " value="${
           layer.text2img_width || 1024
         }">
-        <span class="label">Width(-1=Use Base)</span>
+        <span class="label" data-i18n="apWidth">${getText('apWidth')}</span>
     </div>
     <div class="control">
         <input type="number" id="text2img_height" name="number-input-1" placeholder=" " value="${
           layer.text2img_height || 1024
         }">
-        <span class="label">Height(-1=Use Base)</span>
+        <span class="label" data-i18n="apHeight">${getText('apHeight')}</span>
     </div>
 </div>
-                    
+<div class="control-note" data-i18n="apSizeNote">${getText('apSizeNote')}</div>
+
 <div class="dual-number-control">
     <div class="control">
         <input type="number" id="text2img_seed" name="number-input-1" placeholder=" " value="${
           layer.text2img_seed || -2
         }">
-        <span class="label">Seed(-1=Rundom, -2=Use Base)</span>
+        <span class="label" data-i18n="apSeed">${getText('apSeed')}</span>
     </div>
     <div class="control" style="visibility: hidden;">
         <select id="dummy202410130402" name="dropdown">
@@ -48,9 +49,10 @@ otherControlsMini.innerHTML=`
         <span class="label">dummy</span>
     </div>
 </div>
+<div class="control-note" data-i18n="apSeedNote">${getText('apSeedNote')}</div>
 <div class="dual-number-control">
     <div class="control">
-        <button id="promptRun"">Generate</button>
+        <button id="promptRun" data-i18n="apGenerate">${getText('apGenerate')}</button>
     </div>
     <div class="control">
         ${llmPromptButtonHtml()}
@@ -105,7 +107,7 @@ var otherControlsMini=$("other-controls-mini");
 otherControlsMini.innerHTML=`
 <div class="control textarea-control">
     <div class="textarea-label-wrapper">
-        <label class="textarea-label" for="textarea">Prompt</label>
+        <label class="textarea-label" for="textarea" data-i18n="apPrompt">${getText('apPrompt')}</label>
     </div>
     <textarea id="text2img_prompt" name="textarea" placeholder=" ">${
       layer.text2img_prompt || ""
@@ -113,34 +115,35 @@ otherControlsMini.innerHTML=`
 </div>
 <div class="control textarea-control">
     <div class="textarea-label-wrapper">
-        <label class="textarea-label" for="textarea">Negative</label>
+        <label class="textarea-label" for="textarea" data-i18n="apNegative">${getText('apNegative')}</label>
     </div>
     <textarea id="text2img_negative" name="textarea" placeholder=" ">${
       layer.text2img_negative || ""
     }</textarea>
 </div>
-                    
+
 <div class="dual-number-control">
     <div class="control">
         <input type="number" id="text2img_seed" name="number-input-1" placeholder=" " value="${
           layer.text2img_seed || -2
         }">
-        <span class="label">Seed(-1=Rundom, -2=Use Base)</span>
+        <span class="label" data-i18n="apSeed">${getText('apSeed')}</span>
     </div>
     <div class="control">
         <input type="number" id="img2imgScale" name="number-input-1" placeholder=" " step="0.1"  min="0.1" value="${
           layer.img2imgScale || 1.2
         }">
-        <span class="label">Scale</span>
+        <span class="label" data-i18n="apScale">${getText('apScale')}</span>
     </div>
 </div>
+<div class="control-note" data-i18n="apSeedNote">${getText('apSeedNote')}</div>
 
 <div class="dual-number-control">
     <div class="control">
         <input type="number" id="img2img_denoise" name="number-input-1" placeholder=" " step="0.01"  max="1" min="0" value="${
           layer.img2img_denoise || 0.7
         }">
-        <span class="label">Denoise</span>
+        <span class="label" data-i18n="apDenoise">${getText('apDenoise')}</span>
     </div>
     <div class="control" style="visibility: hidden;">
         <input type="number" id="dummy202410130418">
@@ -149,7 +152,7 @@ otherControlsMini.innerHTML=`
 </div>
 <div class="dual-number-control">
     <div class="control">
-        <button id="promptRun"">Generate</button>
+        <button id="promptRun" data-i18n="apGenerate">${getText('apGenerate')}</button>
     </div>
     <div class="control">
         ${llmPromptButtonHtml()}
@@ -214,6 +217,6 @@ inputElement.value=Math.round(value/8)*8;
 
 function noShowPrompt() {
 var otherControlsMini=$("other-controls-mini");
-otherControlsMini.innerHTML=`<label>Text or Image Prpmpt…</label>`;
+otherControlsMini.innerHTML=`<label data-i18n="apNoSelection">${getText('apNoSelection')}</label>`;
 setAutoSizeingControlMini();
 }

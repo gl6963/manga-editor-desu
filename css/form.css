@@ -192,6 +192,16 @@ button:hover {
  color: var(--button-hover-color);
 }
 
+/* キーボード操作でどこにいるかを示す。ボタン個別に足すと必ず抜けが出るため
+   ここ1か所で全ボタンに当てる。:focus-visibleなのでマウス操作では出ない */
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+ outline: 2px solid var(--color-text-primary);
+ outline-offset: 2px;
+}
+
 button:active {
  background: rgba(255,255,255,0.05);
  transition: none;

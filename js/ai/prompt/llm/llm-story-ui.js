@@ -19,8 +19,20 @@ function llmStoryIsRightToLeft() {
 return $("storyRightToLeft").checked;
 }
 
-function llmStorySetStatus(text) {
-$("storyPromptStatus").textContent=text||'';
+// 状態行の入口はここ1か所。文字だけの状態と「次の一手」ボタン付きの状態を
+// 同じ関数で作り直す。書き分けるとボタンだけ消し忘れて残る
+function llmStorySetStatus(text,action) {
+const status=$("storyPromptStatus");
+status.textContent=text||'';
+if (!text||!action) {
+return;
+}
+const button=document.createElement('button');
+button.type='button';
+button.className='preset-sub-button';
+button.textContent=getText(action.labelKey);
+button.addEventListener('click',action.onClick);
+status.appendChild(button);
 }
 
 function llmStorySetBusy(busy) {
@@ -36,22 +48,33 @@ createToastError(getText("storyTitle"),message,1000*10);
 llmLogger.error('llmStory failed: '+message);
 }
 
+// 割り当てが無いと押しても何も起きない。トーストは消えるので、
+// 次の一手（生成AI設定を開いてLLMを割り当てる）は状態行にも残す
 function llmStoryRequireProvider() {
-if (hasNotRole(AI_ROLES.Text2Prompt)) {
-createToastError(getText("storyTitle"),getText("llmErrorNoProvider"),1000*8);
-return false;
-}
+if (!hasNotRole(AI_ROLES.Text2Prompt)) {
 return true;
+}
+const howTo=i18next.t('llmErrorNoProviderHowTo',{role:getText('roleText2Prompt')});
+createToastError(getText("storyTitle"),[getText("llmErrorNoProvider"),howTo],1000*8);
+llmStorySetStatus(getText("llmErrorNoProvider")+' '+howTo,{
+labelKey:'llmOpenAISettings',
+onClick:function () {
+unifiedSettingsWindow.open();
+}
+});
+return false;
 }
 
 // キャラ表とロケーション表を1回の呼び出しでまとめて埋める
 async function llmStoryExtractSheets() {
-if (!llmStoryRequireProvider()) {
-return;
-}
+// 入力の有無を先に見る。割り当てが無いことを先に言うと、
+// ストーリー欄が空でも「LLMが無い」とだけ出て、何を直せばいいのか読めない
 const story=llmStoryGetStory();
 if (!story) {
 llmStorySetStatus(getText("storyNeedInput"));
+return;
+}
+if (!llmStoryRequireProvider()) {
 return;
 }
 llmStorySetBusy(true);
@@ -72,12 +95,14 @@ llmStorySetBusy(false);
 // ユーザーの入力を黙って書き換えず、一度プレビューへ出して
 // 編集させてから「ストーリー欄へ入れる」を押させる
 async function llmStoryFitStory() {
-if (!llmStoryRequireProvider()) {
-return;
-}
+// 入力の有無を先に見る。割り当てが無いことを先に言うと、
+// ストーリー欄が空でも「LLMが無い」とだけ出て、何を直せばいいのか読めない
 const story=llmStoryGetStory();
 if (!story) {
 llmStorySetStatus(getText("storyNeedInput"));
+return;
+}
+if (!llmStoryRequireProvider()) {
 return;
 }
 // 何ページ分に合わせるかはキャンバスのページ数で決まる
@@ -251,12 +276,14 @@ openLLMStoryPreview();
 }
 
 function llmStoryGenerate() {
-if (!llmStoryRequireProvider()) {
-return;
-}
+// 入力の有無を先に見る。割り当てが無いことを先に言うと、
+// ストーリー欄が空でも「LLMが無い」とだけ出て、何を直せばいいのか読めない
 const story=llmStoryGetStory();
 if (!story) {
 llmStorySetStatus(getText("storyNeedInput"));
+return;
+}
+if (!llmStoryRequireProvider()) {
 return;
 }
 const scope=storyGetScope();

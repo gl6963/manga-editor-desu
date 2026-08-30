@@ -11,14 +11,18 @@ var modelChart=null;
 var currentChartMode='T2I';
 var currentTrendPeriod='daily';
 var wordcloudResizeObserver=null;
-var MODE_LABELS={
-T2I:'T2I',
-I2I:'I2I',
-I2I_Angle:'I2I Angle',
-Inpaint:'Inpaint',
-Upscaler:'Upscaler',
-Rembg:'Rembg',
+// 表示名は呼ばれるたびに引き直す。起動時に固定すると言語を切り替えても前の言語のまま残る
+var MODE_LABEL_KEYS={
+T2I:'dashboardModeT2I',
+I2I:'dashboardModeI2I',
+I2I_Angle:'dashboardModeI2IAngle',
+Inpaint:'dashboardModeInpaint',
+Upscaler:'dashboardModeUpscaler',
+Rembg:'dashboardModeRembg',
 };
+function getModeLabel(mode){
+return getText(MODE_LABEL_KEYS[mode]);
+}
 var MODE_COLORS_DARK={
 T2I:'#00bcd4',
 I2I:'#ff9800',
@@ -35,8 +39,10 @@ Inpaint:'#c2185b',
 Upscaler:'#455a64',
 Rembg:'#388e3c',
 };
-var DAY_LABELS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-var MONTH_LABELS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+// 月名は辞書に持たずIntlへ渡す。12か月×8言語を抱えると言語を足すたびに増える
+function getMonthLabel(dateObj){
+return dateObj.toLocaleDateString(i18next.language,{month:'short'});
+}
 var WORDCLOUD_COLORS_DARK=['#00bcd4','#4caf50','#ff9800','#e91e63','#9c27b0','#607d8b','#03a9f4','#8bc34a'];
 var WORDCLOUD_COLORS_LIGHT=['#0097a7','#388e3c','#f57c00','#c2185b','#7b1fa2','#455a64','#0288d1','#689f38'];
 var BADGES=[
@@ -158,32 +164,44 @@ await refreshTrendChart();
 var clearBtn=document.getElementById('dashboardClearStats');
 if(clearBtn){
 clearBtn.addEventListener('click',async function(){
-if(confirm(getText('dashboardConfirmClear'))){
+var ok=await showConfirmDialog({
+titleKey:'dashboardConfirmClearTitle',
+messageKey:'dashboardConfirmClear',
+danger:true
+});
+if(!ok)return;
 await PerformanceStorage.clearAllStats();
 await PromptFrequencyStorage.clearAll();
 await ApiCostStorage.clearAll();
 await refresh();
-}
 });
 }
 var clearTagsBtn=document.getElementById('dashboardClearTags');
 if(clearTagsBtn){
 clearTagsBtn.addEventListener('click',async function(){
-if(confirm(getText('dashboardConfirmClearTags'))){
+var ok=await showConfirmDialog({
+titleKey:'dashboardConfirmClearTagsTitle',
+messageKey:'dashboardConfirmClearTags',
+danger:true
+});
+if(!ok)return;
 await PromptFrequencyStorage.clearAll();
 await refreshTopTags();
 await refreshWordcloud();
 await refreshStats();
-}
 });
 }
 var clearApiCostBtn=document.getElementById('dashboardClearApiCost');
 if(clearApiCostBtn){
 clearApiCostBtn.addEventListener('click',async function(){
-if(confirm(getText('dashboardConfirmClearApiCost'))){
+var ok=await showConfirmDialog({
+titleKey:'dashboardConfirmClearApiCostTitle',
+messageKey:'dashboardConfirmClearApiCost',
+danger:true
+});
+if(!ok)return;
 await ApiCostStorage.clearAll();
 await refreshApiCost();
-}
 });
 }
 var downloadBtn=document.getElementById('dashboardDownloadWordcloud');
@@ -290,7 +308,7 @@ for(var i=0;i<PerformanceStorage.MODES.length;i++){
 var mode=PerformanceStorage.MODES[i];
 var stats=allStats[mode];
 html+='<tr>';
-html+='<td>'+MODE_LABELS[mode]+'</td>';
+html+='<td>'+getModeLabel(mode)+'</td>';
 html+='<td>'+stats.count.toLocaleString()+'</td>';
 html+='<td>'+(stats.avg?stats.avg.toLocaleString():'-')+'</td>';
 html+='<td>'+(stats.min!==null?stats.min.toLocaleString():'-')+'</td>';
@@ -382,12 +400,12 @@ html+='<div class="heatmap-hour">'+hour+'</div>';
 html+='</div>';
 for(var day=0;day<7;day++){
 html+='<div class="heatmap-row">';
-html+='<div class="heatmap-label">'+(getText('dashboardDay'+day)||DAY_LABELS[day])+'</div>';
+html+='<div class="heatmap-label">'+getText('dashboardDay'+day)+'</div>';
 for(var hour=0;hour<24;hour++){
 var count=(hourlyData[day]&&hourlyData[day][hour])||0;
 var intensity=maxCount>0?count/maxCount:0;
 var bgColor=getHeatmapColor(intensity);
-var dayLabel=getText('dashboardDay'+day)||DAY_LABELS[day];
+var dayLabel=getText('dashboardDay'+day);
 html+='<div class="heatmap-cell" style="background-color:'+bgColor+'" title="'+dayLabel+' '+hour+':00 - '+count+' '+(getText('dashboardGenerations')||'generations')+'"></div>';
 }
 html+='</div>';
@@ -632,7 +650,7 @@ var firstDay=weeks[w][0]||weeks[w][1]||weeks[w][2];
 if(firstDay){
 var month=firstDay.dateObj.getMonth();
 if(month!==lastMonth){
-html+='<span class="calendar-month-label" style="width:'+13*1+'px">'+MONTH_LABELS[month]+'</span>';
+html+='<span class="calendar-month-label" style="width:'+13*1+'px">'+getMonthLabel(firstDay.dateObj)+'</span>';
 lastMonth=month;
 }else{
 html+='<span class="calendar-month-label" style="width:13px"></span>';
@@ -1067,7 +1085,7 @@ close:close,
 refresh:refresh,
 recordGeneration:recordGeneration,
 recordFailure:recordFailure,
-MODE_LABELS:MODE_LABELS,
+getModeLabel:getModeLabel,
 };
 })();
 function openDashboardModal(){

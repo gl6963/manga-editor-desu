@@ -5,6 +5,9 @@
 .llm-prompt-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:6px 5px;}
 .llm-prompt-actions button{margin:0;font-size:12px;padding:4px 10px;}
 .llm-prompt-status{font-size:11px;color:var(--color-component-minitext);}
+/* 状態行には「次の一手」の文とボタンが入ることがある。
+   ボタンの行と同じ並びに置いているので、縮めて折り返せるようにしておく */
+.llm-prompt-actions .llm-prompt-status{min-width:0;line-height:1.6;}
 .llm-storyboard-window{width:min(520px,92vw);max-height:80vh;overflow-y:auto;}
 .llm-storyboard-check{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--color-text-secondary);}
 .llm-storyboard-check input{margin:0;}
@@ -23,8 +26,6 @@
 /* コマ番号の下に役割（引き・情景…）を出す。番号の桁で位置がずれないよう縦に積む */
 .llm-storyboard-index{display:flex;flex-direction:column;gap:2px;}
 .llm-panel-role{font-size:10px;opacity:0.75;}
-.llm-dialogue-window{width:min(440px,92vw);max-height:85vh;overflow-y:auto;}
-.llm-dialogue-window select,.llm-dialogue-window input[type="text"],.llm-dialogue-window input[type="number"]{width:100%;box-sizing:border-box;font-size:12px;padding:5px 8px;border:1px solid var(--color-tertiary);border-radius:4px;background:var(--color-secondary);color:var(--color-text-secondary);}
 /* ページ数に合わせたストーリー。編集してから入力欄へ入れる */
 .llm-story-fit-window{width:min(560px,92vw);max-height:85vh;overflow-y:auto;}
 .llm-story-fit-window textarea{width:100%;box-sizing:border-box;font-size:12px;line-height:1.6;padding:6px 8px;border:1px solid var(--color-tertiary);border-radius:4px;background:var(--color-secondary);color:var(--color-text-secondary);resize:vertical;}

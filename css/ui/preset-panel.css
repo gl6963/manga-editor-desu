@@ -115,6 +115,15 @@
  display: none;
 }
 
+/* 効き先はツールチップだけだと読まれない。カードのすぐ上に出す */
+.left_area .preset-current-hint {
+ margin: 0 0 4px;
+ font-size: 9px;
+ line-height: 1.4;
+ opacity: 0.6;
+ word-break: break-word;
+}
+
 /* フォントは種類を跨ぐ設定なので、スクロールする本体ではなく
    プリセットカードと同じ「常に見えている段」に置く */
 .preset-panel-font {

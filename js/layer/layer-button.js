@@ -171,9 +171,59 @@ buttonsDiv.appendChild(button);
 
 function visibleChange(obj){
 obj.visible=!obj.visible;
+// 見えなくしたものが選ばれたままだと、ハンドルだけが宙に残り、
+// Deleteで何が消えるのかが画面から分からなくなる。表示を切り替えるこの1か所で選択と揃える。
+// selectable/evented は触らない。fabricの当たり判定（_checkTarget）が
+// visible を見ているため、非表示のものはそもそも掴めない
+if(!obj.visible){
+var activeObject=canvas.getActiveObject();
+var inActiveSelection=activeObject&&activeObject.type==="activeSelection"&&activeObject.contains(obj);
+if(activeObject===obj||inActiveSelection){
+canvas.discardActiveObject();
+}
+}
 updateLayerPanel();
 canvas.requestRenderAll();
 commitHistory();
+}
+
+// 右クリックにしか無い操作（表示制限の削除・切り抜き・複製・コマへ入れる・設定資料）へ
+// レイヤーからも辿れるようにする。同じメニューをそのまま開くので入口が二重にならない
+function putMoreMenuActionButton(actionBar,layer){
+putActionButton(actionBar,"more_horiz","actMoreMenu",function(){
+if(canvas.getActiveObject()!==layer){
+canvas.setActiveObject(layer);
+canvas.renderAll();
+}
+showObjectMenu('right');
+});
+}
+
+// コマに付けた設定資料の枚数。ウインドウを開いて1コマずつ選び直さないと分からないと、
+// 付け忘れたコマがそのまま生成へ流れる。実体が見つからないidも数に入れる
+// （ここで存在チェックをすると、読み込みの途中で0件に見える）。
+//
+// **押せば、そのコマを対象にして開く。** 数だけ出して押せないと、
+// 直したいコマが分かってからAI設定の並びまで目を戻すことになる
+function putReferenceCountBadge(buttonsDiv,layer) {
+if(!isPanel(layer)){return;}
+var count=ReferenceCollector.getAttachedIds(layer).length;
+if(count===0){return;}
+var badge=document.createElement("button");
+badge.className="layer-ref-count";
+var icon=document.createElement("i");
+icon.className="material-icons";
+icon.textContent="photo_library";
+var num=document.createElement("span");
+num.textContent=count;
+badge.appendChild(icon);
+badge.appendChild(num);
+badge.onclick=function(event){
+event.stopPropagation();
+referenceSheetWindow.open(layer);
+};
+addTooltipByElement(badge,"layerRefCountOpen");
+buttonsDiv.appendChild(badge);
 }
 
 function putViewButton(buttonsDiv,layer,index) {
@@ -274,6 +324,8 @@ T2I(layer,spinner);
 
 function moveLockChange(obj){
 obj.selectable=!obj.selectable;
+// 外したらもう目立たせる必要はない
+clearLockHint();
 canvas.discardActiveObject();
 canvas.renderAll();
 updateLayerPanel();
@@ -287,6 +339,10 @@ if(!layer.selectable){
 button.innerHTML='<i class="material-icons">lock</i>';
 }else{
 button.innerHTML='<i class="material-icons">control_camera</i>';
+}
+// キャンバスで押されたロック中のオブジェクトは、その鍵がどれかを示す
+if(!layer.selectable&&isLockHintTarget(layer.guid)){
+button.classList.add("layer-lock-hint");
 }
 
 button.onclick=function (e) {

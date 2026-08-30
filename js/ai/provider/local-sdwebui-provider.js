@@ -24,6 +24,12 @@ return sdwebuiApiHeartbeat();
 async executeT2I(layer,spinnerId){
 return sdwebuiT2IProcessQueue(layer,spinnerId);
 }
+supportsDetachedT2I(){
+return true;
+}
+async executeDetachedT2I(request,spinnerId){
+return sdwebuiT2IDetached(request,spinnerId);
+}
 async executeI2I(layer,spinnerId){
 return sdwebuiI2IProcessQueue(layer,spinnerId);
 }

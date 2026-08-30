@@ -49,6 +49,7 @@ function _getQueueByName(name){
 if(name==='comfyui'&&typeof comfyuiQueue!=='undefined')return comfyuiQueue;
 if(name==='sd'&&typeof sdQueue!=='undefined')return sdQueue;
 if(name==='falai'&&typeof falaiQueue!=='undefined')return falaiQueue;
+if(name==='googleImage'&&typeof googleImageQueue!=='undefined')return googleImageQueue;
 if(name==='grok'&&typeof grokQueue!=='undefined')return grokQueue;
 if(name==='ollama'&&typeof ollamaQueue!=='undefined')return ollamaQueue;
 return null;
@@ -65,14 +66,15 @@ return;
 
 var queue=task.queueName?_getQueueByName(task.queueName):null;
 
-if(task.status==='waiting'&&queue&&task.queueItemId){
-queue.removeItem(task.queueItemId);
-}else if(task.status==='running'){
-if(task.queueName==='comfyui'||task.queueName===undefined){
+// 待機中・実行中のどちらもcancelItem()で落とす。これを通さないと
+// 実行中タスクのPromiseが生き残り、取り消したはずの画像が配置される
+if(queue&&task.queueItemId){
+queue.cancelItem(task.queueItemId);
+}
+if(task.status==='running'&&(task.queueName==='comfyui'||task.queueName===undefined)){
 var pid=task.promptId||aiProgressState.currentPromptId;
 if(pid&&typeof comfyuiCancelPrompt==='function'){
 comfyuiCancelPrompt(pid);
-}
 }
 }
 

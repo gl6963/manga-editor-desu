@@ -2,7 +2,7 @@
 const ComfyUI_Inpaint_BySDXL={
 "1":{
 "inputs":{
-"ckpt_name":"sd_xl_base_1.0.safetensors"
+"ckpt_name":"illustrious\\waiIllustriousSDXL_v160.safetensors"
 },
 "class_type":"CheckpointLoaderSimple",
 "_meta":{
@@ -21,8 +21,8 @@ const ComfyUI_Inpaint_BySDXL={
 },
 "3":{
 "inputs":{
-"image":"inpaint_mask.png",
-"channel":"alpha",
+"image":"%mask%",
+"channel":"red",
 "upload":"image"
 },
 "class_type":"LoadImageMask",

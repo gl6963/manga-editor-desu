@@ -8,6 +8,9 @@ var localInitialized=false;
 var runpodInitialized=false;
 var sdwebuiInitialized=false;
 var activeTabIdx=0;
+// 生成AI設定と同じ形でEscを受ける。こちらだけ無いと、生成AI設定の上に重ねて開いたとき
+// Escが下のウインドウに届き、手前を残したまま下だけが閉じる
+var focusTrap=null;
 
 var sdwebuiOriginalParents=[];
 
@@ -15,10 +18,20 @@ function open(){
 if(!overlayEl)overlayEl=$('modelSettingsOverlay');
 overlayEl.classList.add('active');
 switchTab(activeTabIdx);
+// activate()がこのウインドウの中へフォーカスを移すため、
+// 以降のEscはこちらのcontainerで拾われ、下のウインドウまで下りない
+if(!focusTrap){
+focusTrap=FocusTrap.create(overlayEl.querySelector('.us-window'),close);
+FocusTrap.activate(focusTrap);
+}
 }
 
 function close(){
 if(!overlayEl)return;
+if(focusTrap){
+FocusTrap.deactivate(focusTrap);
+focusTrap=null;
+}
 overlayEl.classList.remove('active');
 }
 

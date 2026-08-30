@@ -43,6 +43,13 @@ sidebarValueMap.set(element.id,element.value);
 _debouncedSidebarSave();
 }
 
+// 入力要素を持たないサイドバーの値（フォント名など）。同じ入れ物へ入れるので
+// 「設定の自動保存」のON/OFFもスライダー類と同じ扱いになる
+function saveValueMapByKey(key,value){
+sidebarValueMap.set(key,value);
+_debouncedSidebarSave();
+}
+
 function addNumber(id,label,min,max,value,step=1) {
 const transLavel=getText(label);
 return `
@@ -95,7 +102,7 @@ return `
 function addSlider(id,label,min,max,value,step=1) {
 const transLavel=getText(label);
 return `
-      <div class="input-container-leftSpace" data-label="${transLavel}">
+      <div class="input-container-leftSpace" data-i18n-label="${label}" data-label="${transLavel}">
           <input type="range" id="${id}" min="${min}" max="${max}" value="${value}" step="${step}" aria-label="${transLavel}" aria-valuemin="${min}" aria-valuemax="${max}" aria-valuenow="${value}">
       </div>
   `;

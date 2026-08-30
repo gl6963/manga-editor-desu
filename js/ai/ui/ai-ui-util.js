@@ -63,7 +63,8 @@ var map={
 localComfyUI:'comfyUIButton',
 localSDWebUI:'sdWebUIButton',
 runpodComfyUI:'runpodComfyUIButton',
-falai:'falaiButton'
+falai:'falaiButton',
+googleImage:'googleImageButton'
 };
 return map[primary]||'comfyUIButton';
 }
@@ -77,6 +78,12 @@ showById("prompt-F");
 if (externalApiGroup==="falaiButton"){
 hideById("comfyUIWorkflowId");
 showById("negativeAreaId");
+return;
+}
+// Nano Bananaにネガティブプロンプトの項目は無い。欄を残すと入力が効いているように見えるため隠す
+if (externalApiGroup==="googleImageButton"){
+hideById("comfyUIWorkflowId");
+hideById("negativeAreaId");
 return;
 }
 if (isComfyUIMode(externalApiGroup)){

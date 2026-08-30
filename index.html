@@ -106,7 +106,7 @@
         "Optional AI image generation via ComfyUI, RunPod ComfyUI, SD WebUI, Forge, Fal.ai, Grok or Ollama",
         "Per-task routing of AI work to different services",
         "Inpainting editor and 3D camera angle regeneration",
-        "Language model features: story to panel prompts, image to prompt, dialogue polishing and translation",
+        "Language model features: story to panel prompts, image to prompt",
         "Custom ComfyUI workflow import with inline node editing",
         "Usage statistics dashboard with JSON and CSV export",
         "Progressive web app installation and offline asset caching",
@@ -298,7 +298,7 @@ function getElementClasses(element) {
 <link rel="stylesheet" href="css/layout.css?v=7.2">
 <link rel="stylesheet" href="css/image-control-manager.css?v=7.2">
 <!-- <link rel="stylesheet" href="css/anime.css?v=7.2"> -->
-<link rel="stylesheet" href="css/layout-layer.css?v=7.2">
+<link rel="stylesheet" href="css/layout-layer.css?v=8.0">
 <link rel="stylesheet" href="css/toast.css?v=7.2">
 <link rel="stylesheet" href="css/ui/preset-panel.css?v=7.6">
 <link rel="stylesheet" href="css/ui/preset-picker.css?v=7.6">
@@ -357,13 +357,13 @@ function getElementClasses(element) {
                             <li>
                                 <a class="dropdown-item" href="#" id="projectSave">
                                     <i class="material-icons">folder_zip</i>
-                                    <span data-i18n="projectSave">Project Save</span>
+                                    <span data-i18n="projectSave">Project Save</span> (Ctrl+S)
                                 </a>
                             </li>
                             <li>
                                 <a class="dropdown-item" href="#" id="projectLoad">
                                     <i class="material-icons">folder_zip</i> <span data-i18n="projectLoad">Project
-                                        Load</span>
+                                        Load</span> (Ctrl+O)
                                 </a>
                             </li>
                             <li>
@@ -377,6 +377,12 @@ function getElementClasses(element) {
                                     <i class="material-icons">restart_alt</i> <span data-i18n="settingsReset">Settings Reset</span>
                                 </a>
                             </li>
+                            <li>
+                                <a class="dropdown-item" href="#" id="newPage" onclick="loadBookSize(canvas.width,canvas.height,true,true)">
+                                    <span class="material-symbols-outlined">note_add</span>
+                                    <span data-i18n="sc_newPage">New Page</span> (Alt+N)
+                                </a>
+                            </li>
                             <label data-i18n="fileImage"></label>
                             <li>
                                 <a class="dropdown-item" href="#" onclick="inputImageFile()">
@@ -388,6 +394,7 @@ function getElementClasses(element) {
                                 <a class="dropdown-item" href="#" id="imageDownload" onclick="cropAndDownload()">
                                     <span class="material-symbols-outlined">imagesmode</span> <span
                                         data-i18n="imageDownload">Image Download</span> (Ctrl+D)
+                                    <span class="output-pixel-size-value"></span>
                                 </a>
                             </li>
                             <li>
@@ -403,7 +410,7 @@ function getElementClasses(element) {
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="#" onclick="allRemove()">
+                                <a class="dropdown-item" href="#" onclick="confirmAllRemove()">
                                     <i class="material-icons">delete</i> <span data-i18n="allRemove">All Remove</span>
                                 </a>
                             </li>
@@ -426,6 +433,8 @@ function getElementClasses(element) {
                                     </label>
                                     <input type="number" id="autoSaveInterval" value="60" min="10" max="600" style="width:50px;margin-left:8px;">
                                     <span data-i18n="autoSaveSeconds">sec</span>
+                                    <div id="autoSaveLastSavedLabel" style="opacity:0.75;margin-top:2px;"></div>
+                                    <div data-i18n="autoSaveStorageNote" style="opacity:0.6;white-space:normal;max-width:22em;margin-top:2px;"></div>
                                 </div>
                             </li>
                             <li>
@@ -482,6 +491,16 @@ function getElementClasses(element) {
                                     </label>
                                 </div>
                             </li>
+                            <label data-i18n="viewCanvasMarks"></label>
+                            <li>
+                                <div style="padding:2px 10px 4px 18px;white-space:nowrap;font-size:11px;">
+                                    <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;">
+                                        <input type="checkbox" id="view_reference_marks_checkbox" onchange="referenceCanvasOverlay.setEnabled(this.checked)">
+                                        <i class="material-icons" style="font-size:16px;">photo_library</i>
+                                        <span data-i18n="viewReferenceMarks">コマの設定資料</span>
+                                    </label>
+                                </div>
+                            </li>
                         </ul>
                     </li>
                 </ul>
@@ -535,6 +554,11 @@ function getElementClasses(element) {
                                     step="1">
                                 <input type="number" id="pageHeightMm" class="dropdown-item-mini-text" value="210"
                                     min="1" step="1">
+                            </a>
+                            <a class="dropdown-item">
+                                <i class="material-icons">aspect_ratio</i> <span
+                                    data-i18n="outputPixelSize">Output Size</span>
+                                <span class="output-pixel-size-value"></span>
                             </a>
                             <label data-i18n="canvasGrid"></label>
                             <a class="dropdown-item" href="#" id="toggleGridButton">
@@ -596,7 +620,7 @@ function getElementClasses(element) {
                                 <span class="flag-icon flag-icon-es"></span> <span data-i18n="spanish">Español</span>
                             </a>
                             <a class="dropdown-item" href="#" onclick="changeLanguage('de', event)">
-                                <span class="flag-icon flag-icon-de"></span> <span data-i18n="Germany">Germany</span>
+                                <span class="flag-icon flag-icon-de"></span> <span data-i18n="german">Deutsch</span>
                             </a>
 
                         </ul>
@@ -1205,15 +1229,15 @@ function getElementClasses(element) {
                     </div>
 
                     <div class="input-group-multi" data-group="sbTextGroup">
-                        <button id="sbNothingText" onclick="sbTextChange('Nothing', this)" data-value="Nothing">
+                        <button id="sbNothingText" onclick="sbTextChange('Nothing', this)" data-value="Nothing" data-tip="tipBubbleTextNone">
                             <i class="material-icons">do_not_disturb</i>
                             <i class="material-icons">text_fields</i>
                         </button>
-                        <button id="sbHorizontalText" onclick="sbTextChange('Horizontal', this)" class="selected" data-value="Horizontal">
+                        <button id="sbHorizontalText" onclick="sbTextChange('Horizontal', this)" class="selected" data-value="Horizontal" data-tip="tipBubbleTextHorizontal">
                             <i class="material-icons">east</i>
                             <i class="material-icons">text_fields</i>
                         </button>
-                        <button id="sbVerticalText" onclick="sbTextChange('Vertical', this)" data-value="Vertical">
+                        <button id="sbVerticalText" onclick="sbTextChange('Vertical', this)" data-value="Vertical" data-tip="tipBubbleTextVertical">
                             <i class="material-icons">south</i>
                             <i class="material-icons">text_fields</i>
                         </button>
@@ -1246,15 +1270,15 @@ function getElementClasses(element) {
                             <button id="sbDeleteButton" data-i18n="sbDeleteMode">Delete Point</button>
                         </div>
                         <div class="input-group-multi" data-group="sbFreehandTextGroup">
-                            <button id="sbFreehandNothingText" onclick="sbFreehandTextChange('Nothing', this)" data-value="Nothing">
+                            <button id="sbFreehandNothingText" onclick="sbFreehandTextChange('Nothing', this)" data-tip="tipBubbleTextNone" data-value="Nothing">
                                 <i class="material-icons">do_not_disturb</i>
                                 <i class="material-icons">text_fields</i>
                             </button>
-                            <button id="sbFreehandHorizontalText" onclick="sbFreehandTextChange('Horizontal', this)" class="selected" data-value="Horizontal">
+                            <button id="sbFreehandHorizontalText" onclick="sbFreehandTextChange('Horizontal', this)" data-tip="tipBubbleTextHorizontal" class="selected" data-value="Horizontal">
                                 <i class="material-icons">east</i>
                                 <i class="material-icons">text_fields</i>
                             </button>
-                            <button id="sbFreehandVerticalText" onclick="sbFreehandTextChange('Vertical', this)" data-value="Vertical">
+                            <button id="sbFreehandVerticalText" onclick="sbFreehandTextChange('Vertical', this)" data-tip="tipBubbleTextVertical" data-value="Vertical">
                                 <i class="material-icons">south</i>
                                 <i class="material-icons">text_fields</i>
                             </button>
@@ -1287,32 +1311,29 @@ function getElementClasses(element) {
                         <div class="input-container-leftSpace" data-i18n-label="cornerRadius">
                             <input type="range" id="sbSornerRadius" min="0" max="15" value="2">
                         </div>
-                        <div class="input-container-leftSpace" data-i18n-label="panelOpacity">
-                            <input type="range" id="sbFillOpacity2" min="0" max="100" value="100">
-                        </div>
                     </div>
 
                     <div class="param-group">
                         <div class="param-group-header" data-i18n="secLinePreset"></div>
-                        <button id="sb_aButton" onclick="switchSBLine('sb_a')">
+                        <button id="sb_aButton" onclick="switchSBLine('sb_a')" data-tip-name="A" data-tip="tipLineStyle">
                             <img src="03_images/preset/line/a.png" alt="Speech bubble outline style A">
                         </button>
-                        <button id="sb_bButton" onclick="switchSBLine('sb_b')">
+                        <button id="sb_bButton" onclick="switchSBLine('sb_b')" data-tip-name="B" data-tip="tipLineStyle">
                             <img src="03_images/preset/line/b.png" alt="Speech bubble outline style B">
                         </button>
-                        <button id="sb_cButton" onclick="switchSBLine('sb_c')">
+                        <button id="sb_cButton" onclick="switchSBLine('sb_c')" data-tip-name="C" data-tip="tipLineStyle">
                             <img src="03_images/preset/line/c.png" alt="Speech bubble outline style C">
                         </button>
-                        <button id="sb_dButton" onclick="switchSBLine('sb_d')">
+                        <button id="sb_dButton" onclick="switchSBLine('sb_d')" data-tip-name="D" data-tip="tipLineStyle">
                             <img src="03_images/preset/line/d.png" alt="Speech bubble outline style D">
                         </button>
-                        <button id="sb_eButton" onclick="switchSBLine('sb_e')">
+                        <button id="sb_eButton" onclick="switchSBLine('sb_e')" data-tip-name="E" data-tip="tipLineStyle">
                             <img src="03_images/preset/line/e.png" alt="Speech bubble outline style E">
                         </button>
-                        <button id="sb_fButton" onclick="switchSBLine('sb_f')">
+                        <button id="sb_fButton" onclick="switchSBLine('sb_f')" data-tip-name="F" data-tip="tipLineStyle">
                             <img src="03_images/preset/line/f.png" alt="Speech bubble outline style F">
                         </button>
-                        <button id="sb_gButton" onclick="switchSBLine('sb_g')">
+                        <button id="sb_gButton" onclick="switchSBLine('sb_g')" data-tip-name="G" data-tip="tipLineStyle">
                             <img src="03_images/preset/line/g.png" alt="Speech bubble outline style G">
                         </button>
                     </div>
@@ -1339,10 +1360,17 @@ function getElementClasses(element) {
                     </div>
 
                     <div class="param-group">
-                        <div class="param-group-header" data-i18n="secLlmDialogue"></div>
-                        <button onclick="openLLMDialogueWindow()">
-                            <i class="material-icons">smart_toy</i>
-                            <span data-i18n="llmDialogueButton">Dialogue Assist</span>
+                        <div class="param-group-header" data-i18n="secTextDecor"></div>
+                        <div class="preset-current-hint" data-i18n="textDecorCardTarget"></div>
+                        <button class="preset-current" id="textDecorPresetCurrent" data-action="openPresetPicker" data-preset-kind="textDecor" data-tip="textDecorCardHint">
+                            <span class="preset-current-row">
+                                <span class="preset-current-name" data-i18n="presetNotSelected"></span>
+                                <span class="preset-current-swap">
+                                    <i class="material-icons">unfold_more</i>
+                                    <span data-i18n="presetChange"></span>
+                                </span>
+                            </span>
+                            <img class="preset-current-thumb" alt="" hidden>
                         </button>
                     </div>
 
@@ -1373,16 +1401,16 @@ function getElementClasses(element) {
                             <input type="range" id="fontSizeSlider" min="7" max="150" value="14" oninput="changeFontSize(this.value)">
                         </div>
                         <div class="input-container-leftSpace" data-i18n-label="outlineSize">
-                            <input type="range" id="fontStrokeWidthSlider" min="0" max="5" step="1" value="0" oninput="changeStrokeWidthSize(this.value)">
+                            <input type="range" id="fontStrokeWidthSlider" min="0" max="30" step="1" value="0" oninput="changeStrokeWidthSize(this.value)">
                         </div>
                         <div class="input-group-multi" data-group="align_group">
-                            <button id="align-left" data-value="left" class="selected" onclick="alignText('left', this)">
+                            <button id="align-left" data-value="left" class="selected" onclick="alignText('left', this)" data-tip="tipAlignLeft">
                                 <i class="material-icons">format_align_left</i>
                             </button>
-                            <button id="align-center" data-value="center" onclick="alignText('center', this)">
+                            <button id="align-center" data-value="center" onclick="alignText('center', this)" data-tip="tipAlignCenter">
                                 <i class="material-icons">format_align_center</i>
                             </button>
-                            <button id="align-right" data-value="right" onclick="alignText('right', this)">
+                            <button id="align-right" data-value="right" onclick="alignText('right', this)" data-tip="tipAlignRight">
                                 <i class="material-icons">format_align_right</i>
                             </button>
                         </div>
@@ -1644,13 +1672,13 @@ function getElementClasses(element) {
                     <div class="param-group">
                         <div class="param-group-header" data-i18n="secFlip"></div>
                         <div class="input-group-multi">
-                            <button data-action="flipHorizontally">
+                            <button data-action="flipHorizontally" data-tip="flipHorizontal">
                                 <i class="material-icons">swap_horiz</i>
                             </button>
-                            <button data-action="flipVertically">
+                            <button data-action="flipVertically" data-tip="flipVertical">
                                 <i class="material-icons">swap_vert</i>
                             </button>
-                            <button style="visibility: hidden;">
+                            <button style="visibility: hidden;" aria-hidden="true" tabindex="-1">
                             </button>
                         </div>
                     </div>
@@ -1752,6 +1780,7 @@ function getElementClasses(element) {
                     <button id="zoomFit" onclick="zoomFit()">
                         <span class="material-symbols-outlined">1x_mobiledata_badge</span>
                     </button>
+                    <span id="zoom-level" class="zoom-level" aria-live="polite">100%</span>
                     <span id="canvas-help-text" class="canvas-help-text"></span>
                 </div>
 
@@ -1770,10 +1799,10 @@ function getElementClasses(element) {
             <div id="layer-panel">
                 <div class="area-header" >
                         <label data-i18n="layers">Layers</label>
-                        <button onclick="LayersUp()"><i class="material-icons">arrow_upward</i></button>
-                        <button onclick="LayersDown()"><i class="material-icons">arrow_downward</i></button>
-                        <button id="undo" onclick="undo()"><i class="material-icons">undo</i></button>
-                        <button id="redo" onclick="redo()"><i class="material-icons">redo</i></button>
+                        <button onclick="LayersUp()" data-tip="tipLayerUp"><i class="material-icons">arrow_upward</i></button>
+                        <button onclick="LayersDown()" data-tip="tipLayerDown"><i class="material-icons">arrow_downward</i></button>
+                        <button id="undo" onclick="undoByUser()"><i class="material-icons">undo</i></button>
+                        <button id="redo" onclick="redoByUser()"><i class="material-icons">redo</i></button>
                 </div>
                 <div id="layer-content"></div>
 
@@ -1788,8 +1817,11 @@ function getElementClasses(element) {
                     </div>
                     <div id="esApi-controls-mini" class="controls-mini">
                         <div class="input-group" data-group="externalApiGroup">
-                            <button class="role-assign-trigger" onclick="unifiedSettingsWindow.open()" data-i18n="roleAssignButton"></button>
-                            <button class="role-assign-trigger" onclick="modelSettingsWindow.open()" data-i18n="modelSettingsButton"></button>
+                            <div class="es-trigger-row">
+                                <button class="role-assign-trigger" onclick="unifiedSettingsWindow.open()" data-i18n="roleAssignButton"></button>
+                                <button class="role-assign-trigger" onclick="modelSettingsWindow.open()" data-i18n="modelSettingsButton"></button>
+                                <button class="role-assign-trigger reference-sheet-trigger" onclick="referenceSheetWindow.toggle()"><span class="role-assign-label" data-i18n="refSheetButton">&#128444; 設定資料</span><span id="referenceSheetBadge" class="rs-badge"></span></button>
+                            </div>
                             <div id="apiSettingsUrlHelpe">
                             </div>
                         </div>
@@ -1972,6 +2004,7 @@ function getElementClasses(element) {
         <div id="btm-drawer-handle" class="btm-drawer-handle neon-text">
             OPEN (Ctrl+B)
         </div>
+        <div class="btm-drawer-hint" data-i18n="pageDrawerHint">Each thumbnail is one page. Use the + on a page to add the next page.</div>
         <div class="btm-drawer-content">
             <div id="btm-image-container" class="btm-image-container"></div>
             <button id="btm-scroll-left" class="btm-scroll-btn btm-scroll-left" style="display: none;">&lt;</button>
@@ -1980,7 +2013,7 @@ function getElementClasses(element) {
     </div>
 
 <!-- ========== Toast Container ========== -->
-    <div id="sp-manga-toastContainer" class="position-fixed bottom-0 end-0 p-3" style="min-width: 250px;">
+    <div id="sp-manga-toastContainer" class="position-fixed bottom-0 end-0 p-3">
     </div>
 
 <!-- ========== Modal: Shortcut ========== -->
@@ -2002,6 +2035,7 @@ function getElementClasses(element) {
 <div class="us-window">
 <div class="us-header">
 <h2 data-i18n="usWindowTitle">⚙ 生成AI設定</h2>
+<span class="us-header-note" data-i18n="usAutoApplyNote">変更するとすぐ反映されます。保存ボタンはありません（「設定値自動保存」がONなら自動で保存されます）。Esc か × で閉じます</span>
 <button class="us-close" onclick="unifiedSettingsWindow.close()">&times;</button>
 </div>
 <div class="us-body">
@@ -2018,12 +2052,13 @@ function getElementClasses(element) {
 <tr>
 <th></th>
 <th class="role-col-none" data-i18n="roleNone">なし</th>
-<th>ComfyUI</th>
-<th>RunPod<br>ComfyUI</th>
-<th>SD WebUI<br>(A1111/Forge)</th>
-<th>Fal.ai</th>
-<th>Grok</th>
-<th>Ollama</th>
+<th>ComfyUI<span class="us-tag us-tag-local" data-i18n="usTagLocal">ローカル</span></th>
+<th>RunPod<br>ComfyUI<span class="us-tag us-tag-ext" data-i18n="usTagExternal">外部</span></th>
+<th>SD WebUI<br>(A1111/Forge)<span class="us-tag us-tag-local" data-i18n="usTagLocal">ローカル</span></th>
+<th>Fal.ai<span class="us-tag us-tag-ext" data-i18n="usTagExternal">外部</span></th>
+<th>Google<br>Nano Banana<span class="us-tag us-tag-ext" data-i18n="usTagExternal">外部</span></th>
+<th>Grok<span class="us-tag us-tag-ext" data-i18n="usTagExternal">外部</span></th>
+<th>Ollama<span class="us-tag us-tag-local" data-i18n="usTagLocal">ローカル</span></th>
 </tr>
 </thead>
 <tbody id="roleMatrixBody"></tbody>
@@ -2049,25 +2084,25 @@ function getElementClasses(element) {
 </thead>
 <tbody>
 <tr>
-<td>ComfyUI</td>
+<td>ComfyUI<span class="us-tag us-tag-local" data-i18n="usTagLocal">ローカル</span></td>
 <td class="us-field-label">URL</td>
 <td><input type="text" id="comfyUIPageUrl" value="http://127.0.0.1:8188" placeholder="URL"></td>
 <td><button id="comfyUIPageUrlDefaultUrl" class="us-btn-s" data-i18n="usBtnReset">初期値</button><a href="html/API_Help/comfyui_settings.html" target="_blank" class="us-btn-s">?</a></td>
 </tr>
 <tr>
-<td>RunPod<br>ComfyUI</td>
+<td>RunPod<br>ComfyUI<span class="us-tag us-tag-ext" data-i18n="usTagExternal">外部</span></td>
 <td class="us-field-label">URL</td>
 <td><input type="text" id="runpodComfyUIUrl" value="" placeholder="https://{pod-id}-8188.proxy.runpod.net"></td>
 <td><button id="runpodComfyUIUrlClear" class="us-btn-s" data-i18n="usBtnReset">初期値</button><a href="https://console.runpod.io" target="_blank" class="us-link-btn" data-i18n="usDashboard">Web ↗</a></td>
 </tr>
 <tr>
-<td>SD WebUI<br>(A1111/Forge)</td>
+<td>SD WebUI<br>(A1111/Forge)<span class="us-tag us-tag-local" data-i18n="usTagLocal">ローカル</span></td>
 <td class="us-field-label">URL</td>
 <td><input type="text" id="sdWebUIPageUrl" value="http://127.0.0.1:7860" placeholder="URL"></td>
 <td><button id="sdWebUIPageUrlDefaultUrl" class="us-btn-s" data-i18n="usBtnReset">初期値</button><a href="html/API_Help/sd-api-guide.html" target="_blank" class="us-btn-s">?</a></td>
 </tr>
 <tr>
-<td rowspan="6">Fal.ai</td>
+<td rowspan="6">Fal.ai<span class="us-tag us-tag-ext" data-i18n="usTagExternal">外部</span></td>
 <td class="us-field-label">API Key</td>
 <td><input type="password" id="falaiApiKey" value="" placeholder="API Key" autocomplete="off"></td>
 <td><button id="falaiApiKeyToggle" class="us-btn-s" data-i18n="usBtnShow">表示</button><button id="falaiReloadModels" class="us-btn-s" data-i18n="falaiReloadModels">再取得</button><a href="https://fal.ai/dashboard" target="_blank" class="us-link-btn" data-i18n="usDashboard">Web ↗</a></td>
@@ -2098,7 +2133,47 @@ function getElementClasses(element) {
 <td></td>
 </tr>
 <tr>
-<td rowspan="4">Grok</td>
+<td rowspan="5">Google<br>Nano Banana<span class="us-tag us-tag-ext" data-i18n="usTagExternal">外部</span></td>
+<td class="us-field-label">API Key</td>
+<td><input type="password" id="googleImageApiKey" value="" placeholder="API Key" autocomplete="off"><div id="googleImageConnNotice" class="us-conn-notice" style="display:none"></div></td>
+<td><button id="googleImageApiKeyToggle" class="us-btn-s" data-i18n="usBtnShow">表示</button><a href="https://ai.google.dev/gemini-api/docs/image-generation" target="_blank" class="us-btn-s">?</a><a href="https://aistudio.google.com/apikey" target="_blank" class="us-link-btn" data-i18n="usDashboard">Web ↗</a></td>
+</tr>
+<tr>
+<td class="us-field-label" data-i18n="roleText2Image">Text → Image</td>
+<td><select id="googleImageModelT2I">
+<option value="gemini-3.1-flash-lite-image" selected>Nano Banana 2 Lite (gemini-3.1-flash-lite-image)</option>
+<option value="gemini-3.1-flash-image">Nano Banana 2 (gemini-3.1-flash-image)</option>
+<option value="gemini-3-pro-image">Nano Banana Pro (gemini-3-pro-image)</option>
+<option value="gemini-2.5-flash-image">Nano Banana (gemini-2.5-flash-image)</option>
+</select></td>
+<td></td>
+</tr>
+<tr>
+<td class="us-field-label" data-i18n="roleImage2Image">Image → Image</td>
+<td><select id="googleImageModelI2I">
+<option value="gemini-3.1-flash-lite-image" selected>Nano Banana 2 Lite (gemini-3.1-flash-lite-image)</option>
+<option value="gemini-3.1-flash-image">Nano Banana 2 (gemini-3.1-flash-image)</option>
+<option value="gemini-3-pro-image">Nano Banana Pro (gemini-3-pro-image)</option>
+<option value="gemini-2.5-flash-image">Nano Banana (gemini-2.5-flash-image)</option>
+</select></td>
+<td></td>
+</tr>
+<tr>
+<td class="us-field-label" data-i18n="googleImageSizeLabel">解像度</td>
+<td><select id="googleImageSize">
+<option value="1K" selected>1K</option>
+<option value="2K">2K</option>
+<option value="4K">4K</option>
+</select></td>
+<td><span class="us-field-note" data-i18n="googleImageSizeNote">Liteは1Kのみ</span></td>
+</tr>
+<tr>
+<td class="us-field-label" data-i18n="usConcurrency">同時実行数</td>
+<td><input type="number" id="googleImageConcurrency" value="1" min="1" max="10"></td>
+<td></td>
+</tr>
+<tr>
+<td rowspan="4">Grok<span class="us-tag us-tag-ext" data-i18n="usTagExternal">外部</span></td>
 <td class="us-field-label">API Key</td>
 <td><input type="password" id="grokApiKey" value="" placeholder="API Key" autocomplete="off"><div id="grokConnNotice" class="us-conn-notice" style="display:none"></div></td>
 <td><button id="grokApiKeyToggle" class="us-btn-s" data-i18n="usBtnShow">表示</button><button id="grokReloadModels" class="us-btn-s" data-i18n="falaiReloadModels">再取得</button><a href="html/API_Help/llm_settings.html#grok" target="_blank" class="us-btn-s">?</a><a href="https://console.x.ai" target="_blank" class="us-link-btn" data-i18n="usDashboard">Web ↗</a></td>
@@ -2119,7 +2194,7 @@ function getElementClasses(element) {
 <td></td>
 </tr>
 <tr>
-<td rowspan="4">Ollama</td>
+<td rowspan="4">Ollama<span class="us-tag us-tag-local" data-i18n="usTagLocal">ローカル</span></td>
 <td class="us-field-label">URL</td>
 <td><input type="text" id="ollamaUrl" value="http://127.0.0.1:11434" placeholder="http://127.0.0.1:11434"><div id="ollamaConnNotice" class="us-conn-notice" style="display:none"></div></td>
 <td><button id="ollamaUrlDefaultUrl" class="us-btn-s" data-i18n="usBtnReset">初期値</button><button id="ollamaReloadModels" class="us-btn-s" data-i18n="falaiReloadModels">再取得</button><a href="html/API_Help/llm_settings.html#ollama" target="_blank" class="us-btn-s">?</a></td>
@@ -2174,10 +2249,107 @@ function getElementClasses(element) {
 </div>
 </div>
 
+<!-- ========== Floating Window: Reference Sheets ========== -->
+<div id="referenceSheetOverlay" class="rs-float">
+<div class="rs-window">
+<div class="rs-titlebar" id="rsTitlebar">
+<h2 data-i18n="refWindowTitle">&#128444; 設定資料</h2>
+<span class="rs-titlebar-spacer"></span>
+<button class="rs-icon-btn" id="rsCollapseBtn" onclick="referenceSheetWindow.toggleCollapse()" data-tip="refCollapse"><i class="material-icons">expand_less</i></button>
+<button class="rs-icon-btn" onclick="referenceSheetWindow.close()" data-tip="refClose"><i class="material-icons">close</i></button>
+</div>
+
+<div class="rs-bar rs-collapsible">
+<div class="rs-bar-item"><span class="rs-bar-label" data-i18n="refTargetLabel">対象コマ</span><span id="rsTargetLabel"></span></div>
+<div class="rs-bar-item"><span class="rs-bar-label" data-i18n="refCountLabel">送る画像</span><span id="rsCount">0 / 14</span></div>
+<div class="rs-bar-item"><span class="rs-bar-label" data-i18n="refTokenLabel">トークン（目安）</span><span id="rsSize"></span></div>
+<span class="rs-bar-spacer"></span>
+<label class="rs-check" data-tip="refShowOnCanvasTip"><input type="checkbox" id="rsShowOnCanvas" onchange="referenceSheetWindow.onShowOnCanvasChange(this)"><span data-i18n="refShowOnCanvas">キャンバスに出す</span></label>
+</div>
+
+<div id="rsModelNotice" class="rs-collapsible" style="display:none"></div>
+
+<div id="rsHowto" class="rs-howto rs-collapsible" style="display:none"><i class="material-icons">touch_app</i><span class="rs-howto-lines"><span id="rsHowtoWhat" class="rs-howto-what"></span><span id="rsHowtoText"></span><span id="rsHowtoDrag" class="rs-howto-drag"></span></span></div>
+
+<div id="rsMissing" class="rs-missing rs-collapsible" style="display:none"></div>
+
+<div class="rs-slots rs-collapsible">
+<div class="rs-slots-head">
+<span class="rs-section-title" data-i18n="refSlotsTitle">送る順と関係</span>
+<span class="rs-slots-hint" data-i18n="refSlotsHint">ドラッグで並べ替え。同じ枠に入れた資料どうしが関係します</span>
+</div>
+<div id="rsSlots" class="rs-slot-list"></div>
+<div id="rsGroupNotice" class="rs-relation-notice" style="display:none"></div>
+</div>
+
+<div class="rs-toolbar rs-collapsible">
+<div class="rs-tabs">
+<button class="rs-tab active" data-category="character" onclick="referenceSheetWindow.switchTab('character')" data-i18n="refCatCharacter">登場人物</button>
+<button class="rs-tab" data-category="background" onclick="referenceSheetWindow.switchTab('background')" data-i18n="refCatBackground">背景・ロケ</button>
+<button class="rs-tab" data-category="prop" onclick="referenceSheetWindow.switchTab('prop')" data-i18n="refCatProp">小道具</button>
+<button class="rs-tab" data-category="other" onclick="referenceSheetWindow.switchTab('other')" data-i18n="refCatOther">その他</button>
+</div>
+<input type="search" id="rsSearch" class="rs-search" oninput="referenceSheetWindow.onSearchInput(this)">
+<div class="rs-viewmodes">
+<button class="rs-viewmode" data-view="grid" onclick="referenceSheetWindow.switchView('grid')" data-tip="refViewLarge"><i class="material-icons">grid_view</i></button>
+<button class="rs-viewmode" data-view="compact" onclick="referenceSheetWindow.switchView('compact')" data-tip="refViewSmall"><i class="material-icons">apps</i></button>
+<button class="rs-viewmode" data-view="list" onclick="referenceSheetWindow.switchView('list')" data-tip="refViewList"><i class="material-icons">view_list</i></button>
+</div>
+<span class="rs-bar-spacer"></span>
+<div class="rs-actions">
+<button class="us-btn-s rs-gen-toggle" id="rsGenToggle" onclick="ReferenceGenerator.toggleForm()"><span class="rs-disclosure-mark">&#9656;</span><span data-i18n="refGenerate">AIで作る</span></button>
+<button class="us-btn-s" onclick="referenceSheetWindow.addFromSelectedLayer()" data-i18n="refAddFromLayer">選択中のコマから</button>
+<button class="us-btn-s" onclick="referenceSheetWindow.exportBase()" data-i18n="refExportBase">共通の資料を書き出し</button>
+<button class="us-btn-s" onclick="document.getElementById('rsImportInput').click()" data-i18n="refImportBase">共通の資料を読み込み</button>
+<input type="file" id="rsFileInput" accept="image/*" multiple style="display:none" onchange="referenceSheetWindow.addFromFiles(this.files);this.value=''">
+<input type="file" id="rsImportInput" accept="application/json,.json" style="display:none" onchange="referenceSheetWindow.importBase(this.files);this.value=''">
+</div>
+</div>
+
+<div id="rsGenForm" class="rs-gen rs-collapsible" style="display:none">
+<div class="rs-gen-row">
+<input type="text" id="rsGenName" class="rs-gen-name">
+<select id="rsGenRatio" class="rs-gen-ratio"></select>
+<span id="rsGenTarget" class="rs-gen-target"></span>
+</div>
+<div class="rs-gen-row">
+<textarea id="rsGenPrompt" class="rs-gen-prompt" rows="2"></textarea>
+<button class="us-btn-s rs-gen-run" id="rsGenRun" onclick="ReferenceGenerator.run()" data-i18n="refGenRun">生成</button>
+</div>
+<div id="rsGenStatus" class="rs-gen-status"></div>
+<div id="rsGenNotice" class="rs-gen-notice" style="display:none"></div>
+</div>
+
+<div id="rsGrid" class="rs-grid rs-collapsible"></div>
+
+<div class="rs-foot rs-collapsible">
+<div class="rs-foot-head">
+<button class="rs-disclosure" id="rsPreambleToggle" onclick="referenceSheetWindow.togglePreamble()"><span class="rs-disclosure-mark">&#9656;</span><span data-i18n="refPreambleTitle">プロンプトに付く説明</span></button>
+<label class="rs-check"><input type="checkbox" id="referenceDescribeInPrompt" checked onchange="referenceSheetWindow.onDescribeChange()"><span data-i18n="refDescribeInPrompt">説明をプロンプトに付ける</span></label>
+</div>
+<textarea id="rsPreamble" readonly style="display:none"></textarea>
+</div>
+
+<div id="rsZoom" class="rs-zoom-view" onclick="referenceSheetWindow.closeZoom()"><img id="rsZoomImage" alt=""><span class="rs-zoom-caption" id="rsZoomCaption"></span></div>
+<div id="rsDropOverlay" class="rs-drop-overlay"><span data-i18n="refDropHere">画像をドロップ（複数枚まとめて）</span></div>
+<div class="rs-resize rs-resize-n" data-dir="n"></div>
+<div class="rs-resize rs-resize-s" data-dir="s"></div>
+<div class="rs-resize rs-resize-w" data-dir="w"></div>
+<div class="rs-resize rs-resize-e" data-dir="e"></div>
+<div class="rs-resize rs-resize-nw" data-dir="nw"></div>
+<div class="rs-resize rs-resize-ne" data-dir="ne"></div>
+<div class="rs-resize rs-resize-sw" data-dir="sw"></div>
+<div class="rs-resize rs-resize-se" id="rsResize" data-dir="se"></div>
+</div>
+</div>
+
 <!-- ========== Additional CSS ========== -->
-    <link rel="stylesheet" href="css/ui/role-assign-modal.css?v=7.4" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="css/ui/role-assign-modal.css?v=7.9" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="css/ui/unified-settings.css?v=7.4" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="css/ui/reference-sheet.css?v=8.6" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="css/ui/shortcut-modal.css?v=7.2" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="css/ui/confirm-dialog.css?v=7.3" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="css/ui/recovery-dialog.css?v=7.3" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="third/intro/introjs.min.css">
     <link rel="stylesheet" href="css/ui/intro.css?" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="css/ui/tutorial.css?v=7.2" media="print" onload="this.media='all'">
@@ -2216,15 +2388,17 @@ function getElementClasses(element) {
     <script src="js/sidebar/pen/fabric/brushes/spray_brush.js?v=7.2"></script>
     <script src="js/sidebar/pen/fabric/brushes/drip.js?v=7.2"></script>
     <script src="js/sidebar/pen/fabric/brushes/stroke.js?v=7.2"></script>
-    <script src="js/core/settings.js?v=7.2" defer></script>
+    <script src="js/core/settings.js?v=8.0" defer></script>
     <script src="js/core/debug.js?v=7.2" defer></script>
     <script src="js/core/logger.js?v=7.2" defer></script>
     <script src="js/ui/util/focus-trap.js?v=7.2" defer></script>
+    <script src="js/ui/util/confirm-dialog.js?v=7.2" defer></script>
+    <script src="js/core/unsaved-guard.js?v=7.2" defer></script>
     <script src="js/core/global-error-handler.js?v=7.2" defer></script>
 
     <script src="js/ui/preset-picker.js?v=7.6" defer></script>
     <script src="js/ui/glfx-ui.js?v=7.2" defer></script>
-    <script src="js/ui/canvas-object-menu.js?v=7.2" defer></script>
+    <script src="js/ui/canvas-object-menu.js?v=8.0" defer></script>
     <script src="js/ui/third/intro.js?v=7.2" defer></script>
     <script src="js/ui/tutorial.js?v=7.2" defer></script>
     <script src="js/ui/toast.js?v=7.2" defer></script>
@@ -2241,7 +2415,7 @@ function getElementClasses(element) {
     <script src="js/ui/third/base-translation/base-ko.js?v=7.2" defer></script>
     <script src="js/ui/third/base-translation/base-ru.js?v=7.2" defer></script>
     <script src="js/ui/third/base-translation/base-zh.js?v=7.2" defer></script>
-    <script src="js/ui/third/i18next.js?v=7.2" defer></script>
+    <script src="js/ui/third/i18next.js?v=8.1" defer></script>
     <script src="js/dashboard/performance-storage.js?v=7.3" defer></script>
     <script src="js/dashboard/prompt-frequency-storage.js?v=7.3" defer></script>
     <script src="js/dashboard/api-cost-storage.js?v=7.3" defer></script>
@@ -2275,13 +2449,21 @@ function getElementClasses(element) {
     <script src="js/sidebar/panel/panel-template.js?v=7.2" defer></script>
     <script src="js/ui/prompt-manager.js?v=7.2" defer></script>
     <script src="js/ai/role/ai-roles.js?v=7.2" defer></script>
-    <script src="js/ai/provider/ai-provider.js?v=7.3" defer></script>
+    <script src="js/ai/provider/ai-provider.js?v=8.0" defer></script>
     <script src="js/ai/provider/provider-registry.js?v=7.3" defer></script>
     <script src="js/ai/provider/local-comfyui-provider.js?v=7.3" defer></script>
     <script src="js/ai/provider/local-sdwebui-provider.js?v=7.3" defer></script>
     <script src="js/ai/provider/runpod-comfyui-provider.js?v=7.3" defer></script>
-    <script src="js/ai/provider/falai-provider.js?v=7.3" defer></script>
-    <script src="js/ai/provider/llm-provider.js?v=7.5" defer></script>
+    <script src="js/db/reference-repository.js?v=7.6" defer></script>
+    <script src="js/ai/reference/reference-sheet-store.js?v=7.6" defer></script>
+    <script src="js/ai/reference/reference-collector.js?v=8.1" defer></script>
+    <script src="js/ai/reference/reference-generator.js?v=7.8" defer></script>
+    <script src="js/ai/reference/reference-sheet-window.js?v=8.1" defer></script>
+    <script src="js/ai/reference/reference-canvas-overlay.js?v=8.1" defer></script>
+    <script src="js/ai/provider/cloud-image-provider.js?v=7.6" defer></script>
+    <script src="js/ai/provider/falai-provider.js?v=7.6" defer></script>
+    <script src="js/ai/provider/google-image-provider.js?v=8.0" defer></script>
+    <script src="js/ai/provider/llm-provider.js?v=7.6" defer></script>
     <script src="js/ai/provider/grok-provider.js?v=7.5" defer></script>
     <script src="js/ai/provider/ollama-provider.js?v=7.5" defer></script>
     <!-- llm-storyboard-service.js が先。MANGA_EXPRESSION_TAGS を
@@ -2292,8 +2474,6 @@ function getElementClasses(element) {
     <script src="js/ai/prompt/llm/llm-storyboard-ui.js?v=7.5" defer></script>
     <script src="js/ai/prompt/llm/llm-story-service.js?v=7.5" defer></script>
     <script src="js/ai/prompt/llm/llm-story-ui.js?v=7.5" defer></script>
-    <script src="js/ai/prompt/llm/llm-dialogue-service.js?v=7.5" defer></script>
-    <script src="js/ai/prompt/llm/llm-dialogue-ui.js?v=7.5" defer></script>
     <script src="js/ai/queue/spinner.js?v=7.2" defer></script>
     <script src="js/ai/queue/task-queue.js?v=7.2" defer></script>
     <script src="js/ai/queue/generation-task-manager.js?v=7.2" defer></script>
@@ -2319,8 +2499,8 @@ function getElementClasses(element) {
     <script src="js/ai/prompt/panel-composition.js?v=7.6" defer></script>
     <script src="js/ai/prompt/prompt-apply.js?v=7.5" defer></script>
     <script src="js/layer/floating-window-management.js?v=7.2" defer></script>
-    <script src="js/layer/layer-button.js?v=7.2" defer></script>
-    <script src="js/layer/layer-management.js?v=7.2" defer></script>
+    <script src="js/layer/layer-button.js?v=8.0" defer></script>
+    <script src="js/layer/layer-management.js?v=7.9" defer></script>
     <script src="js/layer/image-history-management.js?v=7.2" defer></script>
     <script src="js/layer/blend/blend.js?v=7.2" defer></script>
     
@@ -2329,6 +2509,8 @@ function getElementClasses(element) {
     <script src="js/sidebar/text/text-effect.js?v=7.2" defer></script>
     <script src="js/sidebar/text/vertical-text.js?v=7.2" defer></script>
     <script src="js/sidebar/text/vertical-textbox.js?v=7.2"></script>
+    <script src="js/sidebar/text/text-decor-presets.js?v=7.7" defer></script>
+    <script src="js/sidebar/text/text-decor.js?v=7.7" defer></script>
     <script src="js/sidebar/speechBubble/speech-bubble-effect.js?v=7.2" defer></script>
     <script src="js/sidebar/speechBubble/speech-bubble-freehand.js?v=7.2" defer></script>
     <script src="js/sidebar/speechBubble/speech-bubble-text.js?v=7.2" defer></script>    
@@ -2604,12 +2786,12 @@ oninput="document.getElementById('inpaint-denoise-label').textContent=this.value
 <div class="section-header">
 <h4 data-i18n="dashboardTimeGraph">Generation Time Graph</h4>
 <select id="dashboardModeSelector" class="mode-selector">
-<option value="T2I">T2I</option>
-<option value="I2I">I2I</option>
-<option value="I2I_Angle">I2I Angle</option>
-<option value="Inpaint">Inpaint</option>
-<option value="Upscaler">Upscaler</option>
-<option value="Rembg">Rembg</option>
+<option value="T2I" data-i18n="dashboardModeT2I">T2I</option>
+<option value="I2I" data-i18n="dashboardModeI2I">I2I</option>
+<option value="I2I_Angle" data-i18n="dashboardModeI2IAngle">I2I Angle</option>
+<option value="Inpaint" data-i18n="dashboardModeInpaint">Inpaint</option>
+<option value="Upscaler" data-i18n="dashboardModeUpscaler">Upscaler</option>
+<option value="Rembg" data-i18n="dashboardModeRembg">Rembg</option>
 </select>
 </div>
 <div class="chart-container">

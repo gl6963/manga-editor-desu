@@ -1,3 +1,6 @@
+const COMFY_MASK_PLACEHOLDER="%mask%";
+const COMFY_LEGACY_MASK_PLACEHOLDER="inpaint_mask.png";
+
 class ComfyUIWorkflowBuilder {
 constructor(workflow) {
 this.originalWorkflow=workflow;
@@ -57,6 +60,13 @@ Object.entries(this.workflowCopy).forEach(([id,node])=>{
 if (node.inputs) {
 Object.keys(node.inputs).forEach(inputKey=>{
 if (validInputs.hasOwnProperty(inputKey)) {
+// %mask% のようなプレースホルダは updateValueByTargetValue() で差し込む値。
+// 入力名一致（class_typeを見ない）で潰すと、Inpaintの LoadImageMask が
+// 元画像のファイル名で上書きされマスクが効かなくなる
+if (isPlaceholderValue(node.inputs[inputKey])) {
+workflowLogger.trace("validInputs, skip placeholder " ,inputKey,node.inputs[inputKey]);
+return;
+}
 const originalValue=typeof node.inputs[inputKey];
 const newValue=typeof validInputs[inputKey];
 
@@ -74,6 +84,26 @@ node.inputs[inputKey]=validInputs[inputKey];
 }
 });
 }
+
+return this;
+}
+
+// 保存済みワークフロー（IndexedDB）は既定ワークフローを更新しても上書きされない。
+// 旧形式は LoadImageMask の image が旧プレースホルダ inpaint_mask.png のままで、
+// channel も alpha。ComfyUI はアルファを読むとき値を反転するため、
+// アプリが送る不透明マスク（アルファ一律255）では全面0になりマスクが効かない。
+// 旧プレースホルダを持つノードだけを現行形式へ揃える
+migrateLegacyMaskPlaceholder() {
+this.initialize();
+
+Object.entries(this.workflowCopy).forEach(([id,node])=>{
+if (node.class_type!=='LoadImageMask') return;
+if (!node.inputs||node.inputs.image!==COMFY_LEGACY_MASK_PLACEHOLDER) return;
+
+node.inputs.image=COMFY_MASK_PLACEHOLDER;
+node.inputs.channel='red';
+workflowLogger.info("Legacy inpaint mask node migrated: node "+id);
+});
 
 return this;
 }
@@ -144,6 +174,10 @@ return this.originalWorkflow;
 }
 return this.workflowCopy;
 }
+}
+
+function isPlaceholderValue(value) {
+return typeof value==='string'&&/%[^%]+%/.test(value);
 }
 
 function isNumericType(value) {

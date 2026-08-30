@@ -11,19 +11,36 @@ languages:[
 {code:'fr',name:'Français',flag:'fr'},
 {code:'de',name:'Deutsch',flag:'de'},
 {code:'es',name:'Español',flag:'es'},
-{code:'pt',name:'Português',flag:'pt'},
-{code:'ru',name:'Русский',flag:'ru'},
-{code:'th',name:'ไทย',flag:'th'}
+{code:'ru',name:'Русский',flag:'ru'}
 ],
+// 起動時のモーダルはここでは出さない。
+// 出す順番は起動シーケンス（js/project-management.js の runBootSequence）が決める
 init:function(){
 this.loadState();
 this.setupEventListeners();
-var langSelected=localStorage.getItem(this.LANG_STORAGE_KEY);
-if(!langSelected){
-this.showLanguageSelection();
-}else if(!this.state.quickStartCompleted){
-this.showQuickStartPrompt();
+},
+// 起動シーケンスの1段目。言語が未選択なら選ばせ、選び終わるまで待たせる。
+// 復元ダイアログより先にここを通すことで、以降の案内が選んだ言語で出る
+startupLanguageStep:function(){
+var self=this;
+return new Promise(function(resolve){
+if(localStorage.getItem(self.LANG_STORAGE_KEY)){
+resolve();
+return;
 }
+self.showLanguageSelection(resolve);
+});
+},
+// 起動シーケンスの最終段。初回だけクイックスタートの案内を出す
+startupTutorialStep:function(){
+var self=this;
+return new Promise(function(resolve){
+if(self.state.quickStartCompleted){
+resolve();
+return;
+}
+self.showQuickStartPrompt(resolve);
+});
 },
 loadState:function(){
 try{
@@ -49,7 +66,7 @@ this.state={quickStartCompleted:false,hintsShown:{},comfyUIGuideShown:false};
 localStorage.removeItem(this.LANG_STORAGE_KEY);
 this.saveState();
 },
-showLanguageSelection:function(){
+showLanguageSelection:function(onDone){
 var self=this;
 var overlay=document.createElement('div');
 overlay.className='tutorial-overlay';
@@ -67,12 +84,11 @@ document.body.appendChild(overlay);
 overlay.querySelectorAll('.tutorial-lang-btn').forEach(function(btn){
 btn.addEventListener('click',function(){
 var langCode=this.getAttribute('data-lang');
-self.selectLanguage(langCode,overlay);
+self.selectLanguage(langCode,overlay,onDone);
 });
 });
 },
-selectLanguage:function(langCode,overlay){
-var self=this;
+selectLanguage:function(langCode,overlay,onDone){
 localStorage.setItem(this.LANG_STORAGE_KEY,'true');
 if(typeof changeLanguage==='function'){
 changeLanguage(langCode);
@@ -80,13 +96,12 @@ changeLanguage(langCode);
 i18next.changeLanguage(langCode);
 }
 overlay.remove();
+// 翻訳の差し替えが終わってから次の案内を出す
 setTimeout(function(){
-if(!self.state.quickStartCompleted){
-self.showQuickStartPrompt();
-}
+if(onDone)onDone();
 },300);
 },
-showQuickStartPrompt:function(){
+showQuickStartPrompt:function(onDone){
 var self=this;
 var overlay=document.createElement('div');
 overlay.className='tutorial-overlay';
@@ -101,13 +116,20 @@ overlay.innerHTML='<div class="tutorial-prompt">'+
 document.body.appendChild(overlay);
 document.getElementById('tutorialStartBtn').addEventListener('click',function(){
 overlay.remove();
+if(onDone)onDone();
 self.startQuickStart();
 });
 document.getElementById('tutorialSkipBtn').addEventListener('click',function(){
 overlay.remove();
 self.state.quickStartCompleted=true;
 self.saveState();
+self.notifyReopenPath();
+if(onDone)onDone();
 });
+},
+// 見送っても後から開けることを伝える。ここだけ案内が無いと二度と辿り着けない
+notifyReopenPath:function(){
+createToast(getText('Tutorial'),getText('tutorialReopenHint'),4000);
 },
 startQuickStart:function(){
 var self=this;
@@ -116,7 +138,9 @@ var steps=[
 {element:'#canvas-area',title:getText('tutorialStep2Title'),body:getText('tutorialStep2Body'),position:'left'},
 {element:'#intro_speech-bubble-area1',title:getText('tutorialStep3Title'),body:getText('tutorialStep3Body'),position:'right'},
 {element:'#intro_text-area',title:getText('tutorialStep4Title'),body:getText('tutorialStep4Body'),position:'right'},
-{element:'#canvas-area',title:getText('tutorialStep5Title'),body:getText('tutorialStep5Body'),position:'left'}
+{element:'#canvas-area',title:getText('tutorialStep5Title'),body:getText('tutorialStep5Body'),position:'left'},
+// 右クリックにしか無い操作があることは、案内しないと辿り着けない（#31）
+{element:'#canvas-area',title:getText('tutorialRightClickTitle'),body:getText('tutorialRightClickBody'),position:'left'}
 ];
 this.runSteps(steps,0,function(){
 self.state.quickStartCompleted=true;
@@ -139,24 +163,34 @@ showStepHighlight:function(step,current,total,onNext){
 var self=this;
 this.removeActiveHint();
 var targetEl=document.querySelector(step.element);
-if(!targetEl){
-tutorialLogger.warn('Tutorial target not found:',step.element);
-onNext();
-return;
+var rect=targetEl?targetEl.getBoundingClientRect():null;
+// 対象が無い・畳まれていて大きさが取れないときに黙って飛ばすと、
+// 5枚のはずの案内が3枚で終わり、何が省かれたのか分からなくなる。
+// 枠は出せないが説明は画面中央に出し、その旨を本文に添える
+var targetHidden=!rect||rect.width<=0||rect.height<=0;
+if(targetHidden){
+tutorialLogger.warn('Tutorial target not visible:',step.element);
 }
-var rect=targetEl.getBoundingClientRect();
 var overlay=document.createElement('div');
 overlay.className='tutorial-step-overlay';
 var highlight=document.createElement('div');
 highlight.className='tutorial-highlight';
+if(!targetHidden){
 highlight.style.top=(rect.top-6)+'px';
 highlight.style.left=(rect.left-6)+'px';
 highlight.style.width=(rect.width+12)+'px';
 highlight.style.height=(rect.height+12)+'px';
+}else{
+highlight.style.display='none';
+}
 var tooltip=document.createElement('div');
-tooltip.className='tutorial-tooltip tutorial-tooltip-'+step.position;
+// 枠を出せないときは吹き出しの向きも示せないため、三角は付けない
+tooltip.className='tutorial-tooltip'+(targetHidden?'':' tutorial-tooltip-'+step.position);
 var tooltipLeft,tooltipTop;
-if(step.position==='right'){
+if(targetHidden){
+tooltipLeft=Math.max(10,(window.innerWidth-340)/2);
+tooltipTop=Math.max(10,(window.innerHeight-240)/2);
+}else if(step.position==='right'){
 tooltipLeft=rect.right+24;
 tooltipTop=rect.top;
 }else if(step.position==='left'){
@@ -175,7 +209,9 @@ tooltip.innerHTML='<div class="tutorial-tooltip-header">'+
 '<span class="tutorial-step-indicator">'+current+'/'+total+'</span>'+
 '<span class="tutorial-tooltip-title">'+step.title+'</span>'+
 '</div>'+
-'<div class="tutorial-tooltip-body">'+step.body+'</div>'+
+'<div class="tutorial-tooltip-body">'+step.body+
+(targetHidden?'<div class="tutorial-tooltip-note">'+getText('tutorialTargetHidden')+'</div>':'')+
+'</div>'+
 '<div class="tutorial-tooltip-footer">'+
 '<button class="tutorial-btn tutorial-btn-secondary tutorial-btn-sm" id="tutorialExitBtn">'+getText('tutorialExit')+'</button>'+
 '<button class="tutorial-btn tutorial-btn-primary tutorial-btn-sm" id="tutorialNextBtn">'+(current<total?getText('tutorialNext'):getText('tutorialFinish'))+'</button>'+
@@ -183,6 +219,14 @@ tooltip.innerHTML='<div class="tutorial-tooltip-header">'+
 overlay.appendChild(highlight);
 overlay.appendChild(tooltip);
 document.body.appendChild(overlay);
+// 画面外へはみ出したら引き戻す。position:'right'を広い要素（#canvas-area等）に
+// 指定すると右端の外へ出るため、ステップごとにpositionを検算しなくて済むよう
+// 位置の後始末をこの1か所に置く。実寸で測るので幅を決め打ちしない
+var box=tooltip.getBoundingClientRect();
+var maxLeft=window.innerWidth-box.width-10;
+var maxTop=window.innerHeight-box.height-10;
+if(box.left>maxLeft)tooltip.style.left=Math.max(10,maxLeft)+'px';
+if(box.top>maxTop)tooltip.style.top=Math.max(10,maxTop)+'px';
 this.activeHint=overlay;
 document.getElementById('tutorialNextBtn').addEventListener('click',function(){
 self.removeActiveHint();
@@ -192,6 +236,7 @@ document.getElementById('tutorialExitBtn').addEventListener('click',function(){
 self.removeActiveHint();
 self.state.quickStartCompleted=true;
 self.saveState();
+self.notifyReopenPath();
 });
 },
 removeActiveHint:function(){
@@ -270,6 +315,28 @@ if(el){
 e.preventDefault();
 self.startQuickStart();
 }
+});
+this.blockKeysWhileStartupModal();
+},
+// 起動時のモーダル（言語選択・クイックスタートの案内）が出ている間、
+// キー操作をアプリへ通さない。
+// .tutorial-overlay が塞ぐのはポインタだけで、documentへ届くキー系はそのまま通るため、
+// 言語を選ぶ前でも Ctrl+V での画像貼り付け・Delete・Ctrl+S が効いてしまっていた。
+// 受け口は1つではない（ショートカットは hotkeys が document の keydown/keyup、
+// 貼り付けは js/shortcut.js の paste、Shiftの一時解除は
+// js/fabric/fabric-management.js の keydown/keyup）。個別に塞ぐと足し忘れるので、
+// document より手前の window のキャプチャで一括して止める。
+// window は伝播経路の document より先なので、登録順に左右されない。
+// preventDefault はしないため、Tabでの移動やEnterでのボタン押下は従来どおり効く
+blockKeysWhileStartupModal:function(){
+['keydown','keyup','paste'].forEach(function(type){
+window.addEventListener(type,function(e){
+var overlay=document.querySelector('.tutorial-overlay');
+if(!overlay)return;
+// モーダルの中で起きたキー操作は通す（Tab移動・Enterでの決定）
+if(e.target&&overlay.contains(e.target))return;
+e.stopPropagation();
+},true);
 });
 }
 };
@@ -385,6 +452,32 @@ guide.querySelector('.guide-close').addEventListener('click',function(){
 guide.remove();
 });
 },
+// ノードは揃っているが、ワークフローが指す値（モデル名・sampler_name等）がComfyUI側に無い。
+// カスタムノードの入れ直しでは直らないので、showNodeErrorGuideとは別の手順を出す
+showValueErrorGuide:function(mismatchLines){
+var container=document.querySelector('.comfui-right-sidebar');
+if(!container)return;
+var existingGuide=container.querySelector('.comfyui-error-guide');
+if(existingGuide)existingGuide.remove();
+var valueList=mismatchLines.filter(function(n){return n!=='---';}).join('<br>');
+var guide=document.createElement('div');
+guide.className='comfyui-error-guide';
+guide.innerHTML='<div class="guide-header error">'+
+'<span class="guide-icon">&#10060;</span>'+
+'<span class="guide-title">'+getText('comfyGuideValueErrorTitle')+'</span>'+
+'<button class="guide-close">&times;</button>'+
+'</div>'+
+'<div class="guide-content">'+
+'<div class="guide-error-nodes">'+getText('comfyGuideValueErrorMissing')+': <code>'+valueList+'</code></div>'+
+'<div class="guide-step"><span class="step-num">1</span>'+getText('comfyGuideValueErrorStep1')+'</div>'+
+'<div class="guide-step"><span class="step-num">2</span>'+getText('comfyGuideValueErrorStep2')+'</div>'+
+'<div class="guide-tip">'+getText('comfyGuideValueErrorTip')+'</div>'+
+'</div>';
+container.insertBefore(guide,container.firstChild);
+guide.querySelector('.guide-close').addEventListener('click',function(){
+guide.remove();
+});
+},
 showGenerationErrorGuide:function(errorMessage){
 var container=document.querySelector('.comfui-right-sidebar');
 if(!container)return;
@@ -410,6 +503,8 @@ guide.remove();
 }
 };
 document.addEventListener('DOMContentLoaded',function(){
+// ここではモーダルを出さない。起動時に出す順番は
+// js/project-management.js の runBootSequence が1か所で決めている
 TutorialManager.init();
 ComfyUIGuide.init();
 });

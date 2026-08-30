@@ -228,7 +228,14 @@ stateStack.push(json);
 currentStateIndex=stateStack.length-1;
 updateLayerPanel();
 btmScheduleThumbnailRefresh();
+notifyHistoryChanged();
 return true;
+}
+
+// stateStack / currentStateIndex が変わったことを知らせる唯一の入口。
+// 履歴を変える場所が増えたらここを呼ぶ。知らせる相手はこの中だけに書く
+function notifyHistoryChanged(){
+updateHistoryButtonState();
 }
 
 function saveStateByListener(event,eventType) {
@@ -396,6 +403,9 @@ if(index<0||index>=stateStack.length){
 return;
 }
 currentStateIndex=index;
+// 復元の成否によらずここで位置が決まる。JSONの解析に失敗して下で抜ける経路も
+// 位置は動いているので、コールバックの中ではなくこの場で知らせる
+notifyHistoryChanged();
 isHistoryRestoring=true;
 startRestoreWatchdog();
 
@@ -467,6 +477,10 @@ applyHistoryState(currentStateIndex+1);
 
 function lastRedo(guid=null) {
 if(stateStack.length===0){
+// 呼び出し元（project-compression.js のプロジェクト読み込み）が
+// stateStack ごと差し替えた後で来る。中身が無いと復元は走らないが、
+// 位置は動いているので知らせる
+notifyHistoryChanged();
 return;
 }
 cancelPendingHistory();
@@ -502,11 +516,28 @@ imageMap.clear();
 imageHashCache.clear();
 stateStack=[];
 currentStateIndex=-1;
+notifyHistoryChanged();
 captureState();
 }
+// メニューの「全て削除」専用の入口。allRemove()はコマのひな形適用など
+// 内部処理からも呼ばれるため、確認はユーザー操作のこちら側だけに置く
+async function confirmAllRemove(){
+var ok=await showConfirmDialog({
+titleKey:'confirmAllRemoveTitle',
+messageKey:'confirmAllRemoveBody',
+danger:true
+});
+if(!ok)return;
+allRemove();
+}
+
 function initImageHistory(){
 resetHistoryLock();
 allRemove();
+// 履歴のベースラインを張り直す入口。起動直後・ページ切替直後は
+// 「まだ何もしていない状態」なので離脱警告の対象から外す。
+// この後に中身が描かれればcaptureState()が再びdirtyにする
+UnsavedGuard.markSaved();
 }
 
 document.addEventListener('DOMContentLoaded',function() {

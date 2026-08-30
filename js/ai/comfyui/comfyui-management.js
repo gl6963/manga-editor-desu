@@ -196,6 +196,94 @@ labelfw.style.color="red";
 return false;
 }
 
+// 種別ごとのワークフローを取り出し、ノードがComfyUI側にあるかまで見る。
+// 通常の生成と設定資料の生成で同じ判定を通すため1か所に置く。使えないときは理由を出してnullを返す
+const COMFYUI_WORKFLOW_TYPE_KEYS={
+T2I: "T2I",
+I2I: "I2I",
+Rembg: "REMBG",
+Upscaler: "Upscaler",
+Inpaint: "Inpaint",
+I2I_Angle: "I2I_Angle"
+};
+async function comfyuiSelectWorkflow(Type) {
+var typeKey=COMFYUI_WORKFLOW_TYPE_KEYS[Type];
+if (!typeKey) return null;
+var repo=(_comfyUIExecProvider&&_comfyUIExecProvider.id==='runpodComfyUI')
+? comfyUIWorkflowRepo_runpod
+: comfyUIWorkflowRepo_local;
+var workflow=await repo.getEnabledWorkflowByType(typeKey);
+// 有効なワークフローが無いまま進むと checkWorkflowNodeVsComfyUI で例外になる
+if (!workflow) {
+createToastError(getText("comfyWorkflowMissingTitle"),getText("comfyWorkflowMissingMessage")+" "+Type,1000*10);
+return null;
+}
+var objInfoRepo=(_comfyUIExecProvider&&_comfyUIExecProvider.id==='runpodComfyUI')?comfyObjectInfoRepo_runpod:comfyObjectInfoRepo_local;
+if (!await checkWorkflowNodeVsComfyUI(workflow,objInfoRepo)) {
+return null;
+}
+return workflow;
+}
+
+// キャンバスへ置かずに画像だけ返す経路。設定資料をその場で作るために使う。
+// コマが無いので生成タスクの登録（ページ復帰用）も配置も通らない
+async function comfyuiT2IDetached(request,spinnerId) {
+var startTime=Date.now();
+var serverAddress=getComfyUIServerAddress();
+var authHeaders=getComfyUIAuthHeaders();
+if (!comfyuiGetSocket()) comfyuiConnect();
+var requestData=baseRequestData(detachedRequestLayer(request));
+if (basePrompt.text2img_model!=""){
+requestData["model"]=basePrompt.text2img_model;
+}
+var workflowJson=await comfyuiSelectWorkflow('T2I');
+if (!workflowJson) {
+removeSpinner(spinnerId);
+return null;
+}
+var workflow=comfyuiReplacePlaceholders(workflowJson,requestData,'T2I');
+var providerCtx={
+tag:getComfyUIProviderTag(),
+serverAddress:serverAddress,
+authHeaders:authHeaders,
+objectInfoRepo:(_comfyUIExecProvider&&_comfyUIExecProvider.id==='runpodComfyUI')?comfyObjectInfoRepo_runpod:comfyObjectInfoRepo_local
+};
+var p=comfyuiQueue.add(async ()=>{
+setCurrentAiTask(spinnerId);
+return comfyui_put_queue_v2(workflow,providerCtx);
+});
+updateAiTaskCancelInfo(spinnerId,{queueName:'comfyui',queueItemId:p._queueItemId});
+try {
+var result=await p;
+if (result&&result.error) {
+createToastError("Generation Error",result.message);
+DashboardUI.recordFailure('T2I');
+return null;
+}
+if (!result) {
+DashboardUI.recordFailure('T2I');
+return null;
+}
+DashboardUI.recordGeneration('T2I',Date.now()-startTime,requestData.prompt||'',requestData.model||'');
+// 返るのはblob URL。設定資料はプロジェクトファイルへ入るのでdataURLへ写し、URLはその場で捨てる
+var dataUrl=await blobUrlToDataUrl(result);
+URL.revokeObjectURL(result);
+return dataUrl;
+} catch (error) {
+if(error.message==='Queue cancelled'||error.message==='Task cancelled'){
+comfyuiLogger.debug("Detached generation cancelled by user");
+return null;
+}
+DashboardUI.recordFailure('T2I');
+let help=getText("comfyUI_workflowErrorHelp");
+createToastError("Generation Error",[error.message,help],8000);
+comfyuiLogger.error("comfyuiT2IDetached:",error);
+return null;
+} finally {
+removeSpinner(spinnerId);
+}
+}
+
 async function comfyuiHandleProcessQueue(layer,spinnerId,Type='T2I',extraData) {
 var startTime=Date.now();
 var serverAddress=getComfyUIServerAddress();
@@ -209,37 +297,8 @@ if(extraData){
 Object.assign(requestData,extraData);
 }
 
-var repo=(_comfyUIExecProvider&&_comfyUIExecProvider.id==='runpodComfyUI')
-? comfyUIWorkflowRepo_runpod
-: comfyUIWorkflowRepo_local;
-
-if (Type=='T2I') {
-selectedWorkflow=await repo.getEnabledWorkflowByType("T2I");
-} else if(Type=='I2I') {
-selectedWorkflow=await repo.getEnabledWorkflowByType("I2I");
-} else if(Type=='Rembg') {
-selectedWorkflow=await repo.getEnabledWorkflowByType("REMBG");
-} else if(Type=='Upscaler') {
-selectedWorkflow=await repo.getEnabledWorkflowByType("Upscaler");
-} else if(Type=='Inpaint') {
-selectedWorkflow=await repo.getEnabledWorkflowByType("Inpaint");
-} else if(Type=='I2I_Angle') {
-selectedWorkflow=await repo.getEnabledWorkflowByType("I2I_Angle");
-} else{
-removeSpinner(spinnerId);
-return;
-}
-
-// 有効なワークフローが無いまま進むと getClassTypeOnlyByJson で例外になる
+selectedWorkflow=await comfyuiSelectWorkflow(Type);
 if(!selectedWorkflow){
-createToastError(getText("comfyWorkflowMissingTitle"),getText("comfyWorkflowMissingMessage")+" "+Type,1000*10);
-removeSpinner(spinnerId);
-return;
-}
-
-var classTypeLists=getClassTypeOnlyByJson(selectedWorkflow);
-var objInfoRepo=(_comfyUIExecProvider&&_comfyUIExecProvider.id==='runpodComfyUI')?comfyObjectInfoRepo_runpod:comfyObjectInfoRepo_local;
-if(!await checkWorkflowNodeVsComfyUI(classTypeLists,objInfoRepo)){
 removeSpinner(spinnerId);
 return;
 }

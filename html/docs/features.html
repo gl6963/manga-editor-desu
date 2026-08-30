@@ -239,7 +239,7 @@
 
 <div class="card">
 <p>Every editing feature above works without AI. Generation is entirely optional and requires a backend that you supply and configure.</p>
-<p>Six services are supported, and each task type is routed independently — you can send text-to-image to one service and dialogue translation to another.</p>
+<p>Six services are supported, and each task type is routed independently — you can send text-to-image to one service and prompt generation to another.</p>
 <table>
 <thead><tr><th>Service</th><th>Runs</th><th>Supports</th></tr></thead>
 <tbody>
@@ -260,7 +260,7 @@
 <p>A 3D camera widget plus a free-text instruction regenerates an existing image from a different camera angle.</p>
 
 <h3>Language model features</h3>
-<p>With Grok or Ollama connected, the editor can turn a written scene description into image generation tags, read tags back out of an existing image, expand a story into per-panel prompts across a page or a whole project, and polish, retone, length-fit or translate dialogue in a speech bubble. Generated prompts always land in an editable preview, where you choose whether to append or replace, rather than being written straight to the canvas.</p>
+<p>With Grok or Ollama connected, the editor can turn a written scene description into image generation tags, read tags back out of an existing image, and expand a story into per-panel prompts across a page or a whole project. Generated prompts always land in an editable preview, where you choose whether to append or replace, rather than being written straight to the canvas.</p>
 
 <h3>ComfyUI workflows</h3>
 <p>Workflows exported from ComfyUI in API format can be imported, one or many at a time. Each is assigned a task type, and one workflow per type is active at a time. Node inputs are editable inline, with model, LoRA, sampler and VAE dropdowns populated from your running ComfyUI server; nodes your server does not have are flagged. Local and RunPod keep entirely separate workflow sets.</p>

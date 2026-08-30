@@ -40,6 +40,13 @@ var isLongPressDirection=false;
 var longPressTimer=0;
 var activeObjectMoveStep=0;
 
+// ショートカットごとに「入力欄にフォーカスがあるとき」の扱いが違い、
+// Ctrl+Z/Ctrl+S などは isEditableTagsActive()、Ctrl+C/V・Delete・矢印・Esc は
+// ライブラリ既定のフィルタ任せだった。判定をここ1か所に寄せて全ショートカットで揃える
+hotkeys.filter=function (event) {
+return!isEditableTagsActive(event.target);
+};
+
 
 // bind toggle grid shortcut
 hotkeys(hotkeysMap.toggleGrid,'all' ,function (e) {
@@ -47,20 +54,62 @@ toggleGrid();
 e.preventDefault();
 });
 
+// Undo/Redoの入口はキーとツールバーのボタンの2つ。どちらもここを通す。
+// 履歴はページごとに持つ（仕様）ため、押しても何も起きないとき、
+// 端まで戻り切ったのか、別ページでの操作なので戻せないのかが利用者から区別できない。
+// 何も起きなかったときだけ理由を出す
+function undoByUser() {
+if (isHistoryRestoreInProgress()) {
+undo();
+return;
+}
+var beforeIndex=currentStateIndex;
+undo();
+if (currentStateIndex===beforeIndex) {
+createToast(getText('historyUndoNone'),[getText('historyPageScope')]);
+}
+updateHistoryButtonState();
+}
+
+function redoByUser() {
+if (isHistoryRestoreInProgress()) {
+redo();
+return;
+}
+var beforeIndex=currentStateIndex;
+redo();
+if (currentStateIndex===beforeIndex) {
+createToast(getText('historyRedoNone'),[getText('historyPageScope')]);
+}
+updateHistoryButtonState();
+}
+
+// 履歴の端では押しても何も起きない。押せる見た目のままだと
+// 「効かない」のか「もう戻れない」のかが区別できないため、端では無効表示にする。
+// 呼ぶのは履歴が実際に変わる場所（image-history-management.js の
+// notifyHistoryChanged()）。ここから履歴を見張らないこと
+function updateHistoryButtonState() {
+setHistoryButtonState($('undo'),currentStateIndex>=1);
+setHistoryButtonState($('redo'),currentStateIndex<stateStack.length-1);
+}
+
+function setHistoryButtonState(button,enabled) {
+if (!button) {
+return;
+}
+button.disabled=!enabled;
+}
+
 // bind undo shortcut
 hotkeys(hotkeysMap.undo,'all' ,function (e) {
-if (!isEditableTagsActive()) {
-undo();
+undoByUser();
 e.preventDefault();
-}
 });
 
 // bind redo shortcut
 hotkeys(hotkeysMap.redo,'all' ,function (e) {
-if (!isEditableTagsActive()) {
-redo();
+redoByUser();
 e.preventDefault();
-}
 });
 
 // bind toggle layer panel shortcut
@@ -97,9 +146,13 @@ e.preventDefault();
 
 // bind copy shortcut
 hotkeys(hotkeysMap.copy,'all',function (e) {
-if (canvas.getActiveObject()) {
-canvas.getActiveObject().clone(function(cloned) {
+var activeObject=canvas.getActiveObject();
+if (activeObject) {
+activeObject.clone(function(cloned) {
 window._clipboard=cloned;
+// コマとのリンク（relatedPoly）は複製に付いてこない。
+// 貼り付けで張り直すときに元と同じコマを優先できるよう、コピー元を覚えておく
+window._clipboardSource=activeObject;
 });
 }
 e.preventDefault();
@@ -116,8 +169,14 @@ left: clonedObj.left+10,
 top: clonedObj.top+10
 });
 canvas.add(clonedObj);
+// 複製は relatedPoly も guid も持たず、clipPath だけが元コマ位置の静的コピーとして残る。
+// リンクの張り直しは複製の入口（右クリックの複製・ここ）ごとに書かず、
+// panel-manager.js の1か所に寄せてある
+relinkClonedObject(clonedObj,window._clipboardSource);
 canvas.setActiveObject(clonedObj);
 canvas.requestRenderAll();
+updateLayerPanel();
+saveStateByManual();
 });
 e.preventDefault();
 });
@@ -177,18 +236,14 @@ e.preventDefault();
 
 // bind project save shortcut
 hotkeys(hotkeysMap.projectSave,'all',function (e) {
-if (!isEditableTagsActive()) {
 $('projectSave').click();
 e.preventDefault();
-}
 });
 
 // bind project load shortcut
 hotkeys(hotkeysMap.projectLoad,'all',function (e) {
-if (!isEditableTagsActive()) {
 $('projectLoad').click();
 e.preventDefault();
-}
 });
 
 // bind toggle bottom bar shortcut
@@ -199,18 +254,14 @@ e.preventDefault();
 
 // bind image download shortcut
 hotkeys(hotkeysMap.imageDownload,'all',function (e) {
-if (!isEditableTagsActive()) {
 cropAndDownload();
 e.preventDefault();
-}
 });
 
 // bind settings save shortcut
 hotkeys(hotkeysMap.settingsSave,'all',function (e) {
-if (!isEditableTagsActive()) {
 $('settingsSave').click();
 e.preventDefault();
-}
 });
 
 // bind prompt view shortcut
@@ -229,9 +280,7 @@ e.preventDefault();
 
 // bind new page shortcut
 hotkeys(hotkeysMap.newPage,'all',function (e) {
-if (!isEditableTagsActive()) {
 loadBookSize(canvas.width,canvas.height,true,true);
-}
 return false;
 });
 
@@ -341,7 +390,7 @@ $('shortcutModal').style.display='none';
 
 // bind enter key for crop completion
 hotkeys('enter','all',function (e) {
-if (!isEditableTagsActive()&&cropFrame) {
+if (cropFrame) {
 completeCrop();
 e.preventDefault();
 }
@@ -442,21 +491,67 @@ activeObjectMoveStep=0;
 }
 });
 
-function isEditableTagsActive() {
-const activeElement=document.activeElement;
-// the tags that should be excluded from the default behavior
-const excludedTags=['INPUT','TEXTAREA','DIV','SELECT'];
-
-if (excludedTags.includes(activeElement.tagName)||
-(activeElement.isContentEditable&&activeElement.tagName==='DIV')) {
+// 文字を打っている最中かどうかの判定。ショートカットの効く条件はこれ1つに揃える。
+// DIV を丸ごと除外していたため、フォーカスがDIVにあると Ctrl+Z だけ効かなかった。
+// 実際に文字が入るのは編集可能なとき（contentEditable、readOnlyでない入力欄）だけなので、
+// タグ名ではなく編集できるかどうかで判定する
+function isEditableTagsActive(element) {
+const activeElement=element||document.activeElement;
+if (!activeElement) {
+return false;
+}
+if (activeElement.isContentEditable) {
 return true;
+}
+const tagName=activeElement.tagName;
+if (tagName==='INPUT'||tagName==='TEXTAREA'||tagName==='SELECT') {
+// レイヤー名の欄はダブルクリックするまで readOnly。読むだけの状態は打鍵中ではない
+return!activeElement.readOnly;
 }
 return false;
 }
 
+// 今画面に見えている範囲の中央を、キャンバス座標で返す。
+// #canvas-container は transform:scale で拡大され、スクロールするのは
+// #resizable-container なので、画面上の矩形どうしの重なりから求める
+function getVisibleCanvasCenter() {
+const canvasRect=canvas.getElement().getBoundingClientRect();
+const viewportRect=getScrollContainer().getBoundingClientRect();
+const scale=getCanvasDisplayScale();
+const left=Math.max(canvasRect.left,viewportRect.left);
+const right=Math.min(canvasRect.right,viewportRect.right);
+const top=Math.max(canvasRect.top,viewportRect.top);
+const bottom=Math.min(canvasRect.bottom,viewportRect.bottom);
+// 拡大してキャンバスが画面の外まで送られていると重なりが無くなる。その時はキャンバスの中央
+if (!(right>left)||!(bottom>top)) {
+return {x: canvas.getWidth()/2,y: canvas.getHeight()/2};
+}
+return {
+x: ((left+right)/2-canvasRect.left)/scale,
+y: ((top+bottom)/2-canvasRect.top)/scale
+};
+}
+
+// コマに入れない貼り付け。キャンバス左上1/4に置いていたため、
+// 拡大やスクロールをしていると画面の外に出て見つけられなかった
+function placePastedImageOnCanvas(img) {
+const center=getVisibleCanvasCenter();
+const scaleToFit=Math.min((canvas.getWidth()/2)/img.width,(canvas.getHeight()/2)/img.height);
+img.set({
+scaleX: scaleToFit,
+scaleY: scaleToFit,
+left: center.x-(img.width*scaleToFit)/2,
+top: center.y-(img.height*scaleToFit)/2,
+});
+canvas.add(img);
+canvas.setActiveObject(img);
+canvas.renderAll();
+updateLayerPanel();
+saveStateByManual();
+}
+
 document.addEventListener("paste",function (event) {
 const items=event.clipboardData.items;
-var isActive=true;
 for (let i=0;i<items.length;i++) {
 if (items[i].kind==="file"&&items[i].type.startsWith("image/")) {
 const blob=items[i].getAsFile();
@@ -466,8 +561,10 @@ reader.onload=function (event) {
 const data=event.target.result;
 fabric.Image.fromURL(data,function (img) {
 const activeObject=canvas.getActiveObject();
-
-if (activeObject&&isActive) {
+// 選択中が何であってもその中へ入れようとしていたため、テキストや吹き出しを
+// 選んだまま貼ると、コマでないものの形で切り抜かれてリンクが張られた。
+// コマを選んでいるときだけコマへ入れる
+if (activeObject&&isPanel(activeObject)) {
 const x=
 activeObject.left+
 (activeObject.width*activeObject.scaleX)/2;
@@ -475,29 +572,12 @@ const y=
 activeObject.top+
 (activeObject.height*activeObject.scaleY)/2;
 putImageInFrame(img,x,y,false,false,true,activeObject);
-} else {
-isActive=false;
-const canvasWidth=canvas.width/2;
-const canvasHeight=canvas.height/2;
-const scaleToFitX=canvasWidth/img.width;
-const scaleToFitY=canvasHeight/img.height;
-const scaleToFit=Math.min(scaleToFitX,scaleToFitY);
-
-img.set({
-scaleX: scaleToFit,
-scaleY: scaleToFit,
-left: (canvasWidth-img.width*scaleToFit)/2,
-top: (canvasHeight-img.height*scaleToFit)/2,
-});
-canvas.add(img);
-canvas.setActiveObject(img);
-canvas.renderAll();
-saveStateByManual();
+return;
 }
+placePastedImageOnCanvas(img);
 });
 };
 reader.readAsDataURL(blob);
-updateLayerPanel();
 }
 }
 });

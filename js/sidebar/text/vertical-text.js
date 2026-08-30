@@ -9,8 +9,6 @@ var fontStrokeWidth=$("fontStrokeWidthSlider").value
 
 const selectedValue=getSelectedValueByGroup("align_group");
 let style={
-top: 50,
-left: 50,
 fontSize: parseInt(fontsize),
 fontFamily: selectedFont,
 fill: $("textColorPicker").value,
@@ -28,6 +26,8 @@ padding: 10,
 };
 
 const cjkText=new VerticalTextbox("new",style);
+textDecorApplyToNew(cjkText);
+placeNewObject(cjkText);
 canvas.add(cjkText);
 canvas.setActiveObject(cjkText);
 canvas.renderAll();

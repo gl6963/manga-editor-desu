@@ -402,7 +402,6 @@ LLMは毎回そう書いてくる。ページも話も全部同じ構成にな�
 | キャラ表・ロケ表 | `LLM_STORY_SHEET_SYSTEM` — llm-story-service.js |
 | ページ配分 | `LLM_STORY_PAGEPLAN_SYSTEM` — llm-story-service.js |
 | 文章→タグ / 画像→タグ | `LLM_TEXT2PROMPT_SYSTEM` / `LLM_IMAGE2PROMPT_SYSTEM` — llm-prompt-service.js |
-| セリフの推敲・翻訳 | `LLM_DIALOGUE_BASE_RULES` — llm-dialogue-service.js |
 | 作品傾向（ユーザーメッセージ先頭） | `MANGA_TONE_PRESETS` — panel-composition.js |
 
 ---

@@ -28,6 +28,12 @@ return comfyUIExecWithProvider(this,()=>comfyuiApiHeartbeat());
 async executeT2I(layer,spinnerId){
 return comfyUIExecWithProvider(this,()=>comfyuiHandleProcessQueue(layer,spinnerId,'T2I'));
 }
+supportsDetachedT2I(){
+return true;
+}
+async executeDetachedT2I(request,spinnerId){
+return comfyUIExecWithProvider(this,()=>comfyuiT2IDetached(request,spinnerId));
+}
 async executeI2I(layer,spinnerId){
 return comfyUIExecWithProvider(this,()=>comfyuiHandleProcessQueue(layer,spinnerId,'I2I'));
 }

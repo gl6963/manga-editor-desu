@@ -54,7 +54,7 @@ AI generation is optional — every editing feature works without it. You supply
 - **Inpaint** - Paint a mask and regenerate just that area (ComfyUI only)
 - **Angle Generate** - Regenerate an image from a new camera angle (ComfyUI only)
 - **Upscale / Remove Background** - Post-processing on generated or imported images
-- **LLM features** - Story to per-panel prompts, image to prompt, dialogue polishing and translation
+- **LLM features** - Story to per-panel prompts, image to prompt
 - **Prompt Queue** - Batch generate across panels and pages, with per-service concurrency
 - **Supported Backends (6):**
   - ComfyUI — local (SD1.5, SDXL, Flux, Z-Image-turbo, Qwen-Image, custom workflows)

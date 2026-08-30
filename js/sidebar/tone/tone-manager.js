@@ -43,27 +43,19 @@ var mangaToneMinRadius=null;
 
 let nowTone=null;
 
+// トーンの入り切りは ModeManager が持つ。ここで直接 start/end を呼んでいたため、
+// Esc・「モード解除」・パネル切替のどれからも終われなかった（監査 #25）
 function switchMangaTone(type) {
-switchMangaToneUi(type);
-
-if (nowTone) {
-if (type==nowTone) {
-clearActiveToneButton();
-speedLineEnd();
-focusLineEnd();
-toneNoiseEnd();
-toneEnd();
-nowTone=null;
+if (type===nowTone) {
+ModeManager.clearAll();
 return;
-} else {
-clearActiveToneButton();
-speedLineEnd();
-focusLineEnd();
-toneNoiseEnd();
-toneEnd();
-nowTone=null;
 }
+ModeManager.change(type);
 }
+
+// ModeManager.tone._enable からのみ呼ぶ。トーンを1種類だけ立ち上げる
+function applyMangaTone(type) {
+switchMangaToneUi(type);
 
 if (type===MODE_TONE) {
 toneStart();
@@ -91,6 +83,21 @@ effectLogger.error("unknown type",type);
 
 presetPanelSetActive('tone',type);
 nowTone=type;
+}
+
+// ModeManager.tone.disable からのみ呼ぶ。今のトーンを終わらせる。
+// 設定欄を作り直すのは、種類ごとに付けた input イベントを要素ごと外すため
+// （リスナーは #manga-tone-settings の中の要素に付いていて、innerHTML の差し替えで消える）
+function endMangaTone() {
+if (!nowTone) return;
+switchMangaToneUi(nowTone);
+clearActiveToneButton();
+speedLineEnd();
+focusLineEnd();
+toneNoiseEnd();
+snowToneEnd();
+toneEnd();
+nowTone=null;
 }
 
 function switchMangaToneUi(type) {

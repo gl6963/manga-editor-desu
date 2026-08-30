@@ -1,8 +1,15 @@
 // Fal.aiクラウドAIプロバイダー: Queue APIで非同期実行（T2I/I2I/Upscale/RemoveBG）
-class FalAIProvider extends AIProvider{
+// キュー投入・結果の配置はCloudImageProviderに寄せてある
+class FalAIProvider extends CloudImageProvider{
 constructor(){
 super('falai','Fal.ai');
 this._modelCache=null;
+}
+getQueue(){
+return falaiQueue;
+}
+getQueueName(){
+return'falai';
 }
 getSupportedRoles(){
 return[
@@ -216,22 +223,6 @@ throw err;
 }
 return response.json();
 }
-async _imageUrlToFabric(imageUrl){
-var response=await fetch(imageUrl);
-if(!response.ok)throw new Error('Image fetch failed: '+response.status);
-var blob=await response.blob();
-return new Promise((resolve,reject)=>{
-var reader=new FileReader();
-reader.onload=function(){
-fabric.Image.fromURL(reader.result,(img)=>{
-if(img)resolve(img);
-else reject(new Error('Failed to create fabric.Image'));
-});
-};
-reader.onerror=()=>reject(new Error('FileReader error'));
-reader.readAsDataURL(blob);
-});
-}
 async _outputToFabricImage(output){
 if(output.images&&output.images.length>0){
 var img=output.images[0];
@@ -242,103 +233,21 @@ return this._imageUrlToFabric(output.image.url);
 }
 throw new Error('Fal.ai returned no images');
 }
-_registerTask(layer){
-var canvasGuid=getCanvasGUID();
-var layerType='unknown';
-var targetLayerGuid=null;
-if(isPanel(layer)){
-layerType='panel';
-targetLayerGuid=getGUID(layer);
-}else if(layer.clipPath){
-layerType='clipPath';
-targetLayerGuid=layer.relatedPoly?getGUID(layer.relatedPoly):getGUID(layer);
-}else{
-layerType='standalone';
-}
-var center=calculateCenter(layer);
-registerGenerationTask(canvasGuid,{
-layerGuid:getGUID(layer),
-layerType:layerType,
-centerX:center.centerX,
-centerY:center.centerY,
-targetLayerGuid:targetLayerGuid
-});
-return canvasGuid;
-}
-_placeResult(result,layer,canvasGuid,Type){
-if(isPageChanged(canvasGuid)){
-return applyGeneratedImageToOriginalPage(canvasGuid,result).then(applied=>{
-if(!applied){
-removeGenerationTask(canvasGuid);
-this._placeOnCanvas(result,layer,Type);
-}
-});
-}
-removeGenerationTask(canvasGuid);
-this._placeOnCanvas(result,layer,Type);
-}
-_placeOnCanvas(result,layer,Type){
-if(isPanel(layer)){
-var c=calculateCenter(layer);
-putImageInFrame(result,c.centerX,c.centerY,false,false,true,layer);
-}else if(layer.clipPath){
-var c=calculateCenter(layer);
-var targetParent=layer.relatedPoly||layer;
-layer.saveHistory=false;
-canvas.remove(layer);
-putImageInFrame(result,c.centerX,c.centerY,false,false,true,targetParent);
-}else{
-layer.saveHistory=false;
-canvas.remove(layer);
-replaceImageObject(layer,result,Type);
-}
-}
-async _execute(layer,spinnerId,Type,modelId,buildInput){
-var startTime=Date.now();
-var canvasGuid=this._registerTask(layer);
-var p=falaiQueue.add(async()=>{
-setCurrentAiTask(spinnerId);
-var inputData=buildInput();
+// 生成本体。キュー投入と結果の配置はCloudImageProvider._execute()が行う
+async _generate(modelId,inputData){
 var output=await this._runSync(modelId,inputData);
 return this._outputToFabricImage(output);
-});
-updateAiTaskCancelInfo(spinnerId,{queueName:'falai',queueItemId:p._queueItemId});
-return p
-.then(async(result)=>{
-if(result){
-DashboardUI.recordGeneration(Type,Date.now()-startTime,'',modelId);
-this._placeResult(result,layer,canvasGuid,Type);
 }
-})
-.catch((error)=>{
-removeGenerationTask(canvasGuid);
-if(error.message==='Queue cancelled'||error.message==='Task cancelled'){
-this._logger.debug("Generation cancelled by user");
-return;
-}
-DashboardUI.recordFailure(Type);
-var msg=error.message||'';
+// 残高切れとコンテンツポリシーはdetailでしか分からないため文言を差し替える
+translateError(error){
 var detail=typeof error.detail==='string'?error.detail:JSON.stringify(error.detail||'');
-var displayMsg=msg;
-if(detail.indexOf('Exhausted balance')!==-1){
-displayMsg=i18next.t('falaiBalanceExhausted');
-}else if(detail.indexOf('content_policy_violation')!==-1){
-displayMsg=i18next.t('falaiContentPolicy');
-}
-createToastError('Fal.ai',displayMsg,8000);
-this._logger.error(Type+' error:',msg);
-})
-.finally(()=>{
-removeSpinner(spinnerId);
-});
+if(detail.indexOf('Exhausted balance')!==-1)return i18next.t('falaiBalanceExhausted');
+if(detail.indexOf('content_policy_violation')!==-1)return i18next.t('falaiContentPolicy');
+return error.message||'';
 }
 async executeT2I(layer,spinnerId){
-var modelId=this._getModelId('t2i');
-if(!modelId){
-removeSpinner(spinnerId);
-createToastError('Fal.ai','T2I model not selected',5000);
-return;
-}
+var modelId=this._requireModelId('t2i',spinnerId,'T2I');
+if(!modelId)return;
 return this._execute(layer,spinnerId,'T2I',modelId,()=>{
 var rd=baseRequestData(layer);
 if(basePrompt.text2img_model!=''){
@@ -354,13 +263,28 @@ seed:rd.seed>0?rd.seed:undefined
 };
 });
 }
-async executeI2I(layer,spinnerId){
-var modelId=this._getModelId('i2i');
-if(!modelId){
-removeSpinner(spinnerId);
-createToastError('Fal.ai','I2I model not selected',5000);
-return;
+supportsDetachedT2I(){
+return true;
 }
+// 設定資料をこの場で作る経路。コマに置かず画像だけ受け取る
+async executeDetachedT2I(request,spinnerId){
+var modelId=this._requireModelId('t2i',spinnerId,'T2I');
+if(!modelId)return null;
+return this._executeDetached(spinnerId,'T2I',modelId,()=>{
+var rd=baseRequestData(detachedRequestLayer(request));
+return{
+prompt:rd.prompt,
+negative_prompt:rd.negative_prompt,
+image_size:{width:rd.width,height:rd.height},
+num_inference_steps:rd.steps,
+guidance_scale:rd.cfg_scale,
+seed:rd.seed>0?rd.seed:undefined
+};
+});
+}
+async executeI2I(layer,spinnerId){
+var modelId=this._requireModelId('i2i',spinnerId,'I2I');
+if(!modelId)return;
 return this._execute(layer,spinnerId,'I2I',modelId,()=>{
 var rd=baseRequestData(layer);
 var base64Image=imageObject2Base64ImageEffectKeep(layer);
@@ -377,12 +301,8 @@ seed:rd.seed>0?rd.seed:undefined
 });
 }
 async executeUpscale(layer,spinnerId){
-var modelId=this._getModelId('upscale');
-if(!modelId){
-removeSpinner(spinnerId);
-createToastError('Fal.ai','Upscale model not selected',5000);
-return;
-}
+var modelId=this._requireModelId('upscale',spinnerId,'Upscale');
+if(!modelId)return;
 return this._execute(layer,spinnerId,'Upscaler',modelId,()=>{
 var base64Image=imageObject2Base64ImageEffectKeep(layer);
 return{
@@ -391,12 +311,8 @@ image_url:base64Image
 });
 }
 async executeRembg(layer,spinnerId){
-var modelId=this._getModelId('rembg');
-if(!modelId){
-removeSpinner(spinnerId);
-createToastError('Fal.ai','RemoveBG model not selected',5000);
-return;
-}
+var modelId=this._requireModelId('rembg',spinnerId,'RemoveBG');
+if(!modelId)return;
 return this._execute(layer,spinnerId,'Rembg',modelId,()=>{
 var base64Image=imageObject2Base64ImageEffectKeep(layer);
 return{

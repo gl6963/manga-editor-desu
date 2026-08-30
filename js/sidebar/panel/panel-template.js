@@ -1,27 +1,30 @@
 
+// ページを作る／作り直す唯一の入口。
+// addPanel も newPage も false のときは起動時のキャンバス初期化で、
+// ページを増やさず今のページを作り直す。
+// 中身の作り方（コマを置くか空にするか）と原稿サイズの決め方をここに集約する。
+// 原稿サイズ(mm)は resizeCanvasToObject() が比率から決めるため、
+// 呼び出し側で setPageSizeMm() を書かない
 async function loadBookSize(width,height,addPanel,newPage=false) {
-panelLogger.info("[loadBookSize] START w="+width+" h="+height+" addPanel="+addPanel+" newPage="+newPage);
+const createsNewPage=(addPanel||newPage);
+panelLogger.info("[loadBookSize] START w="+width+" h="+height+" addPanel="+addPanel+" newPage="+newPage+" createsNewPage="+createsNewPage);
 panelLogger.info("[loadBookSize] stateStack.length="+stateStack.length+" btmProjectsMap.size="+btmProjectsMap.size+" canvasGUID="+getCanvasGUID()+" objectCount="+getObjectCount());
 const loading=OP_showLoading({
 icon: 'process',step: 'Step1',substep: 'Next Project',progress: 0
 });
 try{
-var shouldSave=(addPanel||newPage)&&btmShouldSaveCurrentPage();
-panelLogger.info("[loadBookSize] shouldSave="+shouldSave+" (addPanel||newPage)="+(addPanel||newPage));
-if (shouldSave) {
-panelLogger.info("[loadBookSize] IF branch: saving current page to bottom bar");
+if (createsNewPage) {
 OP_updateLoadingState(loading,{
 icon: 'process',step: 'Step2',substep: 'Zip Start',progress: 40
 });
-
-await btmSaveProjectFile().then(()=>{
-panelLogger.info("[loadBookSize] btmSaveProjectFile done, calling setCanvasGUID. btmProjectsMap.size="+btmProjectsMap.size);
+// 離れる前に今のページを確定する。ここで保存しないと直前の変更が失われる
+await btmSaveCurrentPage(false);
 setCanvasGUID();
 panelLogger.info("[loadBookSize] new canvasGUID="+getCanvasGUID());
-});
 OP_updateLoadingState(loading,{
 icon: 'process',step: 'Step2',substep: 'Next Project End',progress: 90
 });
+}
 
 withoutHistory(function(){
 resizeCanvasToObject(width,height);
@@ -30,22 +33,14 @@ if (addPanel) {
 addSquareBySize(width,height);
 } else {
 initImageHistory();
+// 空のページでも起動直後と同じ案内を出す。この文字はページの中身とは数えない
+showEmptyPageMessage();
 }
-panelLogger.info("[loadBookSize] IF branch done. stateStack.length="+stateStack.length+" btmProjectsMap.size="+btmProjectsMap.size);
-} else {
-panelLogger.info("[loadBookSize] ELSE branch: NOT saving current page (empty canvas or no user action)");
-setCanvasGUID();
-panelLogger.info("[loadBookSize] ELSE new canvasGUID="+getCanvasGUID());
-withoutHistory(function(){
-resizeCanvasToObject(width,height);
-});
-if (addPanel) {
-addSquareBySize(width,height);
-} else {
-initImageHistory();
-}
-panelLogger.info("[loadBookSize] ELSE branch done. stateStack.length="+stateStack.length);
-}
+
+// 作った時点でボトムバーへ載せる。保存の機会を待つと、ページ番号・前後移動・
+// サムネイルが成り立たず、空のまま別ページへ移るとページごと消える
+await btmRegisterCurrentPage(createsNewPage);
+panelLogger.info("[loadBookSize] DONE stateStack.length="+stateStack.length+" btmProjectsMap.size="+btmProjectsMap.size+" canvasGUID="+getCanvasGUID());
 }finally{
 OP_hideLoading(loading);
 }
@@ -113,12 +108,14 @@ document.addEventListener('DOMContentLoaded',function () {
 $("CustomPanelButton").addEventListener("click",function () {
 var x=$("customPanelSizeX").value;
 var y=$("customPanelSizeY").value;
-loadBookSize(x,y,false);
+loadBookSize(x,y,false,true);
 canvas.renderAll();
 adjustCanvasSize();
 });
-$on($("page-portrait"),"click",()=>{setPageSizeMm(210,297);loadBookSize(210,297,true);});
-$on($("page-landscape"),"click",()=>{setPageSizeMm(297,210);loadBookSize(297,210,true);});
+// 「縦ページ」「横ページ」も中身は空にして、カスタムページ・ボトムバーの＋と揃える。
+// 全面コマ1枚が要るときはコマのひな形かランダムカットを使う
+$on($("page-portrait"),"click",()=>{loadBookSize(210,297,false,true);});
+$on($("page-landscape"),"click",()=>{loadBookSize(297,210,false,true);});
 });
 
 
@@ -429,18 +426,6 @@ canvas.add(smartphone);
 }
 
 
-
-function addPentagon() {
-var side=150;
-var angle=54;
-var points=[];
-for (var i=0;i<5;i++) {
-var x=side*Math.cos((Math.PI/180)*(angle+i*72));
-var y=side*Math.sin((Math.PI/180)*(angle+i*72));
-points.push({x: x,y: y});
-}
-addShape(points);
-}
 
 function addOctagon() {
 var side=100;

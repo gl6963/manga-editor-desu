@@ -10,12 +10,27 @@ tippyInstances=[];
 
 var tippyTheme="light";
 
+// ツールチップの文言をそのままアクセシブル名にも使う。
+// アイコンのみのボタンは<i>のリガチャ文字（例:"swap_horiz"）が読み上げられてしまうため、
+// 登録の入口であるここでaria-labelとtitleを併せて付ける。
+// 各ボタンに手で足すと必ず抜けるので、この1か所に集約する
+function applyAccessibleName(element,text){
+if(!element||!text)return;
+element.setAttribute('aria-label',text);
+element.title=text;
+// アイコン自体は読み上げ対象から外す
+element.querySelectorAll('i,.material-icons,.material-symbols-outlined').forEach(function(icon){
+icon.setAttribute('aria-hidden','true');
+});
+}
+
 function addTooltipByElement(element,translationKey){
 if(!element){
 uiLogger.warn("Element not found for tooltip:"+translationKey);
 return;
 }
 var tooltipText=getText(translationKey);
+applyAccessibleName(element,tooltipText);
 var instance=tippy(element,{
 content:tooltipText,
 arrow:true,
@@ -34,6 +49,7 @@ uiLogger.warn("Element with ID "+elementId+" not found");
 return;
 }
 var tooltipText=getText(translationKey);
+applyAccessibleName(element,tooltipText);
 var instance=tippy(element,{
 content:tooltipText,
 arrow:true,
@@ -66,6 +82,7 @@ if(!icon)return;
 var wrapper=icon.closest('.icon-wrapper');
 if(!wrapper)return;
 var tooltipText=getText(item.key);
+applyAccessibleName(wrapper,tooltipText);
 var instance=tippy(wrapper,{
 content:tooltipText,
 arrow:true,
@@ -83,6 +100,22 @@ tippyInstances.push(instance);
 // 走査してtippy側で持つ。要素を増やすたびに登録を書き足す必要をなくす
 function addTooltipsByAttribute(){
 document.querySelectorAll('[data-tip]').forEach(function(element){
+// data-tip-nameがあれば{{name}}へ差し込む。プリセットのように
+// 同じ文型で名前だけ変わるものを1キーで賄うため
+if(element.dataset.tipName){
+var text=i18next.t(element.dataset.tip,{name:element.dataset.tipName});
+applyAccessibleName(element,text);
+var instance=tippy(element,{
+content:text,
+arrow:true,
+theme:tippyTheme,
+delay:[800,0],
+duration:0,
+placement:'bottom',
+});
+tippyInstances.push(instance);
+return;
+}
 addTooltipByElement(element,element.dataset.tip);
 });
 }

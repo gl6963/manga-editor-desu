@@ -9,6 +9,12 @@ MOVE_POINT:'movePoint',
 DELETE_POINT:'deletePoint',
 KNIFE:'knife',
 CROP:'crop',
+PANEL_EDIT:'panelEdit',
+TONE:'Tone',
+TONE_NOISE:'ToneNoise',
+TONE_SNOW:'ToneSnow',
+SPEED_LINE:'SpeedLine',
+FOCUSING_LINE:'FocusingLine',
 PEN_PENCIL:'Pencil',
 PEN_OUTLINE:'OutlinePen',
 PEN_CIRCLE:'Circle',
@@ -54,24 +60,28 @@ break;
 case ModeManager.MODE.CROP:
 ModeManager.crop._enable();
 break;
+case ModeManager.MODE.PANEL_EDIT:
+ModeManager.edit._enable();
+break;
 default:
 if(ModeManager._isPenMode(mode)){
 ModeManager.pencil._enable(mode);
+}else if(ModeManager._isToneMode(mode)){
+ModeManager.tone._enable(mode);
 }
 }
 if(mode!==ModeManager.MODE.SELECT){
 ModeManager.button.activeClear();
 }
 ModeManager.cursor.update(mode);
+ModeManager.help.show(mode);
 uiLogger.debug("ModeManager.change:",prev,"->",mode);
 },
 
 _enableSpeechBubbleMode:function(mode){
 currentMode=mode;
 canvas.selection=false;
-canvas.forEachObject(function(obj){
-obj.set({selectable:false,evented:false});
-});
+ModeManager.lock.apply({selectable:false,evented:false});
 var buttons={
 freehand:typeof sbFreehandButton!=='undefined'?sbFreehandButton:null,
 point:typeof sbPointButton!=='undefined'?sbPointButton:null,
@@ -101,12 +111,125 @@ ModeManager.MODE.PEN_MOSAIC
 return penModes.indexOf(mode)!==-1;
 },
 
+_isToneMode:function(mode){
+var toneModes=[
+ModeManager.MODE.TONE,
+ModeManager.MODE.TONE_NOISE,
+ModeManager.MODE.TONE_SNOW,
+ModeManager.MODE.SPEED_LINE,
+ModeManager.MODE.FOCUSING_LINE
+];
+return toneModes.indexOf(mode)!==-1;
+},
+
 _isImageBrush:function(type){
 return type===ModeManager.MODE.PEN_MOSAIC||
 type===ModeManager.MODE.PEN_CRAYON||
 type===ModeManager.MODE.PEN_INK||
 type===ModeManager.MODE.PEN_MARKER||
 type===ModeManager.MODE.PEN_OUTLINE;
+},
+
+// モードに入るときに書き換えるプロパティを、オブジェクトごとに1か所へ退避し、
+// 抜けるときは退避値へ戻す。退避が無いオブジェクト（モード中に増えたもの）は触らない。
+// 「退避が無ければ selectable:true」にすると、ロックされたコマまで動かせるようになる（監査 #07）
+lock:{
+_BACKUP_KEY:'_modeLockBackup',
+
+// ナイフの分割線・吹き出しの下描きと当たり判定用の矩形・切り抜き枠は、
+// 利用者が掴む対象ではないためロックの対象にもしない
+// （excludeFromLayerPanel が付く。レイヤーパネルにも出ない）。
+// 除外はここ1か所に置く。呼び出し側ごとに書くと書き忘れた経路で
+// 分割線や切り抜き枠が掴めるようになる
+_isTarget:function(obj){
+return !obj.excludeFromLayerPanel;
+},
+
+apply:function(props){
+canvas.forEachObject(function(obj){
+if(!ModeManager.lock._isTarget(obj))return;
+if(!obj[ModeManager.lock._BACKUP_KEY]){
+var backup={};
+Object.keys(props).forEach(function(name){
+backup[name]=obj[name];
+});
+obj[ModeManager.lock._BACKUP_KEY]=backup;
+}
+obj.set(props);
+});
+},
+
+// 退避が付いているものだけを戻す。除外対象は apply が退避を付けないので
+// ここで excludeFromLayerPanel は見ない。見てしまうと、モード中に
+// そのフラグが付いたオブジェクトの退避が戻らずに残り続ける
+restore:function(){
+canvas.forEachObject(function(obj){
+var backup=obj[ModeManager.lock._BACKUP_KEY];
+if(!backup)return;
+obj.set(backup);
+delete obj[ModeManager.lock._BACKUP_KEY];
+});
+},
+
+// モード中に増えたオブジェクトへ、元になったオブジェクトのロック状態を引き継ぐ。
+// 「今の値」と「退避」の両方を渡す。退避を渡さないと、モードを抜けたときに
+// 増えた分だけ元へ戻らず、分割元の兄弟とロック状態が食い違う（監査 #07 #12）。
+//
+// source に退避が無い（＝モードの外）ときは引き継ぐものが無いので、
+// target の selectable などは呼び出し側が source から写すこと。
+// ここで既定値を当てると元のロックが消える
+inherit:function(source,target){
+var backup=source[ModeManager.lock._BACKUP_KEY];
+if(!backup){
+delete target[ModeManager.lock._BACKUP_KEY];
+return;
+}
+var copy={};
+var current={};
+Object.keys(backup).forEach(function(name){
+copy[name]=backup[name];
+current[name]=source[name];
+});
+target[ModeManager.lock._BACKUP_KEY]=copy;
+target.set(current);
+}
+},
+
+// キャンバス上の案内文（#canvas-help-text）。
+// 「今どのモードか」「何をすればよいか」「どう抜けるか」をここ1か所で持つ。
+// モードごとに表示処理を書き足すと、案内が出ないモードが残る（監査 #10）
+help:{
+// 吹き出しの4モード（freehand/point/movePoint/deletePoint）はここに登録しない。
+// 座標モードは「4点以上打ってから始点をクリック」という確定条件を出す必要があり、
+// 打った点数で文言が変わる（監査 #22）。1つの固定文では足りないため、
+// speech-bubble-freehand.js の updateFreehandPointHelpText() が持っている。
+// ここにも定義を置くと同じ場所を2か所から書くことになる
+_defs:{
+knife:{key:'knifeHelpText',highlight:'ESC'},
+crop:{key:'cropHelpText',highlight:'Enter'},
+panelEdit:{key:'panelEditHelpText',highlight:'ESC'}
+},
+_penDef:{key:'penHelpText',highlight:'ESC'},
+_toneDef:{key:'toneHelpText',highlight:'ESC'},
+
+_def:function(mode){
+if(ModeManager._isPenMode(mode))return ModeManager.help._penDef;
+if(ModeManager._isToneMode(mode))return ModeManager.help._toneDef;
+return ModeManager.help._defs[mode];
+},
+
+show:function(mode){
+var def=ModeManager.help._def(mode);
+if(!def){
+ModeManager.help.hide();
+return;
+}
+showCanvasHelpText(getText(def.key),def.highlight);
+},
+
+hide:function(){
+hideCanvasHelpText();
+}
 },
 
 cursor:{
@@ -192,17 +315,23 @@ isKnifeMode=true;
 ModeManager.button.activeClear();
 ModeManager.cursor.update(ModeManager.MODE.KNIFE);
 ModeManager.knife._updateMovement();
-var knifeModeButton=$("knifeModeButton");
-if(knifeModeButton){
-knifeModeButton.classList.add("selected");
-if(typeof getText==='function')knifeModeButton.textContent=getText("knifeOff");
-}
+setKnifeModeButtonState(true);
 },
 
+// clearAll からだけでなく単独でも呼ばれる（knife-mode.js の updateKnifeMode）。
+// 「ナイフだけを畳んで別のモードへ移る」経路のため、ここで抜けた状態まで揃える。
+// clearAll から呼ばれたときは同じことを二度やるだけで害はない
 disable:function(){
-if(!isKnifeMode)return;
+// isKnifeMode を先に false にしてから解除を頼む呼び出し元（speech-bubble-freehand.js）が
+// あるため、ModeManager 側の現在モードでも入り中かどうかを見る
+if(!isKnifeMode&&ModeManager._current!==ModeManager.MODE.KNIFE)return;
 isKnifeMode=false;
+// nonActiveClear は「まだ別モードが動いていれば消さない」ため、先に現在モードを戻す
+if(ModeManager._current===ModeManager.MODE.KNIFE){
+ModeManager._current=ModeManager.MODE.SELECT;
+}
 ModeManager.button.nonActiveClear();
+ModeManager.help.hide();
 ModeManager.cursor.reset();
 if(typeof currentKnifeLine!=='undefined'&&currentKnifeLine){
 if(typeof stopKnifeLineAnimation==='function')stopKnifeLineAnimation();
@@ -211,15 +340,11 @@ canvas.remove(currentKnifeLine);
 currentKnifeLine=null;
 }
 ModeManager.knife._updateMovement();
-var knifeModeButton=$("knifeModeButton");
-if(knifeModeButton){
-knifeModeButton.classList.remove("selected");
-if(typeof getText==='function')knifeModeButton.textContent=getText("knifeOn");
-}
+setKnifeModeButtonState(false);
 },
 
 toggle:function(){
-if(isKnifeMode){
+if(ModeManager.knife.isActive()){
 ModeManager.clearAll();
 }else{
 ModeManager.knife.enable();
@@ -230,19 +355,35 @@ isActive:function(){
 return isKnifeMode;
 },
 
+// 元の selectable を捨てずに退避・復元する。全件を selectable:true に書き戻すと
+// テンプレートのコマのロックまで外れる（監査 #07）
 _updateMovement:function(){
 canvas.discardActiveObject();
 canvas.selection=!isKnifeMode;
-canvas.forEachObject(function(obj){
-obj.set({selectable:!isKnifeMode});
-});
+if(isKnifeMode){
+ModeManager.lock.apply({selectable:false});
+}else{
+ModeManager.lock.restore();
+}
 canvas.renderAll();
 }
 },
 
+// クロップの入り口。切り抜き枠の組み立ては mode-change.js の startCropMode() が持ち、
+// 他モードの解除・案内文・現在モードの記録はここが持つ。
+// startCropMode() は対象が画像でないとトーストを出して枠を作らずに戻るため、
+// 枠ができなかったときは select へ戻す（案内文とボタンだけ残さない）。
+//
+// クロップの入り口はここ1つ（js/ui/canvas-object-menu.js の 'cropImage'）。
+// startCropMode() を直接呼ぶと clearAll() を通らず、動いていたモードが残ったまま
+// 案内文だけ差し替わる（例: トーン適用中に右クリック→切り抜き）
 crop:{
-enable:function(){
+enable:function(targetImage){
 ModeManager.change(ModeManager.MODE.CROP);
+startCropMode(targetImage);
+if(!ModeManager.crop.isActive()){
+ModeManager.clearAll();
+}
 },
 
 _enable:function(){
@@ -252,10 +393,10 @@ disable:function(){
 if(!cropFrame)return;
 removeByNotSave(cropFrame);
 cropFrame=null;
-if(cropActiveObject){
-cropActiveObject.set({selectable:true});
-}
-hideCanvasHelpText();
+// 切り抜き対象の selectable は誰も false にしていない（crop._enable() は空で、
+// lock.apply() も通らない）。ここで true を当てると、ロックしてある画像を
+// 切り抜いただけでロックが外れる。元の値をそのまま残す（監査 #07 と同じ形）
+ModeManager.help.hide();
 },
 
 isActive:function(){
@@ -269,9 +410,7 @@ ModeManager.change(type);
 },
 
 _enable:function(type){
-if(typeof switchPencilType==='function'){
-switchPencilType(type);
-}
+applyPencilType(type);
 },
 
 disable:function(){
@@ -292,6 +431,7 @@ canvas.isDrawingMode=false;
 if(typeof finalizeGroup==='function')finalizeGroup();
 nowPencil="";
 }
+endPencil();
 if(typeof clearPenActiveButton==='function')clearPenActiveButton();
 ModeManager.button.nonActiveClear();
 },
@@ -302,6 +442,31 @@ return nowPencil;
 
 isActive:function(){
 return nowPencil!=="";
+}
+},
+
+// トーン・効果線。実処理は tone-manager.js の applyMangaTone / endMangaTone。
+// ここを通すことで Esc・「モード解除」・パネル切替のどれからでも終われる（監査 #25）
+tone:{
+enable:function(type){
+ModeManager.change(type);
+},
+
+_enable:function(type){
+applyMangaTone(type);
+},
+
+disable:function(){
+if(!ModeManager.tone.isActive())return;
+endMangaTone();
+},
+
+getCurrentType:function(){
+return nowTone;
+},
+
+isActive:function(){
+return nowTone!==null&&nowTone!==undefined;
 }
 },
 
@@ -324,7 +489,26 @@ currentMode===ModeManager.MODE.DELETE_POINT;
 }
 },
 
+// コマ編集モード。頂点コントロールの組み立て自体は panel-manager.js の Edit() が持ち、
+// 「他モードの解除」「案内文」「モード解除ボタンの点灯」「現在モードの記録」はここが持つ。
+// panel-manager.js からは、対象コマの検証が通った直後・poly.edit を立てる前に
+// ModeManager.edit.enable() を呼ぶ（先に呼ばないと clearAll が組み立て直後の状態を戻してしまう）
 edit:{
+enable:function(){
+ModeManager.change(ModeManager.MODE.PANEL_EDIT);
+},
+
+_enable:function(){
+},
+
+isActive:function(){
+var active=false;
+canvas.getObjects().forEach(function(obj){
+if(obj.edit)active=true;
+});
+return active;
+},
+
 clear:function(){
 var hasEditMode=false;
 canvas.getObjects().forEach(function(obj){
@@ -335,7 +519,7 @@ obj.cornerStyle="rect";
 obj.controls=fabric.Object.prototype.controls;
 obj.hasBorders=true;
 canvas.requestRenderAll();
-if(typeof updateLayerPanel==='function')updateLayerPanel();
+updateLayerPanel();
 }
 });
 if(hasEditMode){
@@ -349,21 +533,26 @@ if(span)span.textContent=getText("editModeOn");
 }
 },
 
+// 「モード解除(ESC)」ボタンの点灯。ナイフだけを見ていたため、トーンなど
+// 他のモードでは点灯しなかった（監査 #10 #25）。点灯条件は現在モードだけで決める
 button:{
 activeClear:function(){
 if(typeof selectedById==='function')selectedById("clearMode");
 },
 
 nonActiveClear:function(){
-if(isKnifeMode)return;
+// まだ別のモードが動いているうちは消さない。
+// 以前はナイフだけを見ていたため、トーンやコマ編集を抜けても点いたまま／
+// 点かないままになっていた
+if(ModeManager._current!==ModeManager.MODE.SELECT)return;
 if(typeof unSelectedById==='function')unSelectedById("clearMode");
 },
 
 updateClear:function(){
-if(isKnifeMode){
-if(typeof selectedById==='function')selectedById("clearMode");
+if(ModeManager._current!==ModeManager.MODE.SELECT){
+ModeManager.button.activeClear();
 }else{
-if(typeof unSelectedById==='function')unSelectedById("clearMode");
+ModeManager.button.nonActiveClear();
 }
 }
 },
@@ -374,20 +563,19 @@ ModeManager.crop.disable();
 ModeManager.knife.disable();
 ModeManager.edit.clear();
 ModeManager.pencil.disable();
-ModeManager.button.nonActiveClear();
+ModeManager.tone.disable();
 currentMode=ModeManager.MODE.SELECT;
 ModeManager._current=ModeManager.MODE.SELECT;
+ModeManager.button.nonActiveClear();
+ModeManager.help.hide();
 if(typeof setSBActiveButton==='function'&&typeof sbSelectButton!=='undefined'){
 setSBActiveButton(sbSelectButton);
 }
 ModeManager.speechBubble.clear();
-canvas.forEachObject(function(obj){
-if(obj.customType==="freehandBubbleRect"){
-obj.set({selectable:false,evented:false});
-return;
-}
-obj.set({selectable:true,evented:true});
-});
+// 吹き出しモードも ModeManager.lock で退避するようになったので
+// （speech-bubble-freehand.js の updateObjectSelectability）、
+// どのモードから抜けるときも戻すのはこの1行だけでよい
+ModeManager.lock.restore();
 canvas.selection=true;
 ModeManager.cursor.reset();
 uiLogger.debug("ModeManager.clearAll: all modes cleared");

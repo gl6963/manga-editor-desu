@@ -65,12 +65,14 @@
   background-color: var(--background-color-B);
   box-sizing: border-box;
 }
-.controls-mini textarea:focus {
-  outline: none;
-}
+/* 既定のアウトラインを消す代わりに枠線で位置を示す。
+   代替なしでoutline:noneにするとキーボード操作で現在地が分からなくなる */
+.controls-mini textarea:focus,
 .controls-mini input:focus,
 .controls-mini select:focus {
   outline: none;
+  border-color: var(--color-input-focus-border);
+  box-shadow: 0 0 0 2px var(--color-input-focus-border);
 }
 .controls-mini select {
   appearance: none;
@@ -97,6 +99,14 @@
 .controls-mini .dual-number-control {
   display: flex;
   justify-content: space-between;
+}
+/* -1 / -2 のような入力値の意味は、浮かぶラベルに入れると桁あふれするため下の行に置く */
+.controls-mini .control-note {
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-color-C);
+  word-break: break-word;
 }
 .controls-mini .dual-number-control .control {
   width: 48%;

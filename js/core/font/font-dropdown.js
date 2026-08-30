@@ -19,14 +19,36 @@ class FontSelectorManager {
 }
 
 class FontSelector {
-  constructor(targetId, title = "") {
+  // persist=true のインスタンスは選んだフォントを次回起動時の既定にする。
+  // キャンバスのオブジェクトメニューのように「選択中のオブジェクトの書体」を映す
+  // セレクタで持たせてはいけない（前回の選択で上書きされ、対象と食い違う）
+  constructor(targetId, title = "", persist = false) {
     this.targetId = targetId;
-    this.title = title;
+    // サイドバーの他の値と同じ入れ物へ入れる。idと衝突しないよう前置きを付ける
+    this.persistKey = persist ? `font:${targetId}` : null;
+    this.title = this.restoreTitle(title);
     this.savedFont = null;
     FontSelectorManager.addInstance(this);
     this.initialize();
   }
- 
+
+  // 保存されていたフォントが消えている場合（ユーザーフォントの削除等）は渡された既定へ戻す。
+  // 無い書体の名前を表示すると、実際には別の書体で描かれているのに気付けない
+  restoreTitle(title) {
+    if (!this.persistKey) {
+      return title;
+    }
+    const saved = sidebarValueMap.get(this.persistKey);
+    if (!saved) {
+      return title;
+    }
+    if (!fontManager.existsFont(saved)) {
+      fontLogger.warn(`saved font is not available: ${saved}`);
+      return title;
+    }
+    return saved;
+  }
+
   createHTML() {
     return `<div class="fm-font-dropdown">
             <button class="fm-dropdown-trigger">
@@ -225,6 +247,9 @@ dropdown.style.visibility = '';
           fmSelectedFont.className = `fm-font-${font.name.replace(/[\s-]/g,"_")}`;
           fmDropdown.classList.remove("fm-show");
           this.savedFont = font.name;
+          if (this.persistKey) {
+            saveValueMapByKey(this.persistKey, font.name);
+          }
           const event = new CustomEvent(this.targetId, {
             detail: {
               fontName: font.name,
@@ -268,7 +293,7 @@ dropdown.style.visibility = '';
  
 document.addEventListener("DOMContentLoaded", async () => {
   await fontManager.init();
-  new FontSelector("fontSelector", "Arial");
+  new FontSelector("fontSelector", "Arial", true);
   // 画像テキストは選ぶたびにSVGを作り直すため専用のセレクタを持つ。
   // ここで1つだけ作る。#text-area2-settingsの中に作ると
   // switchText2Ui()が走るたびにインスタンスとリスナーが積み上がる

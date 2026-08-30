@@ -3,6 +3,7 @@
 .us-window{background:var(--color-base);border:1px solid rgba(255,255,255,0.1);border-radius:8px;width:97vw;height:97vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,0.6);overflow:hidden;}
 .us-header{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid var(--color-tertiary);flex-shrink:0;}
 .us-header h2{font-size:14px;font-weight:bold;color:var(--color-text-secondary);margin:0;}
+.us-header-note{font-size:11px;color:var(--color-text-secondary);opacity:0.75;margin:0 auto 0 12px;line-height:1.4;}
 .us-close{background:none;border:none;font-size:18px;color:#888;cursor:pointer;padding:2px 6px;border-radius:4px;margin:0;}
 .us-close:hover{color:var(--color-component-minitext);}
 .us-tabs{display:flex;border-bottom:1px solid var(--color-tertiary);background:rgba(255,255,255,0.02);flex-shrink:0;}
@@ -24,6 +25,7 @@
 .us-conn-table tr:nth-child(even){background:transparent;}
 .us-conn-table tr:hover td{background:rgba(255,255,255,0.04);}
 .us-field-label{font-size:11px;color:var(--color-text-secondary);white-space:nowrap;font-weight:normal;}
+.us-field-note{font-size:10px;color:var(--color-text-secondary);opacity:0.75;line-height:1.4;}
 .us-conn-table input[type="text"],.us-conn-table input[type="password"]{font-size:11px;padding:4px 8px;border:1px solid var(--color-tertiary);border-radius:4px;background:var(--color-secondary);color:var(--color-text-secondary);width:100%;box-sizing:border-box;}
 .us-conn-table select{font-size:11px;padding:4px 8px;border:1px solid var(--color-tertiary);border-radius:4px;background:var(--color-secondary);color:var(--color-text-secondary);width:100%;box-sizing:border-box;}
 .us-conn-table select:disabled{opacity:0.5;cursor:not-allowed;}
@@ -50,3 +52,8 @@
 #unifiedSettingsOverlay>.us-window{width:70vw;height:70vh;}
 .us-conn-notice{margin-top:6px;font-size:10px;line-height:1.5;color:var(--color-accent);background:rgba(129,0,0,0.12);border:1px solid rgba(160,48,48,0.5);border-radius:4px;padding:5px 7px;word-break:break-word;}
 .us-conn-notice .us-link-btn{margin-left:6px;color:var(--color-component-minitext);opacity:1;}
+
+/* ローカル / 外部 のタグ。使用サービス表のヘッダーと接続先表のサービス欄で、サービス名の下に出す */
+.us-tag{display:block;width:fit-content;margin:3px 0 0;font-size:9px;font-weight:600;line-height:1.5;padding:0 4px;border-radius:3px;border:1px solid;white-space:nowrap;letter-spacing:0.02em;}
+.us-tag-local{color:#8fd0a6;border-color:rgba(143,208,166,0.55);background:rgba(143,208,166,0.14);}
+.us-tag-ext{color:var(--color-action-text);border-color:var(--color-action-border);background:var(--color-action-bg);}

@@ -1,5 +1,10 @@
-// "Upscaler"
-const comfyuiTypes=["T2I","I2I","REMBG","Upscaler","Inpaint"];
+// Typeの選択肢は生成側が引ける種別（comfyui-management.jsのCOMFYUI_WORKFLOW_TYPE_KEYS）をそのまま使う。
+// ここで別に列挙すると、種別が片方にだけ増えたときエディタでその種別が選べず、
+// タブを開いた時点でselectが先頭のT2Iを指し、保存でTypeがT2Iへ書き換わる。
+// COMFYUI_WORKFLOW_TYPE_KEYSはdeferで後から読まれるため、参照はタブ描画時に行う
+function getComfyuiWorkflowTypes() {
+return Object.values(COMFYUI_WORKFLOW_TYPE_KEYS);
+}
 
 class ComfyUIWorkflowTab {
 constructor(file,workflow,editor,id,type,enabled) {
@@ -53,6 +58,12 @@ button.dataset.tabId=this.id;
 
 const currentType=this.type||"T2I";
 const enabled=this.enabled===true;
+const workflowTypes=getComfyuiWorkflowTypes();
+// 一覧に無いTypeのワークフローでも、そのTypeを選択肢に出して選択状態を保つ。
+// 出さないとselectが先頭を指し、保存でTypeが書き換わって元の種別が失われる
+const typeOptions=workflowTypes.includes(currentType)
+? workflowTypes
+: workflowTypes.concat(currentType);
 
 button.innerHTML=`
 <label class="comfui-custom-radio">
@@ -62,7 +73,7 @@ enabled ? "checked" : ""
 <span class="comfui-custom-radio-label"></span>
 </label>
 <select class="comfui-tab-type-dropdown" title="Type">
-${comfyuiTypes
+${typeOptions
 .map(
 (option) =>
 `<option value="${option}" ${
@@ -208,6 +219,12 @@ return inputValue;
 return "";
 }
 
+// renderNodes()が照合結果を入れる。照合前（未描画）は false を返す
+isValueMismatched(nodeId,inputName) {
+if (!this.valueMismatchKeys) return false;
+return this.valueMismatchKeys.has(comfyValueMismatchKey(nodeId,inputName));
+}
+
 getDisplayableInputCount(nodeId,apiNode) {
 if (!apiNode?.input?.required) return 0;
 
@@ -220,8 +237,14 @@ return!Array.isArray(inputValue);
 ).length;
 }
 
+// ComfyUI側に無いノード。ワークフローを直すか、足りないノードを入れるしかない
 createMissingInput() {
-return `<div class="comfui-input-container"><span class="comfui-unverified-label">⚠ ${getText('unverifiedNode')||'未確認'}</span></div>`;
+return `<div class="comfui-input-container"><span class="comfui-unverified-label">⚠ ${getText('unverifiedNode')}</span></div>`;
+}
+
+// ObjectInfoを取れていないので有無が分からないノード。欠落とは別の見た目にする
+createUncheckedInput() {
+return `<div class="comfui-input-container"><span class="comfui-unchecked-label">${getText('nodeCheckNotFetchedLabel')}</span></div>`;
 }
 
 createInput(nodeId,inputName,inputDef,apiNode) {
@@ -234,11 +257,7 @@ const id=`${this.id}-node-${nodeId}-input-${inputName}`;
 const value=this.getInputValue(nodeId,inputName);
 const config=inputDef[1]||{};
 
-const getComboOptions=(def)=>{
-if (Array.isArray(def[0])) return def[0];
-if (def[0]==="COMBO"&&def[1]&&Array.isArray(def[1].options)) return def[1].options;
-return [];
-};
+const getComboOptions=(def)=>comfyGetComboOptions(def)||[];
 
 if (config.image_upload===true) {
 const options=getComboOptions(inputDef);
@@ -273,10 +292,20 @@ data-preview-target="${nodeId}-${inputName}-preview">
 
 if (Array.isArray(inputDef[0])||inputDef[0]==="COMBO") {
 const options=getComboOptions(inputDef);
+// ComfyUI側に無い値をそのまま並べると、selectは先頭の選択肢を選んだ見た目になり、
+// setupInputListeners()が初期化時にその値をワークフローへ書き戻してしまう。
+// 今の値を印付きの選択肢として先頭に残し、選び直すまで勝手に変えない
+const isMismatched=this.isValueMismatched(nodeId,inputName);
+const mismatchOption=isMismatched
+? `<option value="${value}" selected>⚠ ${value}</option>`
+: "";
+const labelClass=isMismatched
+? "comfui-input-label comfui-input-label-warning"
+: "comfui-input-label";
 return `<div class="comfui-input-container">
-<label class="comfui-input-label" for="${id}">${inputName}</label>
+<label class="${labelClass}" for="${id}">${inputName}</label>
 <select id="${id}" data-node-id="${nodeId}" data-input-name="${inputName}">
-${options
+${mismatchOption}${options
 .map(
 (option) =>
 `<option value="${option}" ${
@@ -416,15 +445,34 @@ class_type
 .sort((a,b)=>b.inputCount-a.inputCount);
 
 var objInfoRepo=this.editor?this.editor.objectInfoRepo:comfyObjectInfoRepo;
-var knownNodeNames=new Set(await objInfoRepo.getNodeNames());
-const hasUnverifiedNodes=nodes.some(({class_type})=>!knownNodeNames.has(class_type));
+var objectInfo=await objInfoRepo.getObjectInfo();
+var knownNodeNames=new Set(objectInfo?Object.keys(objectInfo):[]);
+// ObjectInfoはComfyUIへ繋がったときにしか取れない。1件も持っていないのは
+// 「ノードが欠けている」ではなく「まだ照合していない」。
+// 生成側のcheckWorkflowNodeVsComfyUI()と同じ言い分けをここでもする。
+// 未取得を欠落と見なして案内を出すと、ComfyUIを起動しただけで済む人に
+// カスタムノードの入れ直しをさせることになる
+const notFetched=knownNodeNames.size===0;
+const hasMissingNodes=!notFetched&&nodes.some(({class_type})=>!knownNodeNames.has(class_type));
+// モデル名などの値の照合も生成側と同じ関数を使う。判定を二重に書かない
+const valueMismatches=notFetched?[]:comfyCollectValueMismatches(this.workflow,objectInfo);
+this.valueMismatchKeys=new Set(valueMismatches.map(
+(m)=>comfyValueMismatchKey(m.nodeId,m.inputName)
+));
 const bannerContainer=this.contentElement.querySelector(".comfui-unverified-banner-container");
 if(bannerContainer){
-if(hasUnverifiedNodes){
-bannerContainer.innerHTML=`<div class="comfui-unverified-banner"><div class="comfui-unverified-banner-title">⚠ ${getText('missingNode')||'ノード情報が確認できないノードがあります'}</div><div class="comfui-unverified-banner-desc">${getText('missingDescription')||''}</div></div>`;
-}else{
-bannerContainer.innerHTML="";
+const banners=[];
+if(notFetched){
+banners.push(`<div class="comfui-unverified-banner"><div class="comfui-unverified-banner-title">⚠ ${getText('nodeCheckNotFetched')}</div><div class="comfui-unverified-banner-desc">${getText('nodeCheckNotFetchedDescription')}</div></div>`);
 }
+if(hasMissingNodes){
+banners.push(`<div class="comfui-unverified-banner"><div class="comfui-unverified-banner-title">⚠ ${getText('missingNode')}</div><div class="comfui-unverified-banner-desc">${getText('missingDescription')}</div></div>`);
+}
+if(valueMismatches.length>0){
+const mismatchList=valueMismatches.map((m)=>comfyFormatValueMismatch(m)).join("<br>");
+banners.push(`<div class="comfui-unverified-banner"><div class="comfui-unverified-banner-title">⚠ ${getText('missingValue')}</div><div class="comfui-unverified-banner-desc">${getText('missingValueDescription')}<br><code>${mismatchList}</code></div></div>`);
+}
+bannerContainer.innerHTML=banners.join("");
 }
 
 nodes.forEach(({id,node,apiNode,class_type})=>{
@@ -433,7 +481,10 @@ nodeElement.className="comfui-node-wrapper";
 
 const nodeTitle=node._meta?.title||node.class_type;
 let nodeTypeDisplay='';
-if(!knownNodeNames.has(class_type)){
+if(notFetched){
+// 照合していないだけなので「欠落」の色は使わない。有ることにもしない
+nodeTypeDisplay=`<div class="comfui-node-title comfui-node-title-unchecked">${id}: ${nodeTitle}</div>`+this.createUncheckedInput();
+}else if(!knownNodeNames.has(class_type)){
 nodeTypeDisplay=`<div class="comfui-node-title comfui-node-title-warning">${id}: ${nodeTitle}</div>`+this.createMissingInput();
 }else{
 nodeTypeDisplay=`<div class="comfui-node-title comfui-node-title-normal">${id}: ${nodeTitle}</div>`;

@@ -1,24 +1,25 @@
 canvas.isDrawingMode=false;
 let currentPaths=[];
 
+// ペンの入り切りは ModeManager が持つ。ここで直接 pencilModeClear と描画開始をしていたため
+// ModeManager.change() を通らず、ペン中も getCurrent() が 'select' を返し、
+// キャンバス上の案内文（抜けると線が1つにまとまる旨）も出なかった（監査 #10 #26）。
+// 使用中のものをもう一度選ぶと終了する挙動（presetCurrentHintToggle）は変えない
 function switchPencilType(type) {
-switchPencilTypeUi(type);
-
 if (type===nowPencil) {
-pencilModeClear(type);
-currentPaths=[];
-clearPenActiveButton();
-nonActiveClearButton();
+ModeManager.clearAll();
 return;
-} else {
-pencilModeClear(type);
+}
+ModeManager.change(type);
+}
+
+// ModeManager.pencil._enable からのみ呼ぶ。ペンを1種類だけ立ち上げる
+function applyPencilType(type) {
+switchPencilTypeUi(type);
 canvas.isDrawingMode=true;
 currentPaths=[];
 nowPencil=type;
-}
 
-
-activeClearButton();
 if (type!==MODE_PEN_MOSAIC) {
 changeCursor("editPen");
 }
@@ -66,6 +67,14 @@ canvas.freeDrawingBrush=new fabric[type+"Brush"](canvas);
 }
 presetPanelSetActive('pen',type);
 applyBrushSettings();
+}
+
+// ModeManager.pencil.disable からのみ呼ぶ。ブラシの後始末は ModeManager 側が持つので、
+// ここは pen-tools が持つ状態だけを片付ける。
+// finalizeGroup() はキャンバスに残っている path しかまとめないため、
+// 消された path の参照が currentPaths に残る
+function endPencil() {
+currentPaths=[];
 }
 
 var drawingColor=null;

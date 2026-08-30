@@ -169,3 +169,6 @@ package-lock.json
 tmpclaude-*
 test_offscreen.html
 .claude/tool-history.jsonl
+
+# PoC（ONNXモデル等の大きなバイナリを含む。検索対象からも外す）
+poc/

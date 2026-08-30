@@ -41,18 +41,40 @@ var fmDisplay=$("fm-selected-font-fontSelector");
 if(fmDisplay) fmDisplay.textContent=object.fontFamily;
 }
 updateBoldToggleUI();
+// 見本を今のフォントで描くため、フォント表示を入れ替えた後に呼ぶ
+textDecorSyncPanel(object);
 }
 
+// 縦書きでは同じ3ボタンが上/中央/下として働く。
+// アイコンと説明を実際の意味に合わせて差し替える入口をここ1か所にする
+var TEXT_ALIGN_ICONS={
+horizontal:{left:'format_align_left',center:'format_align_center',right:'format_align_right'},
+vertical:{left:'vertical_align_top',center:'vertical_align_center',right:'vertical_align_bottom'}
+};
+var TEXT_ALIGN_TIPS={
+horizontal:{left:'tipAlignLeft',center:'tipAlignCenter',right:'tipAlignRight'},
+vertical:{left:'tipAlignTop',center:'tipAlignMiddle',right:'tipAlignBottom'}
+};
+
 function updateTextAlignUI(object){
-var alignment=isVerticalText(object)
+var vertical=isVerticalText(object);
+var alignment=vertical
 ?{top:'left',middle:'center',bottom:'right'}[object.verticalAlign]
 :object.textAlign;
-if(!alignment){
-return;
-}
+var mode=vertical?'vertical':'horizontal';
 ['left','center','right'].forEach(function(value){
 var button=$('align-'+value);
 if(!button){
+return;
+}
+var icon=button.querySelector('i');
+if(icon)icon.textContent=TEXT_ALIGN_ICONS[mode][value];
+button.dataset.tip=TEXT_ALIGN_TIPS[mode][value];
+var tipText=getText(TEXT_ALIGN_TIPS[mode][value]);
+button.setAttribute('aria-label',tipText);
+button.title=tipText;
+if(button._tippy)button._tippy.setContent(tipText);
+if(!alignment){
 return;
 }
 if(value===alignment){
@@ -110,25 +132,6 @@ commitHistory();
 }
 }
 
-function applyInnerShadow() {
-const activeObject=canvas.getActiveObject();
-if (isText(activeObject)) {
-if (!activeObject.shadow) {
-activeObject.set({
-shadow: {
-color: "rgba(0, 0, 0, 0.8)",
-blur: 10,
-offsetX: 5,
-offsetY: 5,
-},
-});
-} else {
-activeObject.set("shadow",null);
-}
-canvas.renderAll();
-commitHistory();
-}
-}
 
 
 function drawNeonJitterEffect(textObject) {
@@ -234,6 +237,37 @@ commitHistory();
 changeSelected(button);
 }
 
+// 新しく置いたものを見失わないための座標。左上固定だと大判のキャンバスでは
+// 端に小さく出て気付けず、2回押すと完全に重なって増えたことも分からない。
+// 選択中のコマがあればその中に置く（位置だけ。コマとのリンクは張らない）
+const NEW_OBJECT_INSERT_STEP=24;
+const NEW_OBJECT_INSERT_WRAP=8;
+let newObjectInsertCount=0;
+
+function getNewObjectArea() {
+const activeObject=canvas.getActiveObject();
+if(isPanel(activeObject)){
+const rect=activeObject.getBoundingRect(true);
+return {left: rect.left,top: rect.top,width: rect.width,height: rect.height};
+}
+return {left: 0,top: 0,width: canvas.getWidth(),height: canvas.getHeight()};
+}
+
+// canvas.add() の前に呼ぶこと。追加後に動かすと saveInitialState が
+// 追加時点の座標を覚えたままになり、キャンバス再フィットでずれる
+function placeNewObject(obj) {
+const area=getNewObjectArea();
+const offset=(newObjectInsertCount%NEW_OBJECT_INSERT_WRAP)*NEW_OBJECT_INSERT_STEP;
+newObjectInsertCount++;
+const width=obj.getScaledWidth();
+const height=obj.getScaledHeight();
+obj.set({
+left: area.left+(area.width-width)/2+offset,
+top: area.top+(area.height-height)/2+offset
+});
+obj.setCoords();
+}
+
 function createTextbox() {
 var selectedFont=fontManager.getSelectedFont("fontSelector");
 var fontsize=$("fontSizeSlider").value
@@ -242,8 +276,6 @@ var fontStrokeWidth=$("fontStrokeWidthSlider").value
 textLogger.debug("selectedFont",selectedFont)
 const selectedValue=getSelectedValueByGroup("align_group");
 var textbox=new fabric.Textbox("New",{
-top: 50,
-left: 50,
 fontSize: parseInt(fontsize),
 fontFamily: selectedFont,
 fill: $("textColorPicker").value,
@@ -264,6 +296,9 @@ textbox.set({fontFamily: selectedFont});
 canvas.requestRenderAll();
 });
 
+textDecorApplyToNew(textbox);
+
+placeNewObject(textbox);
 canvas.add(textbox);
 canvas.setActiveObject(textbox);
 canvas.requestRenderAll();
@@ -329,11 +364,9 @@ commitHistoryDebounced();
 
 function changeStrokeWidthSize(size) {
 var activeObject=canvas.getActiveObject();
-if (isVerticalText(activeObject)) {
+if (isText(activeObject)) {
 activeObject.set("strokeWidth",parseInt(size));
-canvas.renderAll();
-} else if (isText(activeObject)) {
-activeObject.set("strokeWidth",parseInt(size));
+refreshInitialStrokeWidth(activeObject);
 canvas.renderAll();
 }
 commitHistoryDebounced();

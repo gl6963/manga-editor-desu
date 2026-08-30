@@ -1,5 +1,5 @@
 
-async function generateProjectFileBufferListCore(stateStackParam,imageMapParam,canvasInfoParam,basePromptParam,previewDataUrl,fontDataParam){
+async function generateProjectFileBufferListCore(stateStackParam,imageMapParam,canvasInfoParam,basePromptParam,previewDataUrl,fontDataParam,referenceDataParam){
 var fileBufferList=[];
 var promises=[
 (async ()=>{
@@ -9,6 +9,12 @@ lz4Compressor.putDataListByArrayBuffer(fileBufferList,"text2img_basePrompt.json"
 (async ()=>{
 var buffer=await ArrayBufferUtils.toArrayBuffer(JSON.stringify(fontDataParam||[]));
 lz4Compressor.putDataListByArrayBuffer(fileBufferList,"fonts.json",buffer);
+})(),
+// 設定資料の実体。IndexedDBだけに置くと別環境で参照が消えるため、
+// そのページのコマが使っている分をプロジェクトへ同梱する（フォントと同じ考え方）
+(async ()=>{
+var buffer=await ArrayBufferUtils.toArrayBuffer(JSON.stringify(referenceDataParam||[]));
+lz4Compressor.putDataListByArrayBuffer(fileBufferList,"reference_sheets.json",buffer);
 })(),
 ...stateStackParam.map(async (json,index)=>{
 var buffer=await ArrayBufferUtils.toArrayBuffer(JSON.stringify(json));
@@ -48,7 +54,7 @@ isGridVisible=true;
 }
 var pageSize=getPageSizeMm();
 var canvasInfo={width:canvas.width,height:canvas.height,pageWidthMm:pageSize.width,pageHeightMm:pageSize.height};
-var fileBufferList=await generateProjectFileBufferListCore(stateStack,imageMap,canvasInfo,basePrompt,previewDataUrl,buildProjectFontData());
+var fileBufferList=await generateProjectFileBufferListCore(stateStack,imageMap,canvasInfo,basePrompt,previewDataUrl,buildProjectFontData(),buildProjectReferenceData());
 return {fileBufferList,previewDataUrl};
 }
 
@@ -138,6 +144,14 @@ let fontsStr=ArrayBufferUtils.fromArrayBufferToString(fontsBuffer);
 await restoreProjectFonts(JSON.parse(fontsStr));
 }else{
 setProjectFontData([]);
+}
+
+let referencesBuffer=getDataByName(files,"reference_sheets.json");
+if(referencesBuffer){
+let referencesStr=ArrayBufferUtils.fromArrayBufferToString(referencesBuffer);
+setProjectReferenceData(JSON.parse(referencesStr));
+}else{
+setProjectReferenceData([]);
 }
 
 resizeCanvasByNum(canvasInfo.width,canvasInfo.height);
@@ -378,11 +392,11 @@ compressionLogger.error("Failed to load file:",fileName,error);
 }
 }));
 
+// 履歴状態は state_XXXXXX.json のみ。除外リスト方式だと新しいメタファイルを
+// 追加するたびに状態として読み込まれてしまうため、名前で限定する（lz4側と同じ）
 const jsonLoadPromises=sortedFiles.map(async (fileName)=>{
 try {
-if (fileName.endsWith(".json")&&
-fileName!=="text2img_basePrompt.json"&&
-fileName!=="canvas_info.json") {
+if (fileName.startsWith("state_")&&fileName.endsWith(".json")) {
 const content=await zip.file(fileName).async("string");
 return JSON.parse(content);
 }
@@ -399,6 +413,13 @@ applyPageSizeMm(canvasInfo);
 resizeCanvasByNum(canvasInfo.width,canvasInfo.height);
 lastRedo(guid);
 setProjectFontData([]);
+
+var referenceSheetFile=zip.file("reference_sheets.json");
+if(referenceSheetFile){
+setProjectReferenceData(JSON.parse(await referenceSheetFile.async("string")));
+}else{
+setProjectReferenceData([]);
+}
 
 if(guid){
 setCanvasGUID(guid);

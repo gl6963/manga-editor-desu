@@ -2,7 +2,10 @@
 
 var tmpCanvasTone=null;
 var tmpCtxTone=null;
-// var nowTone = null;
+// 描いたトーン画像。nowTone（tone-manager.js が持つ「今どのトーンか」）に入れると
+// モード名と画像が同じ変数を取り合い、同じトーンを選び直しても終了と判定されず
+// トーンが二重に置かれる。他の効果（nowSnowTone / nowToneNoise 等）と同じく専用に持つ
+var nowToneImage=null;
 var controlElementsTone=null;
 var isDrawingTone=false;
 
@@ -37,7 +40,7 @@ updatecanvas();
 }
 
 function toneEnd() {
-nowTone=null;
+nowToneImage=null;
 if(tmpCanvasTone){
 if (tmpCanvasTone.parentNode) {
 tmpCanvasTone.parentNode.removeChild(tmpCanvasTone);
@@ -122,6 +125,10 @@ tmpCtxTone.quadraticCurveTo(x,y+height/2,x,y+height/4);
 }
 
 function generateTone() {
+// スライダーは300msのデバウンス越しにここへ来る。その間にトーンモードを抜けると
+// toneEnd() が tmpCtxTone / controlElementsTone を消した後に触ることになる。
+// Esc・「モード解除」・パネル切替でも抜けられるようになって届くようになった経路
+if (nowTone!==MODE_TONE) return;
 tmpCtxTone.clearRect(0,0,tmpCanvasTone.width,tmpCanvasTone.height);
 const dotSize=parseInt(controlElementsTone.dotSize.value);
 const dotSpacing=parseInt(controlElementsTone.dotSpacing.value);
@@ -171,8 +178,8 @@ return;
 
 isDrawingTone=true;
 
-if (nowTone) {
-canvas.remove(nowTone);
+if (nowToneImage) {
+canvas.remove(nowToneImage);
 }
 fabric.Image.fromURL(tmpCanvasTone.toDataURL(),function (img) {
 var activeObject=getLastObject();
@@ -188,7 +195,7 @@ img.name='Tone';
 canvas.add(img);
 canvas.renderAll();
 }
-nowTone=img;
+nowToneImage=img;
 isDrawingTone=false;
 });
 }

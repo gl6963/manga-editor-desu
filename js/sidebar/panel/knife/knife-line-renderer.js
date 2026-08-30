@@ -107,6 +107,11 @@ stroke: style.STROKE_COLOR,
 strokeWidth: style.STROKE_WIDTH,
 strokeDashArray: style.DASH_ARRAY,
 selectable: false,
+// 分割線は作画物ではなく操作中の目印。レイヤーにも履歴のJSONにも出さない。
+// 出すと点滅アニメの strokeDashOffset だけが違う状態が履歴に積まれ、
+// 利用者が何もしていないのにCtrl+Zの空振りが増える（cropFrameと同じ扱い）
+excludeFromLayerPanel: true,
+excludeFromExport: true,
 shadow: new fabric.Shadow({
 color: style.SHADOW.color,
 blur: style.SHADOW.blur,
@@ -120,11 +125,11 @@ setNotSave(nextLine);
 if (currentKnifeLine) {
 stopKnifeLineAnimation();
 setNotSave(currentKnifeLine);
-canvas.remove(currentKnifeLine);
+removeByNotSave(currentKnifeLine);
 currentKnifeLine=null;
 }
 
-canvas.add(nextLine);
+addByNotSave(nextLine);
 currentKnifeLine=nextLine;
 startKnifeLineAnimation();
 return currentKnifeLine;

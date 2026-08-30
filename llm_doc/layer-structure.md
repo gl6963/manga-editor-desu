@@ -40,6 +40,54 @@
 3. イベントリスナー削除
 4. `relatedPoly`と`removeSettings`プロパティを削除
 
+`removeSettings()`は`clipPath`そのものを消さない。表示制限ごと外すときは
+`releasePanelLink(child)`（`panel-manager.js`）を使う。中で`removeSettings()`を
+呼んでから`clipPath=undefined`まで行う。
+
+## リンクを追随させる場所は2つのイベントだけ
+
+`clipPath`は`absolutePositioned:true`で、**置いた時のコマの形と位置のまま固定される**。
+`updateClipPath()`は`relatedPoly`から作り直すため、絵だけを動かしても切り抜きは
+元のコマの位置に残る。配置・移動・複製・削除の各所へ直しを入れると必ず漏れるので、
+次の2つのイベントに寄せてある（`panel-manager.js`のDOMContentLoaded内）。
+
+| イベント | 処理 | 目的 |
+|---------|------|------|
+| `object:modified` | `relinkToPanelUnderObject(obj)` | 中心座標から所属コマを判定し直す。別のコマなら乗り換え（`releasePanelLink`→`moveSettings`+`setGUID`）、どのコマにも入っていなければ表示制限を外す |
+| `object:removed` | `releasePanelChildren(panel)` | コマを消したとき、`guids`の子の表示制限と親子リンクを外す。**子そのものは消さない** |
+
+- 乗り換えの対象は「今`relatedPoly`にコマ（`isPanel`）が入っている子」だけ。
+  トーンや図形を親にしているものは触らない
+- 複数選択（`activeSelection`）中の子は`left/top`がグループ基準になるため、
+  中心は`getAbsoluteCenterPoint()`で取る
+- `object:removed`は`canvas.clear()`でも1件ずつ飛ぶ。Undo/Redoの復元は
+  一度空にしてから作り直すため、`isHistoryRestoreInProgress()`で抜ける。
+  復元後は`resetEventHandlers()`が`guids`からリンクを張り直すので、
+  「コマを消す→Undo」で子の切り抜きも戻る
+- コマの中身を消さずに残すのは、消すと取り消しづらいため。
+  吹き出しは`fabric-management.js`の`object:removed`で親子ごと消えるが、
+  絵はコマから出しても意味を持つので揃えていない
+
+## どのコマに入るかの判定
+
+`findTargetFrame(x,y)`（落とし先）も`findPanelUnderPoint(x,y,除外)`（乗り換え先）も、
+`isPointInShape()`でコマの**実際の形**を見る。外接矩形で見ると、斜めのコマや
+重なったコマではポインタが乗っていないコマに入る。
+polygon以外（rect/circle/path）は形の情報を持たないため外接矩形のまま。
+
+## ロックと非表示
+
+- **ロックは`selectable`**。`lockMovementX`等ではない（`llm_doc/review-checklist.md` #47）
+- コマは`selectable:false`で生まれる。キャンバス側には理由が出ないため、
+  `mouse:over`でカーソルを`not-allowed`にし、押されたら`hintLockedLayer(obj)`で
+  レイヤー行の鍵に`.layer-lock-hint`を付けて4秒だけ点滅させる。
+  解除の入口は`putMoveLockButton`の鍵1つだけなので、そこへ目を向けさせる
+- **非表示のオブジェクトは選択しない。** fabricの当たり判定（`_checkTarget`）が
+  `visible`を見るためキャンバスからは掴めないが、レイヤー行のクリックは
+  `setActiveObject()`を通るので行側でも弾く。`visibleChange()`は非表示にするとき
+  選択を外す。外さないとハンドルだけが宙に残り、Deleteで見えないものが消える。
+  `selectable`/`evented`は触らない（`evented`は`commonProperties`に無く保存されない）
+
 ## 画像置き換え時の注意
 - `layer.relatedPoly`で親Polygonを取得してから新画像を配置
 - 元画像は`saveHistory=false`を設定してから削除（履歴に残さない）

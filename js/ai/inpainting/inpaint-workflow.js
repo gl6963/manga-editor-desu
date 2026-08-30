@@ -12,9 +12,8 @@ createToastError("Inpaint Error","No Inpaint workflow configured");
 return null;
 }
 
-var classTypeLists=getClassTypeOnlyByJson(selectedWorkflow);
 var objInfoRepo=(_comfyUIExecProvider&&_comfyUIExecProvider.id==='runpodComfyUI')?comfyObjectInfoRepo_runpod:comfyObjectInfoRepo_local;
-if(!await checkWorkflowNodeVsComfyUI(classTypeLists,objInfoRepo)){
+if(!await checkWorkflowNodeVsComfyUI(selectedWorkflow,objInfoRepo)){
 return null;
 }
 
@@ -25,6 +24,7 @@ var maskFilename="mask_"+generateFilename();
 await comfyuiUploadBase64Image(maskDataUrl,maskFilename);
 
 var builder=createWorkflowBuilder(selectedWorkflow);
+builder.migrateLegacyMaskPlaceholder();
 builder.updateNodesByInputName({
 seed:Math.floor(Math.random()*50000000),
 noise_seed:Math.floor(Math.random()*537388471760656),
@@ -33,7 +33,7 @@ denoise:denoise
 builder.updateNodesByInputName({
 image:imageFilename
 });
-builder.updateValueByTargetValue("inpaint_mask.png",maskFilename);
+builder.updateValueByTargetValue(COMFY_MASK_PLACEHOLDER,maskFilename);
 builder.updateValueByTargetValue("%prompt%",prompt||"");
 builder.updateValueByTargetValue("%negative%",negativePrompt||"");
 builder.replaceDatePlaceholders();

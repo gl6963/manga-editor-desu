@@ -1,5 +1,94 @@
 let finalLayerOrder=[];
 let lastHighlightGuid=null;
+// ロックされたオブジェクトを押したときに、鍵を目立たせる行のGUID。
+// キャンバス側にはロックされていることを示すものが無く、外す入口も
+// この鍵しかないため、押された時だけここへ目を向けさせる
+let lockHintGuid=null;
+let lockHintTimer=null;
+let lockHintScrollPending=false;
+// 目立たせたままにすると点滅が居座る。トーストと同じ長さで畳む
+const LOCK_HINT_DURATION=4000;
+// 名前を編集中の行。パネルは選択のたびに作り直され、しかも作り直しが遅れて走ることも
+// あるため、編集中かどうかをDOM側に置くと入力の途中でフォーカスごと消える
+let layerNameEditGuid=null;
+// 作り直しで行ごと消えるときも blur は飛ぶ。これを編集の終了と取ると、
+// 作り直しのたびに編集が切れる
+let layerPanelRebuilding=false;
+
+function beginLayerNameEdit(nameTextArea) {
+nameTextArea.readOnly=false;
+nameTextArea.style.cursor="text";
+// 作り直しのたびに選択し直すと、入力中の文字が消える
+if (document.activeElement!==nameTextArea) {
+nameTextArea.focus();
+nameTextArea.select();
+}
+}
+
+// 二重クリックは行ではなく #layer-content で受ける。1回目のクリックで行が
+// 作り直されると2回のクリックの対象が別物になり、dblclickは行ではなく共通の祖先へ飛ぶ。
+// どちらへ飛んでも拾えるよう、対象から辿れないときは座標から引き直す
+function onLayerNameDblclick(e) {
+var nameTextArea=e.target.closest ? e.target.closest(".layer-name") : null;
+if (!nameTextArea) {
+var under=document.elementFromPoint(e.clientX,e.clientY);
+nameTextArea=under&&under.closest ? under.closest(".layer-name") : null;
+}
+if (!nameTextArea) {
+return;
+}
+var row=nameTextArea.closest(".layer-item");
+layerNameEditGuid=row ? row.getAttribute("data-guid") : null;
+beginLayerNameEdit(nameTextArea);
+}
+
+// blur だけを終了の合図にしない。Enterでも確実に抜けられるようにする。
+// readOnlyを見て二度目は何もしないので、blur()が呼び戻しても止まる
+function endLayerNameEdit(nameTextArea) {
+if (nameTextArea.readOnly) {
+return;
+}
+layerNameEditGuid=null;
+nameTextArea.readOnly=true;
+nameTextArea.style.cursor="pointer";
+nameTextArea.blur();
+}
+
+function isLockHintTarget(guid){
+return lockHintGuid!==null&&String(guid)===String(lockHintGuid);
+}
+
+function clearLockHint(){
+if(lockHintTimer){
+clearTimeout(lockHintTimer);
+lockHintTimer=null;
+}
+if(lockHintGuid===null){
+return;
+}
+lockHintGuid=null;
+updateLayerPanel();
+}
+
+// ロックされたオブジェクトが押されたときの案内。同じ相手を押し続けても
+// トーストが積み上がらないよう、目立たせている間は出し直さない
+function hintLockedLayer(obj){
+if(!obj){
+return;
+}
+var guid=getGUID(obj);
+if(isLockHintTarget(guid)){
+return;
+}
+if(lockHintTimer){
+clearTimeout(lockHintTimer);
+}
+lockHintGuid=guid;
+lockHintScrollPending=true;
+lockHintTimer=setTimeout(clearLockHint,LOCK_HINT_DURATION);
+createToastError(getText("lockedObjectTitle"),getText("lockedObjectBody"),LOCK_HINT_DURATION);
+updateLayerPanel();
+}
 
 function getLayerTypeIcon(layer){
 if(isSpeechBubbleSVG(layer)||isFreehandBubblePath(layer)){
@@ -64,7 +153,21 @@ function executeUpdate() {
 isExecuting=true;
 
 var layers=canvas.getObjects().slice().reverse();
+// 作り直す時点でフォーカスが名前欄から離れているなら編集は終わっている。
+// ここで畳まないと、blurを取り逃したときに作り直しのたびに名前欄がフォーカスを
+// 奪い続け、キャンバス上の文字入力ができなくなる
+if (layerNameEditGuid&&!(document.activeElement&&document.activeElement.classList
+&&document.activeElement.classList.contains("layer-name"))) {
+layerNameEditGuid=null;
+}
+
 var layerContent=$("layer-content");
+// 行は毎回作り直されるが入れ物は残る。ここに1回だけ付ける
+if (!layerContent.dataset.nameEditBound) {
+layerContent.dataset.nameEditBound="1";
+layerContent.addEventListener("dblclick",onLayerNameDblclick);
+}
+layerPanelRebuilding=true;
 layerContent.innerHTML="";
 var guidMap=createGUIDMap(layers);
 
@@ -120,6 +223,8 @@ remainingLayers.forEach(layer=>{
 finalLayerOrder.push({layer: layer,level: 0});
 });
 
+var editingNameTextArea=null;
+
 finalLayerOrder.forEach(({layer,level},index)=>{
 if (!layer.excludeFromLayerPanel) {
 var layerDiv=Object.assign(document.createElement("div"),{
@@ -167,6 +272,7 @@ if(layer.guid){
 renderAiTaskIndicators(detailsDiv,layer.guid);
 }
 
+putReferenceCountBadge(buttonsDiv,layer);
 putViewButton(buttonsDiv,layer,index);
 putMoveLockButton(buttonsDiv,layer,index);
 putDeleteButton(buttonsDiv,layer,index);
@@ -198,6 +304,7 @@ putActionBarSeparator(actionBar);
 putActionButton(actionBar,"download","actDownload",function(){
 imageObject2DataURLByCrop(layer).then(function(croppedDataURL){if(croppedDataURL){var link=getLink(croppedDataURL);link.click();}});
 });
+putMoreMenuActionButton(actionBar,layer);
 }
 if(isImage(layer)){
 putActionButton(actionBar,"directions_run","actAiGenerate",function(){
@@ -229,11 +336,20 @@ if(layer.tempNegative){layer.text2img_negative=layer.tempNegative;createToast("A
 putActionButton(actionBar,"download","actDownload",function(){
 var dataURL=imageObject2DataURL(layer);var link=getLink(dataURL);link.click();
 });
+putMoreMenuActionButton(actionBar,layer);
 }
 detailsDiv.appendChild(actionBar);
 }
 
 layerDiv.onclick=function () {
+// 非表示のレイヤーは選択させない。選ぶと見えないままハンドルだけが出て、
+// Deleteで何が消えるのかが画面から分からなくなる
+if(!layer.visible){
+canvas.discardActiveObject();
+canvas.renderAll();
+updateLayerPanel();
+return;
+}
 canvas.setActiveObject(layer);
 canvas.renderAll();
 highlightActiveLayer(index);
@@ -257,8 +373,30 @@ layerDiv.style.background=getCssValue('--even-layer');
 }
 
 layerContent.appendChild(layerDiv);
+
+// 鍵を目立たせている行は画面に入れる。レイヤーが多いと、点滅していても
+// スクロールの外にあって気付けない
+if(lockHintScrollPending&&isLockHintTarget(layer.guid)){
+lockHintScrollPending=false;
+layerDiv.scrollIntoView({block:"nearest"});
+}
+
+// data-guid は文字列。layer.guidと型が違うことがあるので揃えて比べる
+if (layerNameEditGuid&&String(layer.guid)===layerNameEditGuid) {
+editingNameTextArea=nameTextArea;
+}
 }
 });
+
+// 編集中だった行はDOMに入れ終えてから戻す。入れる前にfocus()しても効かない
+if (layerNameEditGuid) {
+if (editingNameTextArea) {
+beginLayerNameEdit(editingNameTextArea);
+} else {
+layerNameEditGuid=null;
+}
+}
+layerPanelRebuilding=false;
 
 lastUpdateTime=Date.now();
 isExecuting=false;
@@ -278,15 +416,50 @@ nameTextArea.style.resize="none";
 nameTextArea.style.width="100%";
 nameTextArea.style.boxSizing="border-box";
 nameTextArea.style.color=getCssValue("--text-color-B");
-nameTextArea.onclick=function(e){
+// 行のほとんどを名前の入力欄が占める。テキストレイヤーには見本画像も付かないため、
+// 入力欄がクリックを止めると押して選択できる場所が行に残らない。
+// 単一クリックは行の選択に通し、名前の編集はダブルクリックで始める
+nameTextArea.readOnly=true;
+nameTextArea.style.cursor="pointer";
+// readOnlyでもクリックでフォーカスと文字選択が起きる。押した見た目が
+// 「選択」ではなく「入力」になるため、編集中以外は取らせない
+nameTextArea.onmousedown=function (e) {
+if (nameTextArea.readOnly) {
+e.preventDefault();
+}
+};
+// 編集中のクリックは行の選択へ通さない。通すと作り直しが走り、
+// カーソルを置き直すたびに全選択に戻る
+nameTextArea.onclick=function (e) {
+if (!nameTextArea.readOnly) {
 e.stopPropagation();
+}
+};
+nameTextArea.onblur=function () {
+// 作り直しで外れた行のblurは、入れ替わった先の編集を打ち切らないよう無視する
+if (layerPanelRebuilding||!document.contains(nameTextArea)) {
+return;
+}
+endLayerNameEdit(nameTextArea);
+};
+nameTextArea.onkeydown=function (e) {
+if (e.key==="Enter"||e.key==="Escape") {
+endLayerNameEdit(nameTextArea);
+}
 };
 nameTextArea.oninput=function () {
 layer.name=nameTextArea.value;
+// 名前を付けたことを覚える。覚えないとテキストレイヤーは下の同期で本文へ戻る
+layer.nameEdited=true;
 };
 
 if (isText(layer)) {
-nameTextArea.value=layer.text;
+// 名前を付けていないテキストは本文をそのまま名前にする。付けた名前があるならそれを出す。
+// 表示に本文、書き込み先にnameを使うと、打った文字が作り直しのたびに本文へ戻る
+if (!layer.nameEdited) {
+layer.name=layer.text;
+}
+nameTextArea.value=layer.name;
 nameTextArea.style.flex="1";
 nameTextArea.style.width="auto";
 nameTextArea.style.marginRight="5px";
@@ -299,6 +472,9 @@ nameTextArea.style.marginRight="5px";
 if (isImage(layer)&&layer.text) {
 nameTextArea.value=layer.text;
 }
+
+// 行が狭く末尾は省略される。全文はカーソルを重ねれば読めるようにする
+nameTextArea.title=nameTextArea.value;
 }
 
 
@@ -308,7 +484,13 @@ const centerY=layer.top+(layer.height/2)*layer.scaleY;
 return {centerX,centerY};
 }
 
+// レイヤーパネルのサムネイル描画。コマ（rect/circle/polygon）のプレビューで呼ぶ
+// fabricのtoCanvasElement()が内部でset()を実行するため、抑止しないと自動コミット網が
+// 「キャンバスが変わった」と誤検知する。updateLayerPanel()は履歴の保存後と復元後に
+// 毎回走るので、抑止しないと次のキー操作・クリックで空のコミットが積まれ、
+// Undo直後のRedoが消える
 function createPreviewImage(layer,layerDiv) {
+withoutHistory(function(){
 var previewDiv=document.createElement("div");
 var canvasSize=120;
 
@@ -406,6 +588,7 @@ previewDiv.style.backgroundPosition="center";
 previewDiv.style.backgroundRepeat="no-repeat";
 previewDiv.className="layer-preview";
 layerDiv.appendChild(previewDiv);
+});
 }
 
 function removeLayer(layer) {

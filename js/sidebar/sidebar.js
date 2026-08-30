@@ -2,6 +2,35 @@ document.addEventListener("DOMContentLoaded",function () {
 toggleVisibility("svg-container-template");
 });
 
+// サイドバーのパネル。表示されるのは常にこの中の1つだけ
+var SIDEBAR_PANEL_IDS=[
+"svg-container-template",
+"panel-manager-area",
+"auto-generate-area",
+"prompt-manager-area",
+"speech-bubble-area1",
+"speech-bubble-area2",
+"text-area",
+"text-area2",
+"tool-area",
+"manga-tone-area",
+"manga-effect-area",
+"shape-area",
+"control-area"
+];
+
+// 今開いているパネル。1つも開いていなければ null
+function currentSidebarPanelId() {
+var openId=null;
+SIDEBAR_PANEL_IDS.forEach(function (panelId) {
+var el=$(panelId);
+if(el&&el.style.display!=="none"&&el.style.display!==""){
+openId=panelId;
+}
+});
+return openId;
+}
+
 function toggleVisibility(id) {
 var element=$(id);
 var wrappers=document.querySelectorAll('#sidebar .icon-wrapper[data-target]');
@@ -16,19 +45,17 @@ icon.classList.remove("active");
 });
 
 if (element.style.display==="none") {
-$("svg-container-template").style.display="none";
-$("panel-manager-area").style.display="none";
-$("auto-generate-area").style.display="none";
-$("prompt-manager-area").style.display="none";
-$("speech-bubble-area1").style.display="none";
-$("speech-bubble-area2").style.display="none";
-$("text-area").style.display="none";
-$("text-area2").style.display="none";
-$("tool-area").style.display="none";
-$("manga-tone-area").style.display="none";
-$("manga-effect-area").style.display="none";
-$("shape-area").style.display="none";
-$("control-area").style.display="none";
+// 別のパネルへ切り替えるときは今のモードを解除する。
+// ペンやトーンを選んだまま別パネルを開くと、そのモードが続いたままになる（監査 #24）。
+// 同じパネルを閉じるだけのときは解除しない
+var openId=currentSidebarPanelId();
+if(openId&&openId!==id){
+ModeManager.clearAll();
+}
+SIDEBAR_PANEL_IDS.forEach(function (panelId) {
+var panel=$(panelId);
+if(panel)panel.style.display="none";
+});
 element.style.display="block";
 lazyLoadSvgData(id);
 // 一括適用の退避が今のプロジェクトのものかは、開いているページのGUIDで判断する。

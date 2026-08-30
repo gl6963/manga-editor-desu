@@ -4,11 +4,13 @@
 ```
 ai-management.js（ルーター）
 ├─ provider/
-│   ├─ ai-provider.js（基底クラス）
+│   ├─ ai-provider.js（基底クラス。接続状態の通知処理もここ）
 │   ├─ local-sdwebui-provider.js
 │   ├─ local-comfyui-provider.js
 │   ├─ runpod-comfyui-provider.js
+│   ├─ cloud-image-provider.js（クラウド画像生成の共通処理）
 │   ├─ falai-provider.js
+│   ├─ google-image-provider.js（Google Nano Banana）
 │   ├─ llm-provider.js（LLM基底クラス。OpenAI互換chat/completions）
 │   ├─ grok-provider.js
 │   ├─ ollama-provider.js
@@ -25,6 +27,7 @@ ai-management.js（ルーター）
 │   ├─ unified-settings-window.js（APIサービス設定）
 │   ├─ model-settings-window.js（モデル・ワークフロー設定フローティングウインドウ）
 │   └─ ai-ui-util.js
+├─ reference/（リファレンス画像。シート管理・収集・ウインドウ）
 ├─ prompt/auto/（自動プロンプト生成）
 ├─ prompt/panel-composition.js（役割→構図タグ、SDXLバケット）
 ├─ prompt/llm/llm-story-service.js, -ui.js（ストーリー→コマのプロンプト）
@@ -40,11 +43,39 @@ class AIProvider{
   async executeUpscale(layer,spinnerId)
   async executeInpaint(layer,spinnerId)
   async executeAngle(layer,spinnerId,anglePrompt)
+  supportsDetachedT2I()                       // キャンバスへ置かない生成に対応するか
+  async executeDetachedT2I(request,spinnerId) // {prompt,width,height} -> dataURL|null
   async fetchModels()
   async fetchSamplers()
   async fetchUpscalers()
 }
 ```
+
+接続状態の通知（`setConnectionNotice()` / `getStatusReason()` / `classifyFailure()` /
+`checkModelsEndpointHeartbeat()`）は基底クラスに置いてある。通知欄とチップのtitleで同じ文言を出すため、
+プロバイダ側で文言を組み立てない。使うのは`getModelsUrl()` `_listHeaders()` `getNoticeElementId()`
+`getHelpUrl()`を返すプロバイダだけ。
+
+## クラウド画像生成の共通処理（cloud-image-provider.js）
+Fal.aiとGoogle Nano Bananaはどちらも「キューへ入れる→生成タスクを登録→結果をコマへ置く」が同じなので、
+`CloudImageProvider`に寄せてある。サービスごとに書くのはリクエストの組み立てと送信だけ。
+
+```javascript
+class CloudImageProvider extends AIProvider{
+  getQueue()                       // このプロバイダが使うTaskQueue
+  getQueueName()                   // spinner.jsの_getQueueByNameが引く名前
+  async _generate(modelId,input)   // 送信して生成結果をfabric.Imageで返す
+  translateError(error)            // サービス固有の失敗理由が分かるときだけ上書き
+  _requireModelId(role,spinnerId,label)
+  async _execute(layer,spinnerId,Type,modelId,buildInput)
+}
+```
+
+- キュー名を増やしたら`spinner.js`の`_getQueueByName()`にも足す。足さないと待機中の取消が効かない
+- `_execute()`の中でしか`buildInput()`を呼ばない。キューが空くまで送信内容を確定させないため
+- `_executeDetached()`はキャンバスへ置かない生成。`_execute()`から配置（`_placeResult()`）と
+  生成タスク登録（ページ復帰用）を抜いた形で、dataURLを返す。設定資料をその場で作る経路で使う
+  （→`llm_doc/reference-image.md`）
 
 ## TaskQueue（task-queue.js）
 Promise-based並行実行。プロバイダ別にキューが分かれる。
@@ -53,6 +84,7 @@ Promise-based並行実行。プロバイダ別にキューが分かれる。
 | `sdQueue` | SD WebUI | 1 |
 | `comfyuiQueue` | ComfyUI | 1 |
 | `falaiQueue` | Fal AI | 1-10 |
+| `googleImageQueue` | Google Nano Banana | 1-10 |
 | `grokQueue` | Grok | 1-10 |
 | `ollamaQueue` | Ollama | 1-10 |
 
@@ -67,13 +99,39 @@ Promise-based並行実行。プロバイダ別にキューが分かれる。
 集約してあり、マトリクスUIと接続状態チェックの両方がこれを参照する。
 
 - T2I, I2I, UP, BG, IP, ANG, TAG
-- LLM系: `Text2Prompt`（文章を英語プロンプト化）, `Image2Prompt_LLM`（画像からプロンプト化）,
-  `Text2Text`（セリフの推敲・翻訳）
+- LLM系: `Text2Prompt`（文章を英語プロンプト化）, `Image2Prompt_LLM`（画像からプロンプト化）
 - `ROLE_NONE`（`'none'`）を選ぶとそのロールは無効。`getProviderForRole()`が
   アクティブプロバイダへフォールバックせず即nullを返すため、関連ボタンも消える
 - 未設定（`'default'`）はアクティブプロバイダへのフォールバック。マトリクスのラジオは
   `getProviderForRole()`の実際の戻り値で初期選択する。特定列をハードコードで
   選択すると、表示と実際の呼び出し先がずれるため
+- **localStorageへの保存は`settingsAutoSaveCheckbox`がONのときだけ。**
+  `role-assignment-ui.js`の`saveIfAutoSaveEnabled()`が入口。
+  `debouncedSettingsSave()`を直接呼ぶと、URL・APIキーが保存されない設定のまま
+  ロール割り当てだけが（空欄の全設定ごと）書き戻される
+- 行ラベル（`labelKey`）は表示名。**保存キーはロール名の文字列**（`Image2Prompt_DEEPDOORU`など）
+  なので、表示名を直しても保存済みの設定は壊れない。逆にロール名は変えないこと。
+  `Image2Prompt_DEEPDOORU`が呼ぶのは`sdwebuiInterrogate(layer,"deepdanbooru")`で、
+  表示名は`DeepDanbooru`
+
+## Google Nano Banana（google-image-provider.js）
+GeminiのInteractions API（`POST https://generativelanguage.googleapis.com/v1beta/interactions`）を
+ブラウザから直接叩く。プリフライトが`Access-Control-Allow-Origin: null`を返すため`file://`でも通る。
+認証は`x-goog-api-key`ヘッダ。担当ロールはT2IとI2Iだけ。
+
+- モデルは`index.html`のselectに直書きしている4つ（Nano Banana 2 Lite / 2 / Pro / 旧Nano Banana）。
+  `models.list`の応答からは画像生成モデルかどうかを判別できないため、APIからは取らない。
+  **Googleが新しいNano Bananaを出したらこのselectを更新する**
+- 既定は`gemini-3.1-flash-lite-image`（Nano Banana 2 Lite）
+- 出力サイズは画素数で指定できない。コマの縦横比から一番近い`aspect_ratio`を選び、
+  解像度は設定の`googleImageSize`（1K/2K/4K）を`image_size`で送る。
+  **Liteは1Kのみ。**外した値はAPIがエラーを返すので、こちらで黙って書き換えない
+- ネガティブプロンプトの項目がAPIに無い。効いていないのに欄があると誤解を招くため、
+  T2IをこのプロバイダにするとネガティブUI（`negativeAreaId`）を隠す（`ai-ui-util.js`）
+- 応答は`steps[]`。`thought`ステップにも途中の画像が入るので、`model_output`ステップの
+  imageブロックだけを見る。画像が無いときは同じステップのテキスト（生成拒否の理由）を文面に載せる
+- リファレンス画像（登場人物・背景・小道具・その他）を一緒に送れる。
+  仕組みと制約は`llm_doc/reference-image.md`
 
 ## LLMプロバイダ（llm-provider.js）
 GrokもOllamaもOpenAI互換の`/v1/chat/completions`で叩けるため、本体は`LLMProvider`に集約し、
@@ -107,7 +165,7 @@ class LLMProvider extends AIProvider{
 ### 外部API利用料の計上（ダッシュボード）
 `LLMProvider.chat()`が応答を受けた直後に`_recordUsage()`を1回呼ぶだけで計上する。
 **戻り値は`string`のまま変えない。** `{content,usage}`にすると呼び出し側（llm-prompt /
-llm-story / llm-storyboard / llm-dialogue）を全部直すことになり修正漏れの温床になるため。
+llm-story / llm-storyboard）を全部直すことになり修正漏れの温床になるため。
 
 - 対象は`needsApiKey()`が真のプロバイダだけ。Ollamaはローカルなので計上しない
   （「単価不明」と出すと有料に見える）
@@ -289,6 +347,12 @@ LLM呼び出しは3種類。いずれも`response_format:{type:'json_object'}`�
 - 生成結果はコマ単位のtextareaでプレビューし、編集してから「設定」「追記」を選ぶ。
   コマ番号の下に役割名（引き・情景…）を出し、ページの緩急を目で確認できるようにする。
   textareaにフォーカスすると該当コマがキャンバス上で選択され、対応を確認できる
+- **`Text2Prompt`が未割り当てでもウインドウは開く。** 開かずにトーストだけ出すと、
+  消えたあと次の一手がどこにも残らない。状態行（`#llmStoryboardStatus`）に
+  「生成AI設定を開く」ボタンを出す（`llmStoryboardShowNoProvider()`）。
+  判定は**開いた時と生成を押した時の両方**で見る。押した時にも見ておけば、
+  開いたまま設定を直した人が開き直さずに続けられる（ボタンをdisabledにして
+  戻し忘れる作りを避けるため、disabledでは持たない）
 
 ## コマの構図（panel-composition.js）
 漫画のコマと、画像生成AIが既定で描く絵の差を埋める。**知見の本体は
@@ -319,22 +383,22 @@ LLM呼び出しは3種類。いずれも`response_format:{type:'json_object'}`�
 書き込みは`promptApplyToPanel()`の1か所だけ。ネーム窓とストーリー→コマの
 両方がここを通るので、片方だけ効かない状態にならない。
 
-## セリフ支援（llm-dialogue-service.js / -ui.js）
-選択中のテキストオブジェクトに対して推敲・口調変更・文字数調整・翻訳を行う。
-入口は左パネル「テキスト」内の「セリフを整える」ボタン。ロールは`Text2Text`。
+## ローカル / 外部 のタグ（生成AI設定）
+使用サービス表のヘッダーと接続先表のサービス欄で、サービス名の下に枠付きの小さいタグを出す。
+`index.html`に直書き（`<span class="us-tag us-tag-local">` / `us-tag-ext`、文言は
+`usTagLocal` / `usTagExternal`）。JSでは生成していないので、サービスを増やしたら
+両方の表に手で付ける。
 
-- 対象は`canvas.getActiveObject()`が`isText()`のもの。`.text`は
-  `i-text` / `text` / `textbox` / `vertical-textbox`（`fabric.IText`継承）で共通
-- 文字数調整の上限は`estimateTextCapacity()`が吹き出しの実サイズから概算して初期値に入れる。
-  縦書き（`isVerticalText`）は1行の文字数と行数を入れ替えて計算する。
-  あくまで目安なので**画面に目安値を出したうえでユーザーが編集できる**ようにしている
-- 反映は`applyDialogueText()`に集約。`set('text')`→`initDimensions()`→`setCoords()`→
-  `commitHistory()`→`updateLayerPanel()`。ボタン1回の操作なので履歴は即1件
-  （レイヤー名がテキスト先頭20文字なのでパネル更新も要る）
-- 反映前に対象オブジェクトがまだキャンバスに存在するか確認する。
-  生成中に削除された場合に消えたオブジェクトへ書き込まないため
-- 出力は`normalizeDialogueOutput()`で前後の引用符とコードフェンスのみ除去する。
-  セリフ本文には手を入れない
+| ローカル | 外部 |
+|---|---|
+| ComfyUI / SD WebUI (A1111/Forge) / Ollama | RunPod ComfyUI / Fal.ai / Google Nano Banana / Grok |
+
+分け方は接続先が自分のPC（127.0.0.1など）かどうか。SD WebUIは既定URLが
+`http://127.0.0.1:7860`なのでローカル扱い。
+使用サービス表はサービス名が1行のもの（Grok）と2行のもの（RunPod ComfyUIなど）が混ざり、
+名前の直後に置くとタグの高さが揃わない。そのため`.role-matrix th`を`position:relative`にして
+タグをセル下端へ絶対配置し、その分`padding-bottom`で空けている（`css/ui/role-assign-modal.css`）。
+接続先表は名前の直下でよいので`.us-tag`のまま。
 
 ## 接続状態の表示
 `#ExternalService_Heartbeat_Container`のチップは`getInUseProviders()`が対象。
@@ -344,7 +408,9 @@ LLM呼び出しは3種類。いずれも`response_format:{type:'json_object'}`�
 チップの`title`にはオフライン時の理由（`getStatusReason()`）が入る。
 
 ## ObjectInfo（ComfyUIノード定義）
-ワークフローのノードが接続先ComfyUIに存在するかを`checkWorkflowNodeVsComfyUI()`で照合する。
+ワークフローの**ノードの有無**と**選択肢が列挙されている入力の値**（モデル名・`sampler_name`等）が
+接続先ComfyUIに存在するかを`checkWorkflowNodeVsComfyUI(workflow,repo)`で照合する。
+引数はclass_typeの配列ではなく**ワークフロー本体**（値の照合にノードIDと入力名が要るため）。
 照合元は`comfyObjectInfoRepo_local` / `comfyObjectInfoRepo_runpod`（IndexedDB）。
 
 - **未取得だと全ノードが「存在しない」と判定され、生成・背景削除・アップスケールが
@@ -357,6 +423,61 @@ LLM呼び出しは3種類。いずれも`response_format:{type:'json_object'}`�
 - 監視ループは`comfyMonitorStarted`で1本に制限。複数動くと接続状態の変化を
   取り合ってObjectInfoの更新が走らないことがある。ループ内は例外を握りつぶす
   （例外でループが終了するとObjectInfoが二度と更新されない）
+
+### モデル名など「値」の照合
+`/object_info`は、選択肢を持つ入力について**実在するモデル名の一覧そのもの**を返す。
+形が2つあり、実測（ComfyUI 0.27.0）では旧2434件・新448件が同居していた。
+
+| 形 | 例 |
+|---|---|
+| 旧 | `"ckpt_name":[["SD1.0\\yden_v20.safetensors", ...],{メタ}]` |
+| 新 | `"model_name":["COMBO",{"multiselect":false,"options":["RealESRGAN_x4plus.pth", ...]}]` |
+
+取り出しは`comfyGetComboOptions()`、照合は`comfyCollectValueMismatches(workflow,objectInfo)`
+（どちらも`comfyui-object-info-repository.js`）。生成側とエディタ側が同じ関数を呼ぶ。
+
+照合しないもの（**通したいからではなく、起動時には正解が確定しないから**）:
+
+- `isPlaceholderValue()`が真の値（`%prompt%` `%mask%` `%model%`等）。
+  判定は`comfyui-workflow-builder.js`のものを再利用する。同じ判定を二重に書かない
+- `image_upload` / `file_upload` / `video_upload` / `audio_upload` / `remote` を持つ入力。
+  LoadImageの`image`は実行時にアプリが差し込むファイル名なので、
+  照合すると必ず不一致になる
+- 配列（他ノードへの接続）・数値・真偽・選択肢を持たない自由文字列
+- class_typeがObjectInfoに無いノードの入力。ノード欠落として別に報告される
+
+選択肢が0件の入力（modelsフォルダが空）は**不一致として報告する**。
+「選択肢が取れないから通す」はしない。
+
+`sampler_name` / `scheduler` のようなモデル以外の選択肢も同じ仕組みに乗る。
+そのため文言は「モデルが無い」ではなく「ComfyUI側に無い値」で統一する
+（`comfyMissingValue` / `missingValue`）。
+案内は`ComfyUIGuide.showValueErrorGuide()`。カスタムノードの入れ直しでは直らないので、
+`showNodeErrorGuide()`とは別の手順を出す。
+
+### ワークフローエディタ側の照合表示
+`ComfyUIWorkflowEditorTab.renderNodes()`（`js/ai/comfyui/v2/comfyui-workflow-editor-tab.js`）も
+同じObjectInfoを見る。**「未取得（接続できていない）」と「取得できたが欠落している」を
+言い分けること。** 未取得を欠落として扱うと、ComfyUIを起動すれば済む人に
+カスタムノードの入れ直しを案内することになる。
+
+| 状態 | 判定 | バナー | ノード・入力ごとの表示 |
+|------|------|--------|------------------|
+| 未取得 | ObjectInfoが0件 | `nodeCheckNotFetched` / `nodeCheckNotFetchedDescription` | `.comfui-node-title-unchecked` + `nodeCheckNotFetchedLabel`（未照合） |
+| ノード欠落 | 1件以上あり、workflowのclass_typeに無いものがある | `missingNode` / `missingDescription`（Install Missing Custom Nodesの手順） | `.comfui-node-title-warning` + `unverifiedNode`（ComfyUIに無い） |
+| 値の不一致 | `comfyCollectValueMismatches()`が1件以上返す | `missingValue` / `missingValueDescription` + 該当箇所の一覧 | `.comfui-input-label-warning` + selectの先頭に`⚠ 現在値` |
+| 一致 | どちらも0件 | 出さない | `.comfui-node-title-normal` |
+
+バナーは排他ではなく、当てはまるものを並べて出す。
+
+selectに現在値の選択肢を足しているのは見た目のためではない。
+`setupInputListeners()`は描画直後に`input.value`をワークフローへ書き戻すので、
+ComfyUI側に無い値を選択肢に入れないと、**先頭の選択肢が選ばれた状態になり、
+壊れているモデル名が黙って別の値に置き換わる**。
+
+未取得のときは接続すれば`comfyui_monitorConnection_v2()`が
+`updateObjectInfoAndWorkflows()`→`tab.renderNodes()`まで回すので、
+エディタ側に再取得ボタンは置いていない。
 
 ## デフォルトワークフロー
 `comfyuiDefaultWorkflows`（comfyui-default-workflows.js）をDOMContentLoaded時に
@@ -396,3 +517,40 @@ async function comfyUIExecWithProvider(provider, fn){
 3. **SD WebUI** — モデル・サンプラー等のSD WebUI固有コントロール
 
 各タブは遅延初期化。ComfyUIタブはそれぞれ独立した `ComfyUIWorkflowEditor` + `ComfyUIWorkflowWindow` インスタンスを持つ。
+
+### 2つの設定ウインドウの閉じ方
+`unifiedSettingsWindow`（生成AI設定）と `modelSettingsWindow`（使用モデル・ワークフロー設定）は
+どちらも `.us-overlay` / `.us-window` で、**両方とも `FocusTrap` を通す**。
+片方だけに入れると、生成AI設定の中のボタンからモデル設定を開いたとき
+Escが下のウインドウへ届き、**手前を残したまま下だけが閉じる**。
+
+重ねて開いたときにEscが最前面だけを閉じるのは次の3つによる（`js/ui/util/focus-trap.js`）。
+1. `FocusTrap.activate()` が起動時に `focusable[0].focus()` でそのウインドウの中へフォーカスを移す
+2. キー監視は `trap.container`（各ウインドウの `.us-window`）に付くので、
+   keydownはフォーカスのあるウインドウのcontainerだけを通る。2つのoverlayはDOM上の兄弟で入れ子ではない
+3. `_handleKey()` のEsc分岐が `stopPropagation()` する
+
+`.us-overlay` は全面の暗幕（`position:fixed` / 100%）で、z-indexが同値のためDOMで後ろにある
+モデル設定側が上に載る。暗幕がある間は下のウインドウをクリックできないので、
+フォーカスが下へ戻る経路も無い。
+
+## 生成タスクの取消
+入口は`cancelAiTask()`（`js/ai/queue/spinner.js`）1つ。
+
+`TaskQueue.cancelItem(itemId)`が**待機中と実行中の両方**を扱う。
+- 待機中: キューから外して`reject(new Error('Task cancelled'))`
+- 実行中: 実行中台帳（`_running`）から引いて同じく`reject`
+
+呼び出し側は`.catch`で`'Task cancelled'` / `'Queue cancelled'`を見る分岐を
+すでに持っているため、取り消すと**結果の配置も実績記録も通らない**。
+
+以前は待機中しか落としておらず、実行中は`removeAiTask()`でインジケータを
+消すだけだった。Promiseが生き残るため`.then`が走り、取り消したはずの画像が
+キャンバスに配置され`recordGeneration`まで記録されていた
+（中断信号を送っていたのはComfyUIのみ）。
+
+**リモート側の処理と課金は止まらない。** `AbortController`は未対応で、
+送信済みのリクエストはサービス側で最後まで走る。止めるのは受け取りだけ。
+
+`activeCount`は実行中タスクが実際に終わるまで減らさない。
+先に減らすと同時実行数を超えてリクエストが飛ぶ。

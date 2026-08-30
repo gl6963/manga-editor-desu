@@ -8,8 +8,7 @@ super(id,name);
 getSupportedRoles(){
 return[
 AI_ROLES.Text2Prompt,
-AI_ROLES.Image2Prompt_LLM,
-AI_ROLES.Text2Text
+AI_ROLES.Image2Prompt_LLM
 ];
 }
 getBaseUrl(){
@@ -23,9 +22,6 @@ return this.getBaseUrl()+'/models';
 }
 getModelSelectIds(){
 return{text:'',vision:''};
-}
-getNoticeElementId(){
-return'';
 }
 getHelpUrl(){
 return'html/API_Help/llm_settings.html';
@@ -42,9 +38,6 @@ return el?el.value:'';
 }
 _requestHeaders(){
 return{'Content-Type':'application/json'};
-}
-_listHeaders(){
-return{};
 }
 async chat(messages,options){
 var opts=options||{};
@@ -254,75 +247,10 @@ if(prev)applySettingValue(el,prev);
 el.disabled=modelIds.length===0;
 }
 async heartbeat(){
-if(this.needsApiKey()&&!this.getApiKey()){
-this.setConnectionNotice('noApiKey');
-return false;
-}
-var response;
-try{
-response=await fetch(this.getModelsUrl(),{headers:this._listHeaders()});
-}catch(e){
-this.setConnectionNotice(await this.classifyFailure());
-return false;
-}
-if(!response.ok){
-this.setConnectionNotice('http',response.status);
-return false;
-}
-this.setConnectionNotice(null);
-return true;
+return this.checkModelsEndpointHeartbeat();
 }
 // 保持している選択値のoptionが残るため、option数では判定せず取得成否で判定する
 hasLoadedModels(){
 return!!this._modelsLoaded;
-}
-async _probeReachable(){
-try{
-await fetch(this.getModelsUrl(),{mode:'no-cors',cache:'no-store'});
-return true;
-}catch(e){
-return false;
-}
-}
-async classifyFailure(){
-var reachable=await this._probeReachable();
-return reachable?'cors':'unreachable';
-}
-getStatusReason(){
-if(!this._lastNoticeKind)return'';
-var messageKeys={
-cors:'llmNoticeCors',
-unreachable:'llmNoticeUnreachable',
-noApiKey:'llmNoticeNoApiKey',
-http:'llmNoticeHttp'
-};
-return i18next.t(messageKeys[this._lastNoticeKind]);
-}
-setConnectionNotice(kind,statusCode){
-this._lastNoticeKind=kind||null;
-var el=$(this.getNoticeElementId());
-if(!el)return;
-if(!kind){
-el.style.display='none';
-el.textContent='';
-return;
-}
-var messageKeys={
-cors:'llmNoticeCors',
-unreachable:'llmNoticeUnreachable',
-noApiKey:'llmNoticeNoApiKey',
-http:'llmNoticeHttp'
-};
-el.textContent='';
-var text=document.createElement('span');
-text.textContent=i18next.t(messageKeys[kind])+(kind==='http'?' ('+statusCode+')':'');
-el.appendChild(text);
-var link=document.createElement('a');
-link.href=this.getHelpUrl();
-link.target='_blank';
-link.className='us-link-btn';
-link.textContent=i18next.t('llmNoticeOpenHelp');
-el.appendChild(link);
-el.style.display='block';
 }
 }

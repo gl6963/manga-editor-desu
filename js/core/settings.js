@@ -88,6 +88,14 @@ const commonProperties=[
 'initial',
 'clipPath.initial',
 'name',
+// 名前を付けたかどうか。持たないとテキストレイヤーは読み込み直すたびに
+// 付けた名前が本文へ戻る（layer-management.js）
+'nameEdited',
+// 参照画像の割り当てはコマ枠側に持つ。枠内の画像を差し替えても残るようにするため
+'referenceIds',
+// 資料どうしの関係。同じ枠に入れたものが関係する（[{ids:[...],prompt:''},...]）。
+// 送る順もこの並びが正で、referenceIdsは枠から作り直す（reference-collector.js）
+'referenceGroups',
 "guids","guid","tempPrompt","tempNegative","tempSeed","img2imgScale","img2img_denoise","canvasGuid","isSpeechBubble","jstsGeom","text","selectable","customType"
 ,"speechBubbleGrid","speechBubbleScale","speechBubbleViewBoxWidth","speechBubbleViewBoxHeight","speechBubbleRectX","speechBubbleRectY","speechBubbleRectWidth","speechBubbleRectHeight"
 ,"baseScaleX","baseScaleY","lastLeft","lastTop","targetObject","originalSvg"

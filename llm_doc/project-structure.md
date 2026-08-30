@@ -10,11 +10,13 @@ manga-editor-desu/
 │   ├── layer/          レイヤー管理（layer-management.js, blend, floating-window）
 │   ├── ui/             UI部品（toast, overlay, control, event-delegator, prompt-manager）
 │   │   ├── preset-picker.js  一覧から1件選ぶポップアップ
-│   │   └── preset-panel.js   ペン/トーン/画像テキストの「今のプリセット」カード定義
+│   │   └── preset-panel.js   ペン/トーン/画像テキスト/テキスト装飾の「今のプリセット」カード定義
 │   │   └── control/object-control-sync.js  選択オブジェクト値の各パネルへの反映
 │   ├── sidebar/        サイドバーツール
 │   │   ├── pen/        ブラシ（crayon, ink, marker, spray, drip, stroke）
-│   │   ├── text/       テキスト（vertical-text, 画像テキスト31種）
+│   │   ├── text/       テキスト（vertical-text, テキスト装飾16種, 画像テキスト31種）
+│   │   │   ├── text-decor-presets.js テキスト装飾の値表16件（→ text-decoration.md）
+│   │   │   ├── text-decor.js         文字を重ねて描く処理とプリセット適用
 │   │   │   ├── text-2-manager.js  画像テキストの入口。種類→処理の対応表を持つ
 │   │   │   └── custom/
 │   │   │       ├── generic-text-effect.js   表からSVGを組み立てる汎用ドライバ
@@ -28,8 +30,14 @@ manga-editor-desu/
 │   ├── ai/             AI生成系（→ ai-system.md参照）
 │   │   ├── prompt/llm/llm-story-*.js  ストーリー→コマのプロンプト（プロンプトパネル）
 │   │   ├── prompt/panel-composition.js 役割→構図タグの表とSDXLバケット
-│   │   └── prompt/prompt-apply.js     コマへの書き込みとページ送り
-│   ├── db/             永続化（user-font-repository）
+│   │   ├── prompt/prompt-apply.js     コマへの書き込みとページ送り
+│   │   └── reference/  リファレンス画像（→ reference-image.md）
+│   │       ├── reference-sheet-store.js    プロジェクト（メモリ）とベース（IndexedDB）の2層
+│   │       ├── reference-collector.js      コマ→送る画像の並びと説明文
+│   │       ├── reference-sheet-window.js   フローティングウインドウ（管理＋割り当て）
+│   │       ├── reference-generator.js      この場で作る（T2Iを呼び共通の資料へ）
+│   │       └── reference-canvas-overlay.js キャンバス上にコマの割り当てを出す
+│   ├── db/             永続化（user-font-repository, reference-repository）
 │   ├── dashboard/      ダッシュボード（統計、プロンプト頻度、外部API利用料）
 │   ├── svg/            SVGテンプレート（コマ割り、吹き出し）
 │   ├── core/font/project-font.js  プロジェクトのフォント情報保存・復元
@@ -76,8 +84,9 @@ manga-editor-desu/
 | `stateStack` / `currentStateIndex` | Undo/Redo履歴 |
 | `ModeManager` | 操作モード管理（SELECT, FREEHAND, KNIFE, PEN等） |
 | `providerRegistry` | AIプロバイダ登録・ロール割り当て |
+| `ReferenceSheetStore` / `ReferenceCollector` | リファレンス画像のシートとコマへの割り当て |
 | `aiTaskMap` | AI生成タスク状態（generation-task-manager.js） |
-| `sdQueue` / `comfyuiQueue` / `runpodEndpointQueue` / `falaiQueue` | プロバイダ別TaskQueue |
+| `sdQueue` / `comfyuiQueue` / `runpodEndpointQueue` / `falaiQueue` / `googleImageQueue` | プロバイダ別TaskQueue |
 
 ## Canvas初期化
 ```javascript
@@ -107,3 +116,14 @@ new fabric.Canvas("mangaImageCanvas",{
 8. AI系
 9. auto-save, compression
 10. font, service worker
+
+## 今回追加したファイル
+| ファイル | 役割 |
+|---------|------|
+| `js/ui/util/confirm-dialog.js` | 元に戻せない操作の前に出す共通の確認ダイアログ（`showConfirmDialog`） |
+| `css/ui/confirm-dialog.css` | 同上のスタイル |
+| `css/ui/recovery-dialog.css` | 自動保存の復元ダイアログに差し込むプロジェクトの内訳のスタイル |
+| `js/core/unsaved-guard.js` | 未保存の変更がある状態での離脱を警告（`UnsavedGuard`） |
+
+読み込み順は`index.html`で`focus-trap.js`の直後。
+`confirm-dialog.js`は`FocusTrap`と`getText`に依存する。

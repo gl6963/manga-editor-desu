@@ -58,25 +58,26 @@ selectable: false
 var shiftTempDisabledMode=null;
 var shiftTempDisabledKnife=false;
 
+// Shiftを押している間だけ選択できるようにする一時解除。
+// 全件を selectable:true に書き換えて元の値を捨てていたため、離した後に
+// 本来ロックされていたコマのロックが外れていた（監査 #07）。
+// 退避と復元は ModeManager.lock に任せ、離したときは
+// モード自身の状態をもう一度当てる（退避は消さない）
 document.addEventListener("keydown",function(e){
 if(e.key!=="Shift"||shiftTempDisabledMode!==null||shiftTempDisabledKnife)return;
 if(currentMode==="freehand"||currentMode==="point"){
 shiftTempDisabledMode=currentMode;
 currentMode="select";
 canvas.selection=true;
-canvas.forEachObject(function(obj){
-if(obj.excludeFromLayerPanel)return;
-obj.set({selectable:true,evented:true});
-});
+ModeManager.lock.apply({selectable:true,evented:true});
 changeDefaultCursor();
 canvas.renderAll();
 }else if(isKnifeMode){
 shiftTempDisabledKnife=true;
 canvas.selection=true;
-canvas.forEachObject(function(obj){
-if(obj.excludeFromLayerPanel)return;
-obj.set({selectable:true,evented:true});
-});
+// ナイフモードが書き換えるのは selectable だけ。ここで evented まで足すと
+// 退避に無いプロパティが残り、モードを抜けても戻らなくなる
+ModeManager.lock.apply({selectable:true});
 changeDefaultCursor();
 canvas.renderAll();
 }
@@ -88,17 +89,14 @@ if(shiftTempDisabledMode!==null){
 currentMode=shiftTempDisabledMode;
 shiftTempDisabledMode=null;
 canvas.selection=false;
-canvas.forEachObject(function(obj){
-obj.set({selectable:false,evented:false});
-});
+// 戻す先はモードに入る前の値ではなくモード中の値。restore()を呼ぶと
+// 退避まで消えてしまい、モードを抜けるときに戻すものが無くなる
+updateObjectSelectability();
 changeCursor(currentMode);
 canvas.renderAll();
 }else if(shiftTempDisabledKnife){
 shiftTempDisabledKnife=false;
-canvas.selection=false;
-canvas.forEachObject(function(obj){
-obj.set({selectable:false,evented:false});
-});
+ModeManager.knife._updateMovement();
 changeCursor("knife");
 canvas.renderAll();
 }
@@ -336,6 +334,11 @@ return;
 endDragPreviewLock();
 if (e.target) {
 if(e.target.isPanel)_dbgFabric.debug("[mouse:down] BEFORE strokeWidth="+e.target.strokeWidth+" stroke="+e.target.stroke);
+// 直前の操作が commitHistoryDebounced() の待ち時間中だと、この下で履歴を止めた瞬間に
+// 保留のまま持ち越され、ドラッグ終わりの1回のコミットへ一緒に入ってしまう。
+// そうなるとCtrl+Zが「移動」ではなく「直前の操作」ごと取り消す。
+// 掴む前に確定させて、直前の操作と今から始まる移動を別の履歴に分ける
+flushHistory();
 dragStartChangeCounter=getHistoryChangeCounter();
 changeDoNotSaveHistory();
 dragPreviewLocked=true;
@@ -462,6 +465,8 @@ const pointer=canvas.getPointer(event.e);
 if (currentMode==="point") {
 points.push({x: pointer.x,y: pointer.y});
 updateTemporaryShapes();
+// 打った点数で確定条件の案内が変わる
+updateFreehandPointHelpText();
 } else if (currentMode==="freehand") {
 points=[{x: pointer.x,y: pointer.y}];
 updateTemporaryShapes();
@@ -515,7 +520,7 @@ eventLogger.trace('27: mouse:up');
 isDrawing=false;
 activePoint=null;
 const pointer=canvas.getPointer(event.e);
-if (currentMode==="point"&&points.length>=4) {
+if (currentMode==="point"&&points.length>=SB_POINT_MIN_POINTS) {
 if (isNearStartPoint(pointer.x,pointer.y,points[0])) {
 var t0=performance.now();
 points.pop();
@@ -539,11 +544,13 @@ points=[];
 mousePosition=null;
 
 updateObjectSelectability();
+// 確定して点が無くなったので、案内も打ち始めの文言へ戻す
+updateFreehandPointHelpText();
 
 } else {
 updateTemporaryShapes();
 }
-} else if (currentMode==="freehand"&&points.length>=4) {
+} else if (currentMode==="freehand"&&points.length>=SB_POINT_MIN_POINTS) {
 var t0=performance.now();
 points.push({x: points[0].x,y: points[0].y});
 points=processPoints(points);

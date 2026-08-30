@@ -348,13 +348,26 @@ points=roundCorners(points,parseInt(sbSornerRadius.value));
 return removeClosePoints(points);
 }
 
+// 吹き出しのモードは既存オブジェクトの selectable / evented を書き換える。
+// 書き換えっぱなしだと抜けたときにコマのロックが外れるため（監査 #07）、
+// 元の値の退避と復元は ModeManager.lock に任せる。
+// 書き換え先はモードごとに違うので、その判断はこの1か所だけに置く
 function updateObjectSelectability() {
+if(currentMode==="select"){
+// 吹き出しのモードの外。書き換える前の値へ戻す
+ModeManager.lock.restore();
+}else if(currentMode==="point"||currentMode==="freehand"){
+// 描いている最中は既存のオブジェクトに当てない
+ModeManager.lock.apply({selectable:false,evented:false});
+}else{
+// 点の移動・削除は掴ませないが、当たり判定は要る
+ModeManager.lock.apply({selectable:false,evented:true});
+}
+// 自由吹き出しの当たり判定用の矩形は、どのモードでも掴ませない
 canvas.forEachObject(obj=>{
 if(obj.customType==="freehandBubbleRect") {
 obj.set({selectable:false,evented:false});
-return;
 }
-obj.set({selectable:currentMode==="select",evented:true});
 });
 }
 function createControlPoints(obj){
@@ -449,11 +462,33 @@ setSelectionMode(sbDeleteButton);
 changeCursor("deletePoint");
 });
 
+// 座標モードで打った点は「4点以上打ってから始点をクリック」でしか確定せず、
+// その条件は画面のどこにも出ていなかった。終わらせ方が分からずESCを押すと
+// 打った点は全部消える（sbClear）ため、確定条件と取り消しの両方を出す。
+// 打った点数で文言が変わるので、変わった時だけ書き換える
+const SB_POINT_MIN_POINTS=4;
+var sbPointHelpTextKey="";
+
+function updateFreehandPointHelpText(){
+var key="";
+if(currentMode==="point"){
+key=points.length>=SB_POINT_MIN_POINTS ? "sbPointHelpTextReady" : "sbPointHelpText";
+}
+if(key===sbPointHelpTextKey)return;
+sbPointHelpTextKey=key;
+if(key===""){
+hideCanvasHelpText();
+return;
+}
+showCanvasHelpText(getText(key),"ESC");
+}
+
 function sbClear(){
 removeTemporary(temporaryLine);
 removeTemporary(temporaryShape);
 temporaryLine=null;
 temporaryShape=null;
+updateFreehandPointHelpText();
 }
 function sbClearControlPoints(){
 controlPoints.forEach(p=>removeTemporary(p));
@@ -474,16 +509,9 @@ points=[];
 mousePosition=null;
 updateObjectSelectability();
 sbClearControlPoints();
-
-canvas.selection=false;
-canvas.forEachObject(obj=>{
-obj.set({
-selectable: false,
-evented: false
-});
-});
 canvas.renderAll();
 activeClearButton();
+updateFreehandPointHelpText();
 freehandBubbleLogger.debug("setDrawingMode completed");
 }
 
@@ -500,27 +528,14 @@ sbClear();
 points=[];
 updateObjectSelectability();
 if (currentMode==="movePoint"||currentMode==="deletePoint") {
-canvas.forEachObject(obj=>{
-if(obj.customType==="freehandBubbleRect") {
-obj.set({selectable:false,evented:false});
-return;
-}
-obj.set({selectable:false,evented:true});
-});
 selectedObject=null;
 createControlPoints(null);
 activeClearButton();
 } else if (currentMode==="select") {
-canvas.forEachObject(obj=>{
-if(obj.customType==="freehandBubbleRect") {
-obj.set({selectable:false,evented:false});
-return;
-}
-obj.set({selectable:true,evented:true});
-});
 nonActiveClearButton();
 }
 sbClearControlPoints();
+updateFreehandPointHelpText();
 }
 
 setSelectionMode(sbSelectButton);

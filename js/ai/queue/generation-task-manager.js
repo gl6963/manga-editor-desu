@@ -193,6 +193,12 @@ var canvasInfoBuffer=getDataByName(files,"canvas_info.json");
 var canvasInfo=canvasInfoBuffer?JSON.parse(ArrayBufferUtils.fromArrayBufferToString(canvasInfoBuffer)):{width:750,height:850};
 var basePromptBuffer=getDataByName(files,"text2img_basePrompt.json");
 var basePromptData=basePromptBuffer?JSON.parse(ArrayBufferUtils.fromArrayBufferToString(basePromptBuffer)):{};
+// このページのblobを丸ごと作り直すため、同梱物はそのまま持ち越す。
+// 渡さないとフォントとリファレンスの実体が落ちる
+var fontsBuffer=getDataByName(files,"fonts.json");
+var fontData=fontsBuffer?JSON.parse(ArrayBufferUtils.fromArrayBufferToString(fontsBuffer)):[];
+var referencesBuffer=getDataByName(files,"reference_sheets.json");
+var referenceData=referencesBuffer?JSON.parse(ArrayBufferUtils.fromArrayBufferToString(referencesBuffer)):[];
 offCanvas.setWidth(canvasInfo.width);
 offCanvas.setHeight(canvasInfo.height);
 var sortedFiles=files.sort((a,b)=>{
@@ -227,7 +233,7 @@ offCanvas.renderAll();
 var newState=customToJSONLocal(offCanvas,localImageMap);
 localStateStack.push(JSON.stringify(newState));
 var previewDataUrl=offCanvas.toDataURL({format:'jpeg',quality:0.8});
-var fileBufferList=await generateProjectFileBufferListCore(localStateStack,localImageMap,canvasInfo,basePromptData,previewDataUrl);
+var fileBufferList=await generateProjectFileBufferListCore(localStateStack,localImageMap,canvasInfo,basePromptData,previewDataUrl,fontData,referenceData);
 var newBlob=await lz4Compressor.buffersToLz4Blob(fileBufferList);
 return{success:true,blob:newBlob,previewLink:{href:previewDataUrl}};
 }finally{

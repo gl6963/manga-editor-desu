@@ -24,8 +24,8 @@ if (resizeTimer) {
 clearTimeout(resizeTimer);
 }
 resizeTimer=setTimeout(function () {
+// 空ページの案内文はloadBookSize()の中で出す。ここで重ねて呼ぶと出す場所が2か所に散る
 loadBookSize(210,297,false);
-initMessage();
 },15);
 }
 
@@ -54,6 +54,34 @@ var widthInput=$("pageWidthMm");
 var heightInput=$("pageHeightMm");
 if(widthInput){widthInput.value=width;}
 if(heightInput){heightInput.value=height;}
+}
+
+// 空のページに出す案内文（initMessage）の唯一の入口。
+// 空のページに出す案内文の入り口。保存対象から外す指定は initMessage()（fabric-util.js）が
+// オブジェクト定義側で持つ（excludeFromExport）
+function showEmptyPageMessage(){
+initMessage();
+}
+
+// 原稿サイズ(mm)はページのピクセル寸法から決める。ピクセル寸法はウィンドウの
+// 大きさで変わるため絶対値には意味が無く、比率だけを使う。
+// 長辺をA4の長辺(297mm)に合わせると「縦ページ」(210:297)は従来どおり210×297mmになり、
+// getCropAndDownloadLink()のmultiplier=Math.max(横倍率,縦倍率)が縦横で一致するため、
+// 原稿サイズがそのまま出力サイズになる（mmが出力の下限にしかならない状態を避ける）
+const PAGE_LONG_SIDE_MM=297;
+
+function derivePageSizeMm(pixelWidth,pixelHeight){
+var width=parseFloat(pixelWidth);
+var height=parseFloat(pixelHeight);
+if(!(width>0)||!(height>0)){
+return null;
+}
+// 入力欄の刻み(step=1)に合わせて整数mmへ丸める。丸めた分だけ比率がずれるが、
+// ずれは最大0.5mm/297mm=0.17%で、その分だけ出力が大きくなる
+if(width>=height){
+return {width:PAGE_LONG_SIDE_MM,height:Math.round(PAGE_LONG_SIDE_MM*height/width)};
+}
+return {width:Math.round(PAGE_LONG_SIDE_MM*width/height),height:PAGE_LONG_SIDE_MM};
 }
 
 // プロジェクト読み込み時に原稿サイズを復元する。未記録の旧プロジェクトは
@@ -180,6 +208,18 @@ var containerHeight=container.clientHeight;
 if(!containerWidth||!containerHeight||!objectWidth||!objectHeight){
 return;
 }
+
+// ページを作る入口（縦/横ページ・カスタムページ・ひな形・ボトムバーの＋）は
+// すべてここを通る。原稿サイズの更新をこの1か所に寄せることで、
+// 入口ごとに更新したりしなかったりする状態をなくす。
+// プロジェクト読み込みはresizeCanvasByNum()を通るのでここには来ない
+// （読み込んだ原稿サイズはapplyPageSizeMm()が復元する）
+var pageSize=derivePageSizeMm(objectWidth,objectHeight);
+if(pageSize){
+setPageSizeMm(pageSize.width,pageSize.height);
+hasProjectPageSize=true;
+}
+
 var objectAspectRatio=objectWidth/objectHeight;
 var containerAspectRatio=containerWidth/containerHeight;
 
@@ -226,6 +266,16 @@ if(input){
 input.addEventListener('input',function(){hasProjectPageSize=true;});
 }
 });
+updateCanvasZoomDisplay();
+// 割り当てキーだけを記号で出す。ここに英単語を置くと言語切替で
+// 追従できない文言が増えるため、動作はアイコンに任せる
+var zoomShortcutKeys={zoomIn:'8',zoomOut:'9',zoomFit:'0'};
+Object.keys(zoomShortcutKeys).forEach(function(id){
+var button=$(id);
+if(button){
+button.title=(isMacOs?'⌘+':'Ctrl+')+zoomShortcutKeys[id];
+}
+});
 });
 
 
@@ -260,6 +310,17 @@ container.scrollTop=Math.max(0,viewCenterY*ratio-container.clientHeight/2);
 
 forcedAdjustCanvasSize();
 updateObjectMenuPosition();
+updateCanvasZoomDisplay();
+}
+
+// 今の倍率を画面に出す。倍率が分からないと、拡大したまま作業しているのか
+// 等倍なのかが読めない。上限・下限で止まったときもここで分かる
+function updateCanvasZoomDisplay(){
+const display=$('zoom-level');
+if(!display){
+return;
+}
+display.textContent=Math.round(canvasContinerScale*100)+"%";
 }
 
 function zoomIn() {

@@ -59,6 +59,21 @@ const requestData={
 return requestData;
 }
 
+// コマにもレイヤーにも紐づかない生成のための入れ物。設定資料をその場で作るときに使う。
+// baseRequestData()はレイヤーのプロパティしか見ないので、同じ形を渡せば
+// 共通プロンプト・サンプラー・ステップ数といった共通設定がそのまま効く。
+// type は image 以外にする（image だと寸法を絵の実サイズから取る分岐に入る）
+function detachedRequestLayer(request) {
+return{
+type: 'rect',
+text2img_prompt: request.prompt||'',
+text2img_negative: request.negative||'',
+text2img_seed:-1,
+text2img_width: request.width,
+text2img_height: request.height
+};
+}
+
 function baseRequestData(layer) {
 var seed=-1;
 var width=-1;

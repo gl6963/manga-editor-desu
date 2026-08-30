@@ -6,11 +6,20 @@ var PROVIDER_COLUMNS=[
 {id:'runpodComfyUI',label:'RunPod ComfyUI'},
 {id:'localSDWebUI',label:'SD WebUI (A1111/Forge)'},
 {id:'falai',label:'Fal.ai'},
+{id:'googleImage',label:'Google Nano Banana'},
 {id:'grok',label:'Grok'},
 {id:'ollama',label:'Ollama'}
 ];
 var ROLE_ROWS=ROLE_MATRIX_ROWS;
 var tempAssignments={};
+// 「設定値自動保存」OFF のときは保存しない。URL・APIキーは OFF で保存されないのに
+// ロール割り当てだけ無条件に保存され、空欄を含む全設定が書き戻されていた。
+// 保存の入口をここ1か所にまとめ、判定の書き漏らしを防ぐ
+function saveIfAutoSaveEnabled(){
+var chk=$('settingsAutoSaveCheckbox');
+if(!chk||!chk.checked)return;
+debouncedSettingsSave();
+}
 function open(){
 unifiedSettingsWindow.open();
 }
@@ -23,7 +32,7 @@ providerRegistry.setRoleAssignment(row.role,tempAssignments[row.role]);
 });
 updateLayerPanel();
 raLogger.info('Role assignments applied');
-debouncedSettingsSave();
+saveIfAutoSaveEnabled();
 }
 function buildMatrix(){
 tempAssignments={};
@@ -69,7 +78,7 @@ tempAssignments[row.role]=col.id;
 providerRegistry.setRoleAssignment(row.role,col.id);
 updateWorkflowType();
 updateLayerPanel();
-debouncedSettingsSave();
+saveIfAutoSaveEnabled();
 apiHeartbeat();
 }
 });

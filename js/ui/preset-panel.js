@@ -1,12 +1,13 @@
-// preset-panel.js - ペン／トーン／画像テキストの「今のプリセット」カード
+// preset-panel.js - ペン／トーン／画像テキスト／テキスト装飾の「今のプリセット」カード
 //
 // パネル幅は200px（狭い画面で140px）しかなく、一覧と設定を同じ縦列に並べると
 // 一覧が場所を取って設定が画面外へ押し出される。一覧は選ぶときだけ
 // PresetPickerで広く開き、パネルには今のプリセットだけを置く。
 //
 // カードの更新は各マネージャが元から持っている「activeボタンを付け外しする1か所」
-// （switchPencilType / switchMangaTone / switchText2Ui）からだけ呼ぶ。
+// （applyPencilType / applyMangaTone / switchText2Ui）からだけ呼ぶ。
 // 切り替え経路ごとに書き足すと更新漏れになる。
+// ペンとトーンは pick から ModeManager.change() を通り、その中で apply*Type が呼ばれる。
 
 var PRESET_PANELS={
 pen: {
@@ -30,12 +31,15 @@ cardId: "tonePresetCurrent",
 titleKey: "tonePickerTitle",
 current: function () {return nowTone;},
 pick: function (value) {switchMangaTone(value);},
+// labelKeyを"Tone"のような一般語にすると、他の用途の同名キーと取り合いになる。
+// 実際にトーン5種はキーが8言語のどこにも無く、キー文字列がそのまま名前として出ていた。
+// text2と同じくtoneName*で揃える
 items: [
-{value: "Tone",labelKey: "Tone",hintKey: "toneDescTone",img: "03_images/preset/tone/Tone.webp"},
-{value: "ToneNoise",labelKey: "ToneNoise",hintKey: "toneDescToneNoise",img: "03_images/preset/tone/ToneNoise.webp"},
-{value: "ToneSnow",labelKey: "ToneSnow",hintKey: "toneDescToneSnow",img: "03_images/preset/tone/ToneSnow.webp"},
-{value: "SpeedLine",labelKey: "SpeedLine",hintKey: "toneDescSpeedLine",img: "03_images/preset/tone/SpeedLine.webp"},
-{value: "FocusingLine",labelKey: "FocusingLine",hintKey: "toneDescFocusingLine",img: "03_images/preset/tone/FocusingLine.webp"}
+{value: "Tone",labelKey: "toneNameTone",hintKey: "toneDescTone",img: "03_images/preset/tone/Tone.webp"},
+{value: "ToneNoise",labelKey: "toneNameToneNoise",hintKey: "toneDescToneNoise",img: "03_images/preset/tone/ToneNoise.webp"},
+{value: "ToneSnow",labelKey: "toneNameToneSnow",hintKey: "toneDescToneSnow",img: "03_images/preset/tone/ToneSnow.webp"},
+{value: "SpeedLine",labelKey: "toneNameSpeedLine",hintKey: "toneDescSpeedLine",img: "03_images/preset/tone/SpeedLine.webp"},
+{value: "FocusingLine",labelKey: "toneNameFocusingLine",hintKey: "toneDescFocusingLine",img: "03_images/preset/tone/FocusingLine.webp"}
 ]
 },
 text2: {
@@ -78,8 +82,43 @@ items: [
 {value: "circuit",labelKey: "imageTextNameCircuit",hintKey: "imageTextDescCircuit",img: "03_images/preset/text/t2_circuit.svg"},
 {value: "chrome",labelKey: "imageTextNameChrome",hintKey: "imageTextDescChrome",img: "03_images/preset/text/t2_chrome.svg"}
 ]
+},
+textDecor: {
+cardId: "textDecorPresetCurrent",
+titleKey: "textDecorPickerTitle",
+current: function () {return nowTextDecor;},
+pick: function (value) {switchTextDecor(value);},
+// 装飾は今のフォントに掛かって初めて姿が決まるため、貼れる見本画像が無い。
+// 実際に描くのと同じ処理でその場で作る（js/sidebar/text/text-decor.js）
+image: function (value) {return textDecorThumb(value);},
+items: [
+{value: "plain",labelKey: "textDecorNamePlain",hintKey: "textDecorDescPlain"},
+{value: "standard",labelKey: "textDecorNameStandard",hintKey: "textDecorDescStandard"},
+{value: "inverse",labelKey: "textDecorNameInverse",hintKey: "textDecorDescInverse"},
+{value: "variety",labelKey: "textDecorNameVariety",hintKey: "textDecorDescVariety"},
+{value: "pop",labelKey: "textDecorNamePop",hintKey: "textDecorDescPop"},
+{value: "cute",labelKey: "textDecorNameCute",hintKey: "textDecorDescCute"},
+{value: "horror",labelKey: "textDecorNameHorror",hintKey: "textDecorDescHorror"},
+{value: "neon",labelKey: "textDecorNameNeon",hintKey: "textDecorDescNeon"},
+{value: "cyber",labelKey: "textDecorNameCyber",hintKey: "textDecorDescCyber"},
+{value: "comic",labelKey: "textDecorNameComic",hintKey: "textDecorDescComic"},
+{value: "glitch",labelKey: "textDecorNameGlitch",hintKey: "textDecorDescGlitch"},
+{value: "japanese",labelKey: "textDecorNameJapanese",hintKey: "textDecorDescJapanese"},
+{value: "cinema",labelKey: "textDecorNameCinema",hintKey: "textDecorDescCinema"},
+{value: "band",labelKey: "textDecorNameBand",hintKey: "textDecorDescBand"},
+{value: "impact",labelKey: "textDecorNameImpact",hintKey: "textDecorDescImpact"},
+{value: "streaming",labelKey: "textDecorNameStreaming",hintKey: "textDecorDescStreaming"}
+]
 }
 };
+
+// 見本画像。貼れる画像を持たない種類はその場で作る
+function presetPanelItemImage(conf,item) {
+if (item.img) {
+return item.img;
+}
+return conf.image ? conf.image(item.value) : undefined;
+}
 
 function presetPanelFindItem(kind,value) {
 var conf=PRESET_PANELS[kind];
@@ -110,7 +149,7 @@ var name=card.querySelector(".preset-current-name");
 name.dataset.i18n=item.labelKey;
 name.textContent=getText(item.labelKey);
 var thumb=card.querySelector(".preset-current-thumb");
-thumb.src=item.img;
+thumb.src=presetPanelItemImage(conf,item);
 thumb.hidden=false;
 card.classList.add("is-active");
 }
@@ -136,7 +175,7 @@ return {
 value: item.value,
 label: getText(item.labelKey),
 hint: getText(item.hintKey),
-img: item.img
+img: presetPanelItemImage(conf,item)
 };
 });
 PresetPicker.open({

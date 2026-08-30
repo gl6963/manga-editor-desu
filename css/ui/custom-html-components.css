@@ -28,7 +28,7 @@
 
 .input-container::before, 
 .input-container-leftSpace::before{ 
-    content: attr(data-label);
+    content: attr(data-label) attr(data-value-text);
   position: absolute;
   left: 3px;
   color: var(--component-text-color);
@@ -93,11 +93,13 @@ margin-left:auto;
 margin-right:var(--input-margin);
 border:0 !important;
 cursor:pointer;
-width:40px !important;
-max-width:40px !important;
-min-width:0 !important;
+/* 40px固定だと rgba(255,255,255,1) が「rgba(25」で切れて値が読めなかった。
+   入力欄の既定幅（size=20文字）に任せ、狭い場所では入る分だけ縮める */
+width:auto !important;
+max-width:100% !important;
+min-width:6em !important;
 height:20px !important;
-padding:0 !important;
+padding:0 3px !important;
 border-radius:var(--fjm-button-border-radius);
 box-sizing:border-box !important;
 }

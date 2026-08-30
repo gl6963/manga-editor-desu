@@ -74,6 +74,39 @@ return false;
 }
 
 /**
+ * キャンバス上で今使われている名前を集める。
+ * レイヤーの名前は「種類＋レイヤーパネルの行番号」で後から埋まる作り（layer-management.js）で、
+ * 行番号は増減のたびに詰め直されるため、生まれ方によっては既にある名前と同じになる
+ * @returns {Object} 名前をキーにした一覧（重複判定用）
+ */
+function collectUsedObjectNames() {
+var used={};
+canvas.getObjects().forEach(function (obj) {
+if (obj.name) {
+used[obj.name]=true;
+}
+});
+return used;
+}
+
+/**
+ * 重複しない名前を1つ決めて、使用済みとして記録する。
+ * 続けて何個も名前を付けるとき、まだキャンバスに乗っていない分も数えられるようにしている
+ * @param {string} baseName - 種類名（fabricのtype）
+ * @param {Object} usedNames - collectUsedObjectNames()の戻り値
+ * @returns {string} 重複しない名前
+ */
+function reserveUniqueObjectName(baseName,usedNames) {
+var index=1;
+while (usedNames[baseName+index]) {
+index++;
+}
+var name=baseName+index;
+usedNames[name]=true;
+return name;
+}
+
+/**
  * ポリゴンを分割
  * @param {Object} polygon - 分割対象ポリゴン
  * @returns {Object} {isSplit, polygon1, polygon2}
@@ -260,7 +293,7 @@ scaleX: 1,
 scaleY: 1,
 lockMovementX: tempLockMovementX,
 lockMovementY: tempLockMovementY,
-selectable: true,
+selectable: polygon.selectable,
 });
 
 var polygon2=new fabric.Polygon(adjustedPolygon2Points2,{
@@ -275,11 +308,19 @@ scaleX: 1,
 scaleY: 1,
 lockMovementX: tempLockMovementX,
 lockMovementY: tempLockMovementY,
-selectable: true,
+selectable: polygon.selectable,
 });
 
 setText2ImageInitPrompt(polygon1);
 setText2ImageInitPrompt(polygon2);
+
+// 名前はレイヤーパネルが「種類＋行番号」で後から埋める作り（layer-management.js）。
+// 分割すると行番号が詰め直され、既にあるコマと同じ名前が並ぶ。
+// レイヤーパネル・Ctrl+P・ネーム一括生成で見分けが付かなくなるため、
+// 生まれた時点で重複しない名前を決めて持たせる
+var reservedPanelNames=collectUsedObjectNames();
+polygon1.name=reserveUniqueObjectName(polygon1.type,reservedPanelNames);
+polygon2.name=reserveUniqueObjectName(polygon2.type,reservedPanelNames);
 
 var childImages=[];
 if(polygon.guids&&polygon.guids.length>0){
@@ -290,11 +331,22 @@ childImages.push(obj);
 });
 }
 
+// 利用者から見た操作は「1回切った」の1つ。分割線の削除・元コマの削除・
+// 新しいコマ2つの追加・中身の入れ直し（putImageInFrameは中でsaveStateByManual()を呼ぶ）が
+// それぞれ履歴を積むと、Ctrl+Zを何度押しても分割前に戻らない。
+// 一連の書き換えは履歴を止めたまま行い、終わってから1つだけ積む
+withoutHistory(function(){
 stopKnifeLineAnimation();
-canvas.remove(setNotSave(currentKnifeLine));
-canvas.remove(setNotSave(polygon));
+removeByNotSave(currentKnifeLine);
+removeByNotSave(polygon);
 canvas.add(setNotSave(polygon1));
 canvas.add(setNotSave(polygon2));
+// canvas.add の object:added がナイフモード中は selectable:false を当てる。
+// 抜けたときに戻す先（退避）は分割元から引き継ぐ。引き継がないと、モードを抜けた
+// ときに兄弟のコマだけ元へ戻り、分割で生まれたコマが取り残される（監査 #07）。
+// モードの外で分割したときは退避が無く、上の selectable:polygon.selectable が正
+ModeManager.lock.inherit(polygon,polygon1);
+ModeManager.lock.inherit(polygon,polygon2);
 
 if(childImages.length>0){
 var area1=polygon1.width*polygon1.height;
@@ -310,7 +362,8 @@ putImageInFrame(img,imgCenterX,imgCenterY,false,true,true,largerPolygon);
 
 setSave(polygon1);
 setSave(polygon2);
-saveStateByManual();
+});
+commitHistory();
 
 currentKnifeObject=null;
 currentKnifeLine=null;

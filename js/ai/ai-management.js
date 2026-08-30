@@ -2,6 +2,7 @@
 const sdQueue=new TaskQueue(1);
 const comfyuiQueue=new TaskQueue(1);
 const falaiQueue=new TaskQueue(1);
+const googleImageQueue=new TaskQueue(1);
 const grokQueue=new TaskQueue(1);
 const ollamaQueue=new TaskQueue(1);
 
@@ -12,6 +13,10 @@ document.addEventListener('DOMContentLoaded',function(){
 var falConc=$('falaiConcurrency');
 if(falConc&&parseInt(falConc.value)>1){
 falaiQueue.setConcurrency(parseInt(falConc.value));
+}
+var googleImageConc=$('googleImageConcurrency');
+if(googleImageConc&&parseInt(googleImageConc.value)>1){
+googleImageQueue.setConcurrency(parseInt(googleImageConc.value));
 }
 var grokConc=$('grokConcurrency');
 if(grokConc&&parseInt(grokConc.value)>1){
@@ -29,6 +34,14 @@ if(val<1)val=1;
 if(val>10)val=10;
 this.value=val;
 falaiQueue.setConcurrency(val);
+});
+
+$('googleImageConcurrency').addEventListener('change',function(){
+var val=parseInt(this.value)||1;
+if(val<1)val=1;
+if(val>10)val=10;
+this.value=val;
+googleImageQueue.setConcurrency(val);
 });
 
 $('grokConcurrency').addEventListener('change',function(){
@@ -76,6 +89,10 @@ const falQueueStatus=falaiQueue.getStatus();
 if(falQueueStatus.total>0){
 return true;
 }
+const googleImageQueueStatus=googleImageQueue.getStatus();
+if(googleImageQueueStatus.total>0){
+return true;
+}
 const grokQueueStatus=grokQueue.getStatus();
 if(grokQueueStatus.total>0){
 return true;
@@ -88,7 +105,7 @@ return false;
 }
 
 function getAllQueues() {
-return[sdQueue,comfyuiQueue,falaiQueue,grokQueue,ollamaQueue];
+return[sdQueue,comfyuiQueue,falaiQueue,googleImageQueue,grokQueue,ollamaQueue];
 }
 
 // 全キューが空になるまで待つ。キューの完了通知で起きるので非表示タブでも間引かれない。
@@ -104,10 +121,11 @@ function clearAllQueues() {
 const sdCleared=sdQueue.clearQueue();
 const comfyCleared=comfyuiQueue.clearQueue();
 const falCleared=falaiQueue.clearQueue();
+const googleImageCleared=googleImageQueue.clearQueue();
 const grokCleared=grokQueue.clearQueue();
 const ollamaCleared=ollamaQueue.clearQueue();
-logger.info(`All queues cleared: SD=${sdCleared}, ComfyUI=${comfyCleared}, Fal=${falCleared}, Grok=${grokCleared}, Ollama=${ollamaCleared}`);
-return sdCleared+comfyCleared+falCleared+grokCleared+ollamaCleared;
+logger.info(`All queues cleared: SD=${sdCleared}, ComfyUI=${comfyCleared}, Fal=${falCleared}, NanoBanana=${googleImageCleared}, Grok=${grokCleared}, Ollama=${ollamaCleared}`);
+return sdCleared+comfyCleared+falCleared+googleImageCleared+grokCleared+ollamaCleared;
 }
 
 
@@ -116,6 +134,19 @@ var provider=providerRegistry.getProviderForRole(AI_ROLES.Text2Image);
 if(provider){
 return provider.executeT2I(layer,spinner.id);
 }
+}
+// キャンバスへ置かずに画像だけ作る。設定資料をその場で作るために使う
+function getDetachedT2IProvider(){
+return providerRegistry.getProviderForRole(AI_ROLES.Text2Image);
+}
+function canGenerateDetachedT2I(){
+var provider=getDetachedT2IProvider();
+return!!(provider&&provider.supportsDetachedT2I());
+}
+async function T2IDetached(request,spinner){
+var provider=getDetachedT2IProvider();
+if(!provider||!provider.supportsDetachedT2I())return null;
+return provider.executeDetachedT2I(request,spinner.id);
 }
 function I2I(layer,spinner){
 var provider=providerRegistry.getProviderForRole(AI_ROLES.Image2Image);

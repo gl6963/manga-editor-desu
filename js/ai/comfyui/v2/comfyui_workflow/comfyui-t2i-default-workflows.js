@@ -814,7 +814,7 @@ title: "KSampler",
 },
 4: {
 inputs: {
-ckpt_name: "sd_xl_refiner_1.0_0.9vae.safetensors",
+ckpt_name: "illustrious\\waiIllustriousSDXL_v160.safetensors",
 },
 class_type: "CheckpointLoaderSimple",
 _meta: {
@@ -1560,7 +1560,7 @@ filename_prefix: "%date:yyyy-MM-dd%/ComfyUI_%date:yyyyMMdd_hhmmss_SSS%",
 },
 "14": {
 "inputs": {
-"ckpt_name": "illustrious\\waiNSFWIllustrious_v50.safetensors"
+"ckpt_name": "illustrious\\waiNSFWIllustrious_v120.safetensors"
 },
 "class_type": "CheckpointLoaderSimple",
 "_meta": {
