@@ -574,6 +574,7 @@ const base_zh = {
 "settingsSave":"保存设置",
 "settingsLoad":"加载设置",
 "imageDownload":"下载图片",
+"batchImageDownload":"批量导出所有页面 (ZIP)",
 "imageCopy":"复制图片",
 "allRemove":"全部删除",
 "prompt":"提示",

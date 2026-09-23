@@ -1,0 +1,155 @@
+/* ===== Batch Manager Styles ===== */
+
+/* Header Toolbar row containing hint and batch tools */
+.btm-drawer-header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 16px 4px 16px;
+    gap: 12px;
+}
+
+.btm-drawer-header-bar .btm-drawer-hint {
+    padding: 0;
+    margin: 0;
+    flex: 1;
+}
+
+.btm-batch-tools {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.btm-batch-btn,
+.btm-batch-toggle-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.85);
+    border-radius: var(--fjm-button-border-radius, 4px);
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s ease;
+    user-select: none;
+    line-height: 1.4;
+}
+
+.btm-batch-btn:hover,
+.btm-batch-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.35);
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.btm-batch-btn-danger {
+    background: rgba(230, 40, 60, 0.22);
+    border-color: rgba(230, 40, 60, 0.55);
+    color: #ff6b7d;
+}
+
+.btm-batch-btn-danger:hover {
+    background: rgba(230, 40, 60, 0.45);
+    border-color: rgba(230, 40, 60, 0.85);
+    color: #ffffff;
+    box-shadow: 0 0 8px rgba(230, 40, 60, 0.4);
+}
+
+.btm-batch-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btm-batch-count {
+    font-size: 12px;
+    color: var(--color-accent, #00e5ff);
+    margin-right: 6px;
+    font-weight: 500;
+}
+
+/* Thumbnail Checkbox overlay in Batch Mode */
+.btm-batch-checkbox-wrap {
+    display: none;
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.65);
+    border: 2px solid rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(4px);
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    pointer-events: none;
+    transition: all 0.15s ease;
+}
+
+.btm-batch-checkbox-icon {
+    font-size: 14px;
+    font-weight: bold;
+    color: transparent;
+    transition: color 0.15s ease;
+    line-height: 1;
+}
+
+/* In Batch Mode behavior */
+.is-batch-mode .btm-batch-checkbox-wrap {
+    display: flex;
+}
+
+.is-batch-mode .btm-delete-btn,
+.is-batch-mode .btm-move-btn,
+.is-batch-mode .btm-add-btn {
+    display: none !important;
+}
+
+.is-batch-mode .btm-image-wrapper {
+    cursor: pointer;
+}
+
+.is-batch-mode .btm-image {
+    transition: all 0.15s ease;
+}
+
+.btm-image-wrapper.is-batch-selected .btm-batch-checkbox-wrap {
+    background: var(--color-accent, #00e5ff);
+    border-color: var(--color-accent, #00e5ff);
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.6);
+}
+
+.btm-image-wrapper.is-batch-selected .btm-batch-checkbox-icon {
+    color: #000000;
+}
+
+.btm-image-wrapper.is-batch-selected .btm-image {
+    border-color: var(--color-accent, #00e5ff) !important;
+    box-shadow: 0 0 14px rgba(0, 229, 255, 0.6) !important;
+    transform: translateY(-2px);
+}
+
+/* Light mode overrides */
+.light-mode .btm-batch-btn,
+.light-mode .btm-batch-toggle-btn {
+    background: rgba(0, 0, 0, 0.06);
+    border-color: rgba(0, 0, 0, 0.2);
+    color: rgba(0, 0, 0, 0.8);
+}
+
+.light-mode .btm-batch-btn:hover,
+.light-mode .btm-batch-toggle-btn:hover {
+    background: rgba(0, 0, 0, 0.12);
+    color: #000;
+}
+
+.light-mode .btm-batch-checkbox-wrap {
+    background: rgba(255, 255, 255, 0.85);
+    border-color: rgba(0, 0, 0, 0.5);
+}

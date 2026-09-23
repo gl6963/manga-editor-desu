@@ -1,5 +1,6 @@
 const isPWAEligible=()=>{
 if (typeof window==="undefined") return false;
+if (location.hostname==="localhost"||location.hostname==="127.0.0.1") return false;
 const isSecureContext=
 window.isSecureContext||
 location.hostname==="localhost"||
@@ -21,6 +22,19 @@ let deferredPrompt;
 let registration;
 
 if (typeof window!=="undefined") {
+// Automatically clean up existing Service Workers on localhost to ensure live development
+if (location.hostname==="localhost"||location.hostname==="127.0.0.1") {
+if ("serviceWorker" in navigator) {
+navigator.serviceWorker.getRegistrations().then(function(regs){
+for(let reg of regs){ reg.unregister(); }
+});
+}
+if ("caches" in window) {
+caches.keys().then(function(names){
+for(let name of names){ caches.delete(name); }
+});
+}
+}
 window.addEventListener("load",function () {
 if (isPWAEligible()) {
 navigator.serviceWorker

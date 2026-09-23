@@ -36,13 +36,20 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 if __name__ == '__main__':
     PORT = 8000
     ADDRESS = ""
-    socketserver.TCPServer.allow_reuse_address = True
+    socketserver.TCPServer.allow_reuse_address = False
     
-    with ThreadedTCPServer((ADDRESS, PORT), CORSRequestHandler) as httpd:
-        with ThreadPoolExecutor(max_workers=500) as executor:
-            print(f"Server running at http://localhost:{PORT}")
-            try:
-                httpd.serve_forever()
-            except KeyboardInterrupt:
-                print("\nShutting down server...")
-                httpd.shutdown()
+    try:
+        with ThreadedTCPServer((ADDRESS, PORT), CORSRequestHandler) as httpd:
+            with ThreadPoolExecutor(max_workers=500) as executor:
+                print(f"Server running at http://localhost:{PORT}")
+                try:
+                    httpd.serve_forever()
+                except KeyboardInterrupt:
+                    print("\nShutting down server...")
+                    httpd.shutdown()
+    except OSError as e:
+        if "10048" in str(e) or getattr(e, 'winerror', None) == 10048:
+            print(f"\n[提示] 端口 {PORT} 已有服务正在运行中，无需重复启动。")
+            print(f"请直接在浏览器中打开: http://localhost:{PORT}\n")
+        else:
+            raise e

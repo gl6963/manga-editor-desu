@@ -1,5 +1,5 @@
 // Service Worker: Cache management for HTTP/HTTPS deployment
-var CACHE_VERSION='manga-editor-v4';
+var CACHE_VERSION='manga-editor-v5-fixed';
 
 // Fingerprinted or rarely-changing assets. Served cache-first: the URL is
 // expected to change (?v=x.y) when the content changes.
@@ -45,9 +45,7 @@ self.addEventListener('activate',function(event){
 event.waitUntil(
 caches.keys().then(function(keys){
 return Promise.all(
-keys.filter(function(key){
-return key!==CACHE_VERSION;
-}).map(function(key){
+keys.map(function(key){
 return caches.delete(key);
 })
 );
@@ -59,6 +57,11 @@ return self.clients.claim();
 
 self.addEventListener('fetch',function(event){
 var url=new URL(event.request.url);
+
+if(url.hostname==='localhost'||url.hostname==='127.0.0.1'){
+event.respondWith(fetch(event.request));
+return;
+}
 
 if(url.protocol==='file:'){
 return;
