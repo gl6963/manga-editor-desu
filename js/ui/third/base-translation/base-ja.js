@@ -609,6 +609,7 @@ const base_ja = {
 "imageControls":"▼ 高速画像エフェクト",
 "imageCopy":"画像コピー",
 "imageDownload":"画像ダウンロード",
+"batchImageImport":"画像一括インポート (1ページ1枚)",
 "batchImageDownload":"全ページ一括エクスポート (ZIP)",
 "information":"情報",
 "informationControls":"▼ 情報コントロール",

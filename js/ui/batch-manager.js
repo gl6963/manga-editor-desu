@@ -6,6 +6,180 @@
         isBatchMode: false,
         selectedGuids: new Set(),
 
+        DEFAULT_SINGLE_PANEL_SVG: '<?xml version="1.0" encoding="UTF-8" standalone="no" ?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="704.2424242424242" height="996" viewBox="0 0 704.2424242424242 996" xml:space="preserve"><desc>Created with Fabric.js 5.3.0</desc><defs></defs><g transform="matrix(1 0 0 1 352.1151515151515 497.9939393939394)"  ><polygon style="stroke: rgb(0,0,0); stroke-width: 2; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill: rgb(255,255,255); fill-opacity: 0.25; fill-rule: nonzero; opacity: 1;" vector-effect="non-scaling-stroke"  points="-351.1151515151515,-496.9939393939394 351.1151515151515,-496.9939393939394 351.1151515151515,496.9939393939394 -351.1151515151515,496.9939393939394 " /></g></svg>',
+
+        // 0. Batch Import Images: 1 Page per Image
+        async batchImportImages() {
+            if (typeof isProjectBusy === 'function' && isProjectBusy()) {
+                if (typeof createToastError === 'function') {
+                    createToastError("Import Busy", "项目正在处理中，请稍后再试。");
+                }
+                return;
+            }
+
+            const input = document.createElement("input");
+            input.type = "file";
+            input.multiple = true;
+            input.accept = "image/*";
+            input.style.display = "none";
+            document.body.appendChild(input);
+
+            input.onchange = async () => {
+                const files = input.files;
+                if (!files || files.length === 0) {
+                    input.remove();
+                    return;
+                }
+
+                // Natural sort files by filename so 1.png, 2.png, 10.png are in correct numerical order
+                const fileList = Array.from(files).sort((a, b) =>
+                    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+                );
+
+                const total = fileList.length;
+                const loading = (typeof OP_showLoading === 'function') ? OP_showLoading({
+                    icon: 'process',
+                    step: '批量导入图片',
+                    substep: '正在初始化...',
+                    progress: 0
+                }, true) : null;
+
+                let firstCreatedGuid = null;
+                let importedCount = 0;
+
+                try {
+                    // Pre-load dynamic panel SVG if not loaded yet
+                    if (typeof MangaPanelsImage_Vertical === 'undefined' && typeof loadSvgScript === 'function') {
+                        try {
+                            await loadSvgScript("js/svg/manga-panels-image-vertical.js?v=7.2");
+                        } catch(e) {}
+                    }
+
+                    const svgString = (typeof MangaPanelsImage_Vertical !== 'undefined' && MangaPanelsImage_Vertical[0])
+                        ? MangaPanelsImage_Vertical[0].svg
+                        : this.DEFAULT_SINGLE_PANEL_SVG;
+
+                    for (let i = 0; i < total; i++) {
+                        if (typeof OP_isCancelled === 'function' && OP_isCancelled()) {
+                            break;
+                        }
+
+                        const file = fileList[i];
+                        const pageNum = i + 1;
+
+                        if (loading && typeof OP_updateLoadingState === 'function') {
+                            OP_updateLoadingState(loading, {
+                                icon: 'process',
+                                step: '批量导入图片',
+                                substep: `正在导入第 ${pageNum} / ${total} 张: ${file.name}`,
+                                progress: Math.round((i / total) * 90)
+                            });
+                        }
+                        if (typeof waitNextFrame === 'function') await waitNextFrame();
+
+                        // Save existing page if it has content
+                        if (typeof btmShouldSaveCurrentPage === 'function' && btmShouldSaveCurrentPage()) {
+                            if (typeof btmSaveCurrentPage === 'function') {
+                                await btmSaveCurrentPage(false);
+                            }
+                        }
+
+                        // Generate new page GUID
+                        if (typeof setCanvasGUID === 'function') {
+                            setCanvasGUID();
+                        }
+                        const newGuid = (typeof getCanvasGUID === 'function') ? getCanvasGUID() : null;
+                        if (!firstCreatedGuid) firstCreatedGuid = newGuid;
+
+                        // Load default 1x1 single panel template into canvas
+                        await new Promise((resolve) => {
+                            if (typeof loadSVGPlusReset === 'function') {
+                                loadSVGPlusReset(svgString, false);
+                                const timer = setInterval(() => {
+                                    if (canvas && canvas.getObjects().some(o => o.isPanel)) {
+                                        clearInterval(timer);
+                                        resolve();
+                                    }
+                                }, 30);
+                                setTimeout(() => {
+                                    clearInterval(timer);
+                                    resolve();
+                                }, 1500);
+                            } else if (typeof loadBookSize === 'function') {
+                                loadBookSize(210, 297, true, true).then(resolve);
+                            } else {
+                                resolve();
+                            }
+                        });
+                        if (typeof waitNextFrame === 'function') await waitNextFrame();
+
+                        // Read image file
+                        const dataUrl = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = e => resolve(e.target.result);
+                            reader.onerror = reject;
+                            reader.readAsDataURL(file);
+                        });
+
+                        // Put image into panel frame
+                        await new Promise((resolve) => {
+                            fabric.Image.fromURL(dataUrl, function(img) {
+                                if (typeof putImageInFrame === 'function') {
+                                    const cx = canvas.width / 2;
+                                    const cy = canvas.height / 2;
+                                    putImageInFrame(img, cx, cy);
+                                } else if (typeof addInitialImageToCanvas === 'function') {
+                                    addInitialImageToCanvas(img);
+                                } else {
+                                    canvas.add(img);
+                                }
+                                canvas.renderAll();
+                                if (typeof updateLayerPanel === 'function') updateLayerPanel();
+                                if (typeof saveStateByManual === 'function') saveStateByManual();
+                                resolve();
+                            });
+                        });
+                        if (typeof waitNextFrame === 'function') await waitNextFrame();
+
+                        // Register and save page to bottom bar
+                        if (typeof btmRegisterCurrentPage === 'function') {
+                            await btmRegisterCurrentPage(false);
+                        }
+                        if (typeof btmSaveCurrentPage === 'function') {
+                            await btmSaveCurrentPage(false);
+                        }
+
+                        importedCount++;
+                    }
+
+                    // Done: navigate to first imported page
+                    if (firstCreatedGuid && typeof chengeCanvasByGuid === 'function') {
+                        await chengeCanvasByGuid(firstCreatedGuid);
+                    }
+
+                    if (typeof btmUpdateScrollButtons === 'function') btmUpdateScrollButtons();
+                    if (typeof updateAllPageNumbers === 'function') updateAllPageNumbers();
+                    if (typeof btmUpdateHandleText === 'function') btmUpdateHandleText();
+
+                    if (typeof createToast === 'function') {
+                        createToast("Success", `成功导入 ${importedCount} 张图片到独立画板！`);
+                    }
+                } catch(err) {
+                    console.error("Batch import failed:", err);
+                    if (typeof createToastError === 'function') {
+                        createToastError("Import Error", "批量导入失败: " + (err.message || err));
+                    }
+                } finally {
+                    input.remove();
+                    if (loading && typeof OP_hideLoading === 'function') {
+                        OP_hideLoading(loading);
+                    }
+                }
+            };
+
+            input.click();
+        },
+
         // 1. Batch Export All Pages to ZIP
         async batchCropAndDownload() {
             if (typeof isProjectBusy === 'function' && isProjectBusy()) {

@@ -460,14 +460,6 @@ btmNavCenter.className="btm-nav-center";
 btmHandleLabel=document.createElement("span");
 btmHandleCount=document.createElement("span");
 btmHandleCount.className="btm-handle-count";
-btmNavCenter.appendChild(btmHandleLabel);
-btmNavCenter.appendChild(btmHandleCount);
-btmNavRight=document.createElement("span");
-btmNavRight.className="btm-nav-right";
-btmNavRight.addEventListener("click",function(e){
-e.stopPropagation();
-btmNavigatePage(1);
-});
 
 btmPinBtn=document.createElement("button");
 btmPinBtn.type="button";
@@ -487,10 +479,20 @@ createToast("总览栏", btmIsPinned?"已固定当前状态（不再自动收缩
 }
 });
 
+btmNavCenter.appendChild(btmHandleLabel);
+btmNavCenter.appendChild(btmHandleCount);
+btmNavCenter.appendChild(btmPinBtn);
+
+btmNavRight=document.createElement("span");
+btmNavRight.className="btm-nav-right";
+btmNavRight.addEventListener("click",function(e){
+e.stopPropagation();
+btmNavigatePage(1);
+});
+
 btmDrawerHandle.appendChild(btmNavLeft);
 btmDrawerHandle.appendChild(btmNavCenter);
 btmDrawerHandle.appendChild(btmNavRight);
-btmDrawerHandle.appendChild(btmPinBtn);
 
 if(btmIsPinned){
 try {

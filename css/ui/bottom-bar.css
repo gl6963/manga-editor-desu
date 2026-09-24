@@ -55,10 +55,9 @@ transition:background 0.15s ease;
 
 /* ===== Pin Button ===== */
 .btm-pin-btn {
-position:absolute;
-right:16px;
-top:50%;
-transform:translateY(-50%);
+position:relative;
+margin-left:10px;
+vertical-align:middle;
 background:rgba(255,255,255,0.08);
 border:1px solid rgba(255,255,255,0.18);
 color:rgba(255,255,255,0.7);

@@ -574,6 +574,7 @@ const base_en = {
 "settingsSave":"Settings Save",
 "settingsLoad":"Settings Load",
 "imageDownload":"Image Download",
+"batchImageImport":"Batch Import Images (1 Page/Img)",
 "batchImageDownload":"Batch Export All Pages (ZIP)",
 "imageCopy":"Image Copy",
 "allRemove":"All Remove",
