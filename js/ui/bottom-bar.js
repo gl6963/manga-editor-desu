@@ -10,6 +10,11 @@ const btmScrollRightBtn=$("btm-scroll-right");
 let btmScrollPosition=0;
 let btmIsDragging=false;
 let btmIgnoreClose=false;
+let btmIsPinned=false;
+try {
+    btmIsPinned=localStorage.getItem("desu_drawer_pinned")==="true";
+} catch(e){}
+var btmPinBtn=null;
 var btmNavLeft=null;
 var btmNavCenter=null;
 var btmNavRight=null;
@@ -20,6 +25,11 @@ function btmToggleDrawer() {
 btmDrawer.classList.toggle("btm-closed");
 btmUpdateHandleText();
 btmUpdateScrollButtons();
+if (btmIsPinned) {
+    try {
+        localStorage.setItem("desu_drawer_pinned_state", btmDrawer.classList.contains("btm-closed") ? "closed" : "open");
+    } catch(e){}
+}
 }
 
 function btmCloseDrawer() {
@@ -59,6 +69,23 @@ btmNavRight.style.visibility="visible";
 btmNavRight.textContent="";
 btmNavRight.style.visibility="hidden";
 }
+}
+
+function btmUpdatePinBtnState() {
+    if (!btmPinBtn) return;
+    if (btmIsPinned) {
+        btmPinBtn.classList.add("is-pinned");
+        btmPinBtn.setAttribute("aria-pressed", "true");
+        btmPinBtn.title = "已固定状态 (不会自动收缩/展开，点击取消固定)";
+        var label = btmPinBtn.querySelector(".btm-pin-label");
+        if (label) label.textContent = "已固定";
+    } else {
+        btmPinBtn.classList.remove("is-pinned");
+        btmPinBtn.setAttribute("aria-pressed", "false");
+        btmPinBtn.title = "固定当前状态 (点击固定)";
+        var label = btmPinBtn.querySelector(".btm-pin-label");
+        if (label) label.textContent = "固定";
+    }
 }
 
 // 現在のキャンバスをページとしてボトムバーへ残すべきかを判定する。
@@ -270,7 +297,9 @@ btmProjectsMap.set(guid,{imageLink,blob});
 
 btmDrawer.style.display="block";
 if (openDrawer) {
-if (btmDrawer.classList.contains("btm-closed")) {
+if (btmIsPinned && btmDrawer.classList.contains("btm-closed")) {
+btmUpdateHandleText();
+} else if (btmDrawer.classList.contains("btm-closed")) {
 btmIgnoreClose=true;
 btmToggleDrawer();
 setTimeout(()=>{btmIgnoreClose=false;},200);
@@ -439,9 +468,40 @@ btmNavRight.addEventListener("click",function(e){
 e.stopPropagation();
 btmNavigatePage(1);
 });
+
+btmPinBtn=document.createElement("button");
+btmPinBtn.type="button";
+btmPinBtn.className="btm-pin-btn"+(btmIsPinned?" is-pinned":"");
+btmPinBtn.title=btmIsPinned?"已固定状态 (不会自动收缩/展开，点击取消固定)":"固定当前状态 (点击固定)";
+btmPinBtn.innerHTML='<svg class="btm-pin-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z"/></svg><span class="btm-pin-label">'+(btmIsPinned?"已固定":"固定")+'</span>';
+btmPinBtn.addEventListener("click",function(e){
+e.stopPropagation();
+btmIsPinned=!btmIsPinned;
+try {
+localStorage.setItem("desu_drawer_pinned", btmIsPinned?"true":"false");
+localStorage.setItem("desu_drawer_pinned_state", btmDrawer.classList.contains("btm-closed")?"closed":"open");
+} catch(err){}
+btmUpdatePinBtnState();
+if(typeof createToast==='function'){
+createToast("总览栏", btmIsPinned?"已固定当前状态（不再自动收缩或弹开）":"已解除固定（恢复自动交互）");
+}
+});
+
 btmDrawerHandle.appendChild(btmNavLeft);
 btmDrawerHandle.appendChild(btmNavCenter);
 btmDrawerHandle.appendChild(btmNavRight);
+btmDrawerHandle.appendChild(btmPinBtn);
+
+if(btmIsPinned){
+try {
+var savedState=localStorage.getItem("desu_drawer_pinned_state");
+if(savedState==="open"&&btmDrawer.classList.contains("btm-closed")){
+btmDrawer.classList.remove("btm-closed");
+} else if(savedState==="closed"&&!btmDrawer.classList.contains("btm-closed")){
+btmDrawer.classList.add("btm-closed");
+}
+} catch(e){}
+}
 btmUpdateHandleText();
 btmDrawerHandle.addEventListener("click",btmToggleDrawer);
 btmScrollLeftBtn.addEventListener("click",()=>btmScroll(-1));
@@ -463,6 +523,7 @@ if (
 !btmIsDragging&&
 !btmIgnoreClose
 ) {
+if (btmIsPinned) return;
 btmCloseDrawer();
 }
 btmIsDragging=false;
