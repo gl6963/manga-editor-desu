@@ -213,6 +213,8 @@ const image=document.createElement("img");
 if(imageLink&&imageLink.href)image.src=imageLink.href;
 image.className="btm-image";
 image.dataset.index=guid;
+image.draggable=false;
+image.addEventListener("dragstart",(e)=>e.preventDefault());
 image.addEventListener("click",async ()=>{
 if(isProjectBusy())return;
 await btmSaveCurrentPage();
@@ -321,10 +323,15 @@ const dragging = document.querySelector(".btm-image-wrapper.is-dragging");
 if (!dragging || dragging === imageWrapper) return;
 
 const rect = imageWrapper.getBoundingClientRect();
-const isHorizontal = !btmDrawer.classList.contains("view-grid") && !btmDrawer.classList.contains("dock-right");
-const insertBefore = isHorizontal
-? (e.clientX - rect.left < rect.width / 2)
-: (e.clientY - rect.top < rect.height / 2 || e.clientX - rect.left < rect.width / 2);
+const isGrid = btmDrawer.classList.contains("view-grid") || btmDrawer.classList.contains("dock-right");
+let insertBefore = false;
+if (isGrid) {
+    const midX = rect.left + rect.width / 2;
+    const midY = rect.top + rect.height / 2;
+    insertBefore = (e.clientY < midY) || (Math.abs(e.clientY - midY) < rect.height * 0.35 && e.clientX < midX);
+} else {
+    insertBefore = (e.clientX - rect.left < rect.width / 2);
+}
 
 if (insertBefore) {
 imageWrapper.classList.add("drag-over-before");
@@ -354,10 +361,15 @@ const sourceWrapper = document.querySelector(`.btm-image[data-index="${sourceGui
 if (!sourceWrapper) return;
 
 const rect = imageWrapper.getBoundingClientRect();
-const isHorizontal = !btmDrawer.classList.contains("view-grid") && !btmDrawer.classList.contains("dock-right");
-const insertBefore = isHorizontal
-? (e.clientX - rect.left < rect.width / 2)
-: (e.clientY - rect.top < rect.height / 2 || e.clientX - rect.left < rect.width / 2);
+const isGrid = btmDrawer.classList.contains("view-grid") || btmDrawer.classList.contains("dock-right");
+let insertBefore = false;
+if (isGrid) {
+    const midX = rect.left + rect.width / 2;
+    const midY = rect.top + rect.height / 2;
+    insertBefore = (e.clientY < midY) || (Math.abs(e.clientY - midY) < rect.height * 0.35 && e.clientX < midX);
+} else {
+    insertBefore = (e.clientX - rect.left < rect.width / 2);
+}
 
 if (insertBefore) {
 btmImageContainer.insertBefore(sourceWrapper, imageWrapper);
@@ -632,6 +644,8 @@ btmIsDragging=false;
 });
 
 function btmStartDrag(e) {
+if (e.target.closest('.btm-image-wrapper') || e.target.closest('button')) return;
+if (btmDrawer.classList.contains("view-grid") || btmDrawer.classList.contains("dock-right")) return;
 e.preventDefault();
 isDragging=true;
 let startX=e.clientX;

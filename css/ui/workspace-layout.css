@@ -1,4 +1,19 @@
-/* ===== Workspace Layout & Splitters CSS ===== */
+/* ===== Workspace Layout, Splitters & Region 6 Docking Styles ===== */
+
+/* Override hardcoded min-width and max-width from legacy CSS */
+.left_area {
+    min-width: 140px !important;
+    max-width: 650px !important;
+    box-sizing: border-box !important;
+}
+
+#canvas-area {
+    flex: 1 1 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    margin-right: 0 !important;
+    position: relative;
+}
 
 /* Right Panels Wrapper */
 #right-panels-wrapper {
@@ -20,7 +35,7 @@
 #right-panels-wrapper.is-side-by-side #layer-panel {
     width: var(--layer-panel-width, 240px) !important;
     min-width: 160px !important;
-    max-width: 420px !important;
+    max-width: 450px !important;
     height: 100% !important;
     max-height: 100% !important;
     flex: 0 0 auto !important;
@@ -78,37 +93,29 @@
     display: none !important;
 }
 
-/* Canvas Area adapts to fill available space */
-#canvas-area {
-    flex: 1 1 auto !important;
-    width: auto !important;
-    min-width: 320px !important;
-    margin-right: 0 !important;
-}
-
 /* Floating restore trigger when right panels are collapsed */
 .right-sidebar-collapsed-trigger {
     position: fixed;
     right: 0;
     top: 50%;
     transform: translateY(-50%);
-    background: rgba(0, 0, 0, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.25);
     border-right: none;
     border-radius: 6px 0 0 6px;
     padding: 12px 6px;
     cursor: pointer;
     z-index: 1040;
-    color: rgba(255, 255, 255, 0.85);
+    color: rgba(255, 255, 255, 0.9);
     display: none;
-    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.4);
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.5);
     transition: all 0.15s ease;
 }
 
 .right-sidebar-collapsed-trigger:hover {
     background: var(--color-accent, #00e5ff);
     color: #000000;
-    box-shadow: 0 0 12px rgba(0, 229, 255, 0.6);
+    box-shadow: 0 0 14px rgba(0, 229, 255, 0.7);
 }
 
 .is-right-collapsed .right-sidebar-collapsed-trigger {
@@ -117,58 +124,94 @@
     justify-content: center;
 }
 
-/* Layout Splitters */
+/* =========================================================
+   PROMINENT & HIGH-VISIBILITY SPLITTERS (触控拖拽条)
+   ========================================================= */
+
 .layout-splitter {
-    background: transparent;
-    transition: background 0.15s ease;
-    z-index: 25;
+    position: relative;
+    z-index: 40;
     user-select: none;
     flex-shrink: 0;
-    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.layout-splitter::after {
-    content: '';
-    position: absolute;
-    background: rgba(255, 255, 255, 0.08);
-    transition: background 0.15s ease;
-}
-
+/* Vertical Splitter (Between Left/Canvas/Right) */
 .layout-splitter.vertical {
-    width: 6px;
-    cursor: col-resize;
+    width: 8px;
+    flex: 0 0 8px;
     height: 100%;
-    margin: 0 -3px;
+    cursor: col-resize;
+    background: rgba(0, 0, 0, 0.45);
+    border-left: 1px solid rgba(255, 255, 255, 0.15);
+    border-right: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-.layout-splitter.vertical::after {
-    left: 2px;
-    top: 0;
-    bottom: 0;
-    width: 2px;
+.layout-splitter.vertical::before {
+    content: '⋮';
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 14px;
+    line-height: 1;
+    pointer-events: none;
+    font-weight: bold;
 }
 
+.layout-splitter.vertical:hover,
+.layout-splitter.vertical.is-active {
+    background: rgba(0, 229, 255, 0.3) !important;
+    border-color: var(--color-accent, #00e5ff) !important;
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.7);
+}
+
+.layout-splitter.vertical:hover::before,
+.layout-splitter.vertical.is-active::before {
+    color: #ffffff;
+}
+
+/* Horizontal Splitter (Between Layer Panel & AI Controls in Stacked Mode) */
 .layout-splitter.horizontal {
-    height: 6px;
-    cursor: row-resize;
+    height: 8px;
+    flex: 0 0 8px;
     width: 100%;
-    margin: -3px 0;
+    cursor: row-resize;
+    background: rgba(0, 0, 0, 0.45);
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-.layout-splitter.horizontal::after {
-    top: 2px;
-    left: 0;
-    right: 0;
-    height: 2px;
+.layout-splitter.horizontal::before {
+    content: '⋯';
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 14px;
+    line-height: 1;
+    pointer-events: none;
+    font-weight: bold;
 }
 
-.layout-splitter:hover::after,
-.layout-splitter.is-active::after {
-    background: var(--color-accent, #00e5ff);
-    box-shadow: 0 0 8px rgba(0, 229, 255, 0.8);
+.layout-splitter.horizontal:hover,
+.layout-splitter.horizontal.is-active {
+    background: rgba(0, 229, 255, 0.3) !important;
+    border-color: var(--color-accent, #00e5ff) !important;
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.7);
 }
 
-/* Buttons in area header */
+.layout-splitter.horizontal:hover::before,
+.layout-splitter.horizontal.is-active::before {
+    color: #ffffff;
+}
+
+/* Hide Left Splitter when no left area is open */
+#splitter-left-canvas {
+    display: none;
+}
+.has-left-area-open #splitter-left-canvas {
+    display: flex !important;
+}
+
+/* Tool Buttons in Area Headers */
 .layout-tool-btn {
     background: rgba(255, 255, 255, 0.08);
     border: none;
@@ -189,14 +232,101 @@
     color: #ffffff;
 }
 
-.layout-tool-btn.active {
-    background: var(--color-accent, #00e5ff);
-    color: #000000;
+/* =========================================================
+   REGION 6 (DRAWER) DOCKING & RESIZERS (触控调整条)
+   ========================================================= */
+
+/* Drawer Top Resizer (when docked to Bottom) */
+.drawer-splitter-top {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 8px;
+    cursor: row-resize;
+    background: rgba(0, 0, 0, 0.45);
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1060;
+    transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-/* ===== Region 6 Docking & Multi-row Grid Styles ===== */
+.drawer-splitter-top::before {
+    content: '⋯';
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 14px;
+    line-height: 1;
+    pointer-events: none;
+}
 
-/* Bottom Dock (default) */
+.drawer-splitter-top:hover,
+.drawer-splitter-top.is-active {
+    background: rgba(0, 229, 255, 0.3) !important;
+    border-color: var(--color-accent, #00e5ff) !important;
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.7);
+}
+
+.drawer-splitter-top:hover::before,
+.drawer-splitter-top.is-active::before {
+    color: #ffffff;
+}
+
+/* Drawer Left Resizer (when docked to Right) */
+.drawer-splitter-left {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 8px;
+    cursor: col-resize;
+    background: rgba(0, 0, 0, 0.45);
+    border-left: 1px solid rgba(255, 255, 255, 0.15);
+    border-right: 1px solid rgba(255, 255, 255, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1060;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.drawer-splitter-left::before {
+    content: '⋮';
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 14px;
+    line-height: 1;
+    pointer-events: none;
+}
+
+.drawer-splitter-left:hover,
+.drawer-splitter-left.is-active {
+    background: rgba(0, 229, 255, 0.3) !important;
+    border-color: var(--color-accent, #00e5ff) !important;
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.7);
+}
+
+.drawer-splitter-left:hover::before,
+.drawer-splitter-left.is-active::before {
+    color: #ffffff;
+}
+
+.btm-drawer.btm-closed .drawer-splitter-top,
+.btm-drawer.dock-right .drawer-splitter-top {
+    display: none !important;
+}
+
+.btm-drawer.btm-closed .drawer-splitter-left,
+.btm-drawer.dock-bottom .drawer-splitter-left {
+    display: none !important;
+}
+
+/* =========================================================
+   REGION 6 DOCK MODES (BOTTOM VS RIGHT)
+   ========================================================= */
+
+/* Bottom Dock */
 .btm-drawer.dock-bottom {
     position: fixed;
     bottom: 0;
@@ -216,12 +346,12 @@
     left: 0;
     transform: none;
     border-radius: 0;
+    height: var(--drawer-bottom-height, 250px);
 }
 
-/* Grid view when docked at bottom: expanded multi-row height */
 .btm-drawer.dock-bottom:not(.btm-closed).view-grid {
-    height: 460px;
-    max-height: 75vh;
+    height: var(--drawer-bottom-height, 460px);
+    max-height: 80vh;
 }
 
 .btm-drawer.dock-bottom:not(.btm-closed).view-grid .btm-drawer-content {
@@ -233,7 +363,7 @@
 
 .btm-drawer.dock-bottom:not(.btm-closed).view-grid .btm-image-container {
     display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)) !important;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
     gap: 14px !important;
     padding: 10px 16px 24px 16px !important;
     width: 100% !important;
@@ -251,25 +381,29 @@
     display: none !important;
 }
 
-/* Right Dock (Docked to right screen edge) */
+/* =========================================================
+   RIGHT DOCK STYLES & RESPONSIVE HEADER ADAPTATION
+   ========================================================= */
+
 .btm-drawer.dock-right {
     position: fixed;
     top: 48px;
     right: 0;
     bottom: 0;
     left: auto;
-    width: 380px;
-    max-width: 90vw;
+    width: var(--drawer-right-width, 390px);
+    min-width: 290px;
+    max-width: 85vw;
     height: calc(100vh - 48px);
     transform: none;
     border-radius: 0;
-    border-left: 1px solid rgba(255, 255, 255, 0.15);
+    border-left: 1px solid rgba(255, 255, 255, 0.18);
     border-top: none;
     display: flex;
     flex-direction: column;
     z-index: 1050;
     transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.6);
 }
 
 .btm-drawer.dock-right.btm-closed {
@@ -280,10 +414,17 @@
     transform: none;
 }
 
+/* Right-Dock Handle: Compact Single Row Header */
 .btm-drawer.dock-right .btm-drawer-handle {
     border-radius: 0;
     width: 100%;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px;
+    gap: 4px;
+    height: 32px;
 }
 
 .btm-drawer.dock-right.btm-closed .btm-drawer-handle {
@@ -302,6 +443,79 @@
     border-right: 1px solid rgba(255, 255, 255, 0.15);
 }
 
+.btm-drawer.dock-right .btm-nav-left,
+.btm-drawer.dock-right .btm-nav-right {
+    min-width: auto !important;
+    flex: 0 0 auto !important;
+    font-size: 11px;
+    padding: 0 4px;
+}
+
+.btm-drawer.dock-right .btm-nav-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+    font-size: 11px;
+    flex: 1 1 auto;
+}
+
+.btm-drawer.dock-right .btm-pin-btn {
+    margin-left: 4px;
+    padding: 1px 6px;
+    font-size: 10px;
+    flex-shrink: 0;
+}
+
+/* Right-Dock Header Toolbar: Responds so buttons NEVER get cut off */
+.btm-drawer.dock-right .btm-drawer-header-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.btm-drawer.dock-right .btm-drawer-hint {
+    font-size: 11px;
+    line-height: 1.35;
+    white-space: normal;
+    padding: 0;
+    opacity: 0.75;
+}
+
+.btm-drawer.dock-right .btm-batch-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
+}
+
+.btm-drawer.dock-right .btm-batch-btn,
+.btm-drawer.dock-right .btm-batch-toggle-btn {
+    flex: 1 1 calc(33.3% - 6px);
+    justify-content: center;
+    padding: 4px 6px;
+    font-size: 11px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.btm-drawer.dock-right .btm-batch-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    width: 100%;
+}
+
+.btm-drawer.dock-right .btm-batch-actions .btm-batch-btn {
+    flex: 1 1 auto;
+    padding: 3px 6px;
+    font-size: 11px;
+}
+
 .btm-drawer.dock-right .btm-drawer-content {
     flex: 1;
     height: auto;
@@ -314,17 +528,17 @@
 
 .btm-drawer.dock-right .btm-image-container {
     display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)) !important;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important;
     gap: 12px !important;
     width: 100% !important;
     height: auto !important;
-    padding: 6px 4px !important;
+    padding: 6px 2px !important;
     transform: none !important;
 }
 
 .btm-drawer.dock-right .btm-image-wrapper {
     width: 100%;
-    height: 165px;
+    height: 170px;
     margin: 0;
 }
 
@@ -332,10 +546,21 @@
     display: none !important;
 }
 
-/* Drag-and-Drop Reorder Feedback (Imagesorter.io style) */
+/* In Grid & Right-Dock view: hide cramped step buttons and focus on Drag & Drop */
+.btm-drawer.dock-right .btm-move-btn,
+.btm-drawer.dock-right .btm-add-btn,
+.btm-drawer.view-grid .btm-move-btn,
+.btm-drawer.view-grid .btm-add-btn {
+    display: none !important;
+}
+
+/* =========================================================
+   DRAG-AND-DROP REORDER FEEDBACK (IMAGESORTER.IO STYLE)
+   ========================================================= */
+
 .btm-image-wrapper {
     user-select: none;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
 }
 
 .btm-image-wrapper[draggable="true"] {
@@ -347,18 +572,18 @@
 }
 
 .btm-image-wrapper.is-dragging {
-    opacity: 0.35 !important;
-    transform: scale(0.92) !important;
+    opacity: 0.3 !important;
+    transform: scale(0.9) !important;
     border: 2px dashed var(--color-accent, #00e5ff) !important;
     border-radius: var(--fjm-border-radius, 6px);
 }
 
 .btm-image-wrapper.drag-over-before {
-    box-shadow: -4px 0 0 0 var(--color-accent, #00e5ff), 0 4px 12px rgba(0, 229, 255, 0.4) !important;
-    transform: translateX(4px);
+    box-shadow: -4px 0 0 0 var(--color-accent, #00e5ff), 0 4px 16px rgba(0, 229, 255, 0.45) !important;
+    transform: translateX(6px);
 }
 
 .btm-image-wrapper.drag-over-after {
-    box-shadow: 4px 0 0 0 var(--color-accent, #00e5ff), 0 4px 12px rgba(0, 229, 255, 0.4) !important;
+    box-shadow: 4px 0 0 0 var(--color-accent, #00e5ff), 0 4px 16px rgba(0, 229, 255, 0.45) !important;
     transform: translateX(-4px);
 }
