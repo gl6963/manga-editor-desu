@@ -1,5 +1,19 @@
 /* ===== Workspace Layout, Splitters & Region 6 Docking Styles ===== */
 
+/* Global Dragging State: Disable transitions, animations and pointer interception during active drag */
+body.is-layout-dragging,
+body.is-layout-dragging * {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    transition: none !important;
+    animation: none !important;
+}
+
+body.is-layout-dragging iframe,
+body.is-layout-dragging canvas {
+    pointer-events: none !important;
+}
+
 /* Override hardcoded min-width and max-width from legacy CSS */
 .left_area {
     min-width: 140px !important;
@@ -33,9 +47,9 @@
 }
 
 #right-panels-wrapper.is-side-by-side #layer-panel {
-    width: var(--layer-panel-width, 240px) !important;
-    min-width: 160px !important;
-    max-width: 450px !important;
+    width: var(--layer-panel-width, 240px);
+    min-width: 140px !important;
+    max-width: calc(100% - 160px) !important;
     height: 100% !important;
     max-height: 100% !important;
     flex: 0 0 auto !important;
@@ -46,10 +60,10 @@
 
 #right-panels-wrapper.is-side-by-side #controls {
     flex: 1 1 auto !important;
+    width: 0 !important;
+    min-width: 160px !important;
     height: 100% !important;
     max-height: 100% !important;
-    min-width: 200px !important;
-    max-width: 100% !important;
     margin: 0 !important;
     box-sizing: border-box;
     overflow-y: auto;
@@ -67,9 +81,9 @@
     width: 100% !important;
     min-width: 0 !important;
     max-width: 100% !important;
-    height: var(--layer-panel-height, 42%) !important;
-    min-height: 120px !important;
-    max-height: 75% !important;
+    height: var(--layer-panel-height, 280px);
+    min-height: 80px !important;
+    max-height: calc(100% - 100px) !important;
     flex: 0 0 auto !important;
     border-bottom: none;
     box-sizing: border-box;
@@ -81,7 +95,8 @@
     min-width: 0 !important;
     max-width: 100% !important;
     flex: 1 1 auto !important;
-    height: auto !important;
+    height: 0 !important;
+    min-height: 100px !important;
     max-height: none !important;
     margin: 0 !important;
     box-sizing: border-box;
@@ -140,6 +155,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    touch-action: none;
     transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -184,6 +200,7 @@
     display: flex !important;
     width: 100% !important;
     height: 8px !important;
+    min-height: 8px !important;
     flex: 0 0 8px !important;
     cursor: row-resize !important;
     background: rgba(0, 0, 0, 0.55) !important;
@@ -194,6 +211,7 @@
     align-items: center;
     justify-content: center;
     user-select: none;
+    touch-action: none;
     transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -210,6 +228,7 @@
 #right-panels-wrapper.is-side-by-side #splitter-layer-controls {
     display: flex !important;
     width: 8px !important;
+    min-width: 8px !important;
     flex: 0 0 8px !important;
     height: 100% !important;
     cursor: col-resize !important;
@@ -221,6 +240,7 @@
     align-items: center;
     justify-content: center;
     user-select: none;
+    touch-action: none;
     transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -285,7 +305,7 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 8px;
+    height: 10px;
     cursor: row-resize;
     background: rgba(0, 0, 0, 0.45);
     border-top: 1px solid rgba(255, 255, 255, 0.15);
@@ -294,6 +314,7 @@
     align-items: center;
     justify-content: center;
     z-index: 1060;
+    touch-action: none;
     transition: background 0.15s ease, border-color 0.15s ease;
 }
 
@@ -323,7 +344,7 @@
     top: 0;
     bottom: 0;
     left: 0;
-    width: 8px;
+    width: 10px;
     cursor: col-resize;
     background: rgba(0, 0, 0, 0.45);
     border-left: 1px solid rgba(255, 255, 255, 0.15);
@@ -332,6 +353,7 @@
     align-items: center;
     justify-content: center;
     z-index: 1060;
+    touch-action: none;
     transition: background 0.15s ease, border-color 0.15s ease;
 }
 

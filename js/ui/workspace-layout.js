@@ -41,13 +41,19 @@
                 const layerHeight = localStorage.getItem('desu_layer_panel_height');
                 if (layerHeight && !isNaN(parseInt(layerHeight))) {
                     const el = document.getElementById('layer-panel');
-                    if (el) el.style.height = parseInt(layerHeight) + 'px';
+                    if (el) {
+                        el.style.setProperty('--layer-panel-height', parseInt(layerHeight) + 'px');
+                        el.style.height = parseInt(layerHeight) + 'px';
+                    }
                 }
 
                 const layerWidth = localStorage.getItem('desu_layer_panel_width');
                 if (layerWidth && !isNaN(parseInt(layerWidth))) {
                     const el = document.getElementById('layer-panel');
-                    if (el) el.style.width = parseInt(layerWidth) + 'px';
+                    if (el) {
+                        el.style.setProperty('--layer-panel-width', parseInt(layerWidth) + 'px');
+                        el.style.width = parseInt(layerWidth) + 'px';
+                    }
                 }
 
                 const drawerHeight = localStorage.getItem('desu_drawer_height');
@@ -89,27 +95,23 @@
                         wrapper.classList.add('is-stacked');
                         if (layerPanel) {
                             layerPanel.style.removeProperty('width');
+                            layerPanel.style.removeProperty('--layer-panel-width');
                             layerPanel.style.width = '';
                             const h = localStorage.getItem('desu_layer_panel_height');
-                            if (h && !isNaN(parseInt(h))) {
-                                layerPanel.style.height = parseInt(h) + 'px';
-                            } else {
-                                layerPanel.style.removeProperty('height');
-                                layerPanel.style.height = '';
-                            }
+                            const finalH = (h && !isNaN(parseInt(h))) ? parseInt(h) : 280;
+                            layerPanel.style.setProperty('--layer-panel-height', finalH + 'px');
+                            layerPanel.style.height = finalH + 'px';
                         }
                     } else {
                         wrapper.classList.add('is-side-by-side');
                         if (layerPanel) {
                             layerPanel.style.removeProperty('height');
+                            layerPanel.style.removeProperty('--layer-panel-height');
                             layerPanel.style.height = '';
                             const w = localStorage.getItem('desu_layer_panel_width');
-                            if (w && !isNaN(parseInt(w))) {
-                                layerPanel.style.width = parseInt(w) + 'px';
-                            } else {
-                                layerPanel.style.removeProperty('width');
-                                layerPanel.style.width = '';
-                            }
+                            const finalW = (w && !isNaN(parseInt(w))) ? parseInt(w) : 240;
+                            layerPanel.style.setProperty('--layer-panel-width', finalW + 'px');
+                            layerPanel.style.width = finalW + 'px';
                         }
                     }
                 }
@@ -250,151 +252,185 @@
         },
 
         setupSplitters() {
+            const rightWrapper = document.getElementById('right-panels-wrapper');
+            const drawerEl = document.getElementById('btm-drawer');
+
             // Splitter 1: Canvas to Right Panels
             const splitterRight = document.getElementById('splitter-canvas-right');
-            const rightWrapper = document.getElementById('right-panels-wrapper');
             if (splitterRight && rightWrapper) {
-                this.initDraggableSplitter(splitterRight, 'horizontal-drag', (deltaX) => {
-                    const currentW = rightWrapper.offsetWidth;
-                    const newW = Math.max(220, Math.min(window.innerWidth - 300, currentW - deltaX));
-                    rightWrapper.style.width = newW + 'px';
-                    return newW;
-                }, (finalVal) => {
-                    if (finalVal) {
-                        try { localStorage.setItem('desu_right_panels_width', finalVal); } catch(e){}
+                this.initDraggableSplitter(
+                    splitterRight,
+                    () => ({ initialW: rightWrapper.offsetWidth }),
+                    (deltaX, deltaY, data) => {
+                        const newW = Math.max(220, Math.min(window.innerWidth - 300, data.initialW - deltaX));
+                        rightWrapper.style.width = newW + 'px';
+                        rightWrapper.style.setProperty('--right-panels-width', newW + 'px');
+                        data.finalVal = newW;
+                    },
+                    (data) => {
+                        if (data && data.finalVal) {
+                            try { localStorage.setItem('desu_right_panels_width', data.finalVal); } catch(e){}
+                        }
+                        this.notifyCanvasResize();
                     }
-                    this.notifyCanvasResize();
-                });
+                );
             }
 
-            // Splitter 2: Layer Panel to Controls (Inside Right Panels)
+            // Splitter 2: Layer Panel to AI Controls (Area 4 & Area 5)
             const splitterInner = document.getElementById('splitter-layer-controls');
             const layerPanel = document.getElementById('layer-panel');
             if (splitterInner && layerPanel) {
-                this.initDraggableSplitter(splitterInner, 'inner-drag', (deltaX, deltaY) => {
-                    if (this.isStackMode) {
-                        const currentH = layerPanel.offsetHeight;
-                        const newH = Math.max(100, Math.min(window.innerHeight - 200, currentH + deltaY));
-                        layerPanel.style.height = newH + 'px';
-                        return newH;
-                    } else {
-                        const currentW = layerPanel.offsetWidth;
-                        const newW = Math.max(160, Math.min(rightWrapper ? rightWrapper.offsetWidth - 160 : 460, currentW + deltaX));
-                        layerPanel.style.width = newW + 'px';
-                        return newW;
+                this.initDraggableSplitter(
+                    splitterInner,
+                    () => ({
+                        initialH: layerPanel.offsetHeight,
+                        initialW: layerPanel.offsetWidth,
+                        wrapperH: rightWrapper ? rightWrapper.offsetHeight : window.innerHeight,
+                        wrapperW: rightWrapper ? rightWrapper.offsetWidth : 500
+                    }),
+                    (deltaX, deltaY, data) => {
+                        if (this.isStackMode) {
+                            const maxH = Math.max(100, data.wrapperH - 120);
+                            const newH = Math.max(80, Math.min(maxH, data.initialH + deltaY));
+                            layerPanel.style.height = newH + 'px';
+                            layerPanel.style.setProperty('--layer-panel-height', newH + 'px');
+                            data.finalVal = newH;
+                        } else {
+                            const maxW = Math.max(140, data.wrapperW - 160);
+                            const newW = Math.max(120, Math.min(maxW, data.initialW + deltaX));
+                            layerPanel.style.width = newW + 'px';
+                            layerPanel.style.setProperty('--layer-panel-width', newW + 'px');
+                            data.finalVal = newW;
+                        }
+                    },
+                    (data) => {
+                        if (data && data.finalVal) {
+                            try {
+                                if (this.isStackMode) {
+                                    localStorage.setItem('desu_layer_panel_height', data.finalVal);
+                                } else {
+                                    localStorage.setItem('desu_layer_panel_width', data.finalVal);
+                                }
+                            } catch(e){}
+                        }
                     }
-                }, (finalVal) => {
-                    if (finalVal) {
-                        try {
-                            if (this.isStackMode) {
-                                localStorage.setItem('desu_layer_panel_height', finalVal);
-                            } else {
-                                localStorage.setItem('desu_layer_panel_width', finalVal);
-                            }
-                        } catch(e){}
-                    }
-                });
+                );
             }
 
             // Splitter 3: Left Flyout Area to Canvas
             const splitterLeft = document.getElementById('splitter-left-canvas');
             if (splitterLeft) {
-                this.initDraggableSplitter(splitterLeft, 'horizontal-drag', (deltaX) => {
-                    const visibleLeftArea = document.querySelector('.left_area:not([style*="display: none"])');
-                    if (visibleLeftArea) {
-                        const currentW = visibleLeftArea.offsetWidth;
-                        const newW = Math.max(160, Math.min(650, currentW + deltaX));
-                        visibleLeftArea.style.width = newW + 'px';
-                        visibleLeftArea.style.minWidth = newW + 'px';
-                        visibleLeftArea.style.maxWidth = newW + 'px';
-                        return newW;
+                this.initDraggableSplitter(
+                    splitterLeft,
+                    () => {
+                        const visible = document.querySelector('.left_area:not([style*="display: none"])');
+                        return { el: visible, initialW: visible ? visible.offsetWidth : 0 };
+                    },
+                    (deltaX, deltaY, data) => {
+                        if (!data.el) return;
+                        const newW = Math.max(140, Math.min(650, data.initialW + deltaX));
+                        data.el.style.width = newW + 'px';
+                        data.el.style.minWidth = newW + 'px';
+                        data.el.style.maxWidth = newW + 'px';
+                        data.finalVal = newW;
+                    },
+                    (data) => {
+                        if (data && data.finalVal) {
+                            try { localStorage.setItem('desu_left_area_width', data.finalVal); } catch(e){}
+                        }
+                        this.notifyCanvasResize();
                     }
-                    return null;
-                }, (finalVal) => {
-                    if (finalVal) {
-                        try { localStorage.setItem('desu_left_area_width', finalVal); } catch(e){}
-                    }
-                    this.notifyCanvasResize();
-                });
+                );
             }
 
             // Splitter 4: Drawer Top Resizer (when docked to Bottom)
             const splitterDrawerTop = document.getElementById('splitter-drawer-top');
-            const drawerEl = document.getElementById('btm-drawer');
             if (splitterDrawerTop && drawerEl) {
-                this.initDraggableSplitter(splitterDrawerTop, 'row-resize', (deltaX, deltaY) => {
-                    if (this.drawerDockMode !== 'bottom') return null;
-                    const currentH = drawerEl.offsetHeight;
-                    const newH = Math.max(160, Math.min(window.innerHeight * 0.85, currentH - deltaY));
-                    drawerEl.style.setProperty('--drawer-bottom-height', newH + 'px');
-                    drawerEl.style.height = newH + 'px';
-                    return newH;
-                }, (finalVal) => {
-                    if (finalVal) {
-                        try { localStorage.setItem('desu_drawer_height', finalVal); } catch(e){}
+                this.initDraggableSplitter(
+                    splitterDrawerTop,
+                    () => ({ initialH: drawerEl.offsetHeight }),
+                    (deltaX, deltaY, data) => {
+                        if (this.drawerDockMode !== 'bottom') return;
+                        const newH = Math.max(160, Math.min(window.innerHeight * 0.85, data.initialH - deltaY));
+                        drawerEl.style.setProperty('--drawer-bottom-height', newH + 'px');
+                        drawerEl.style.height = newH + 'px';
+                        data.finalVal = newH;
+                    },
+                    (data) => {
+                        if (data && data.finalVal) {
+                            try { localStorage.setItem('desu_drawer_height', data.finalVal); } catch(e){}
+                        }
                     }
-                });
+                );
             }
 
             // Splitter 5: Drawer Left Resizer (when docked to Right)
             const splitterDrawerLeft = document.getElementById('splitter-drawer-left');
             if (splitterDrawerLeft && drawerEl) {
-                this.initDraggableSplitter(splitterDrawerLeft, 'col-resize', (deltaX) => {
-                    if (this.drawerDockMode !== 'right') return null;
-                    const currentW = drawerEl.offsetWidth;
-                    const newW = Math.max(280, Math.min(window.innerWidth * 0.85, currentW - deltaX));
-                    drawerEl.style.setProperty('--drawer-right-width', newW + 'px');
-                    drawerEl.style.width = newW + 'px';
-                    return newW;
-                }, (finalVal) => {
-                    if (finalVal) {
-                        try { localStorage.setItem('desu_drawer_width', finalVal); } catch(e){}
+                this.initDraggableSplitter(
+                    splitterDrawerLeft,
+                    () => ({ initialW: drawerEl.offsetWidth }),
+                    (deltaX, deltaY, data) => {
+                        if (this.drawerDockMode !== 'right') return;
+                        const newW = Math.max(280, Math.min(window.innerWidth * 0.85, data.initialW - deltaX));
+                        drawerEl.style.setProperty('--drawer-right-width', newW + 'px');
+                        drawerEl.style.width = newW + 'px';
+                        data.finalVal = newW;
+                    },
+                    (data) => {
+                        if (data && data.finalVal) {
+                            try { localStorage.setItem('desu_drawer_width', data.finalVal); } catch(e){}
+                        }
                     }
-                });
+                );
             }
         },
 
-        initDraggableSplitter(splitterEl, type, onDrag, onEnd) {
-            let startX = 0;
-            let startY = 0;
-            let isDragging = false;
-            let lastVal = null;
+        initDraggableSplitter(splitterEl, getInitData, onMove, onEnd) {
+            if (!splitterEl) return;
 
-            const onMouseMove = (e) => {
-                if (!isDragging) return;
-                const deltaX = e.clientX - startX;
-                const deltaY = e.clientY - startY;
-                startX = e.clientX;
-                startY = e.clientY;
-                lastVal = onDrag(deltaX, deltaY);
-            };
+            splitterEl.addEventListener('pointerdown', (e) => {
+                if (e.button !== undefined && e.button !== 0) return;
 
-            const onMouseUp = () => {
-                if (!isDragging) return;
-                isDragging = false;
-                splitterEl.classList.remove('is-active');
-                document.body.style.cursor = '';
-                document.body.style.userSelect = '';
-                window.removeEventListener('mousemove', onMouseMove);
-                window.removeEventListener('mouseup', onMouseUp);
-                if (onEnd) onEnd(lastVal);
-            };
-
-            splitterEl.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                isDragging = true;
-                startX = e.clientX;
-                startY = e.clientY;
+
+                const initData = getInitData ? getInitData() : {};
+                const startX = e.clientX;
+                const startY = e.clientY;
+
                 splitterEl.classList.add('is-active');
-                if (type === 'horizontal-drag' || type === 'col-resize' || (type === 'inner-drag' && !this.isStackMode)) {
-                    document.body.style.cursor = 'col-resize';
-                } else {
-                    document.body.style.cursor = 'row-resize';
-                }
-                document.body.style.userSelect = 'none';
-                window.addEventListener('mousemove', onMouseMove);
-                window.addEventListener('mouseup', onMouseUp);
+                document.body.classList.add('is-layout-dragging');
+
+                try {
+                    splitterEl.setPointerCapture(e.pointerId);
+                } catch (err) {}
+
+                const handlePointerMove = (moveEvent) => {
+                    moveEvent.preventDefault();
+                    const deltaX = moveEvent.clientX - startX;
+                    const deltaY = moveEvent.clientY - startY;
+                    if (onMove) onMove(deltaX, deltaY, initData);
+                };
+
+                const handlePointerUp = (upEvent) => {
+                    try {
+                        splitterEl.releasePointerCapture(upEvent.pointerId);
+                    } catch (err) {}
+
+                    splitterEl.classList.remove('is-active');
+                    document.body.classList.remove('is-layout-dragging');
+
+                    window.removeEventListener('pointermove', handlePointerMove, { capture: true });
+                    window.removeEventListener('pointerup', handlePointerUp, { capture: true });
+                    window.removeEventListener('pointercancel', handlePointerUp, { capture: true });
+
+                    if (onEnd) onEnd(initData);
+                };
+
+                window.addEventListener('pointermove', handlePointerMove, { capture: true, passive: false });
+                window.addEventListener('pointerup', handlePointerUp, { capture: true });
+                window.addEventListener('pointercancel', handlePointerUp, { capture: true });
             });
         }
     };
