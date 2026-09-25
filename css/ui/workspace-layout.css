@@ -1,0 +1,364 @@
+/* ===== Workspace Layout & Splitters CSS ===== */
+
+/* Right Panels Wrapper */
+#right-panels-wrapper {
+    display: flex;
+    height: var(--main-height, calc(100vh - 48px));
+    max-height: var(--main-height, calc(100vh - 48px));
+    flex-shrink: 0;
+    box-sizing: border-box;
+    position: relative;
+    z-index: 10;
+}
+
+/* Side-by-side mode (2 columns) */
+#right-panels-wrapper.is-side-by-side {
+    flex-direction: row;
+    width: var(--right-panels-width, 560px);
+}
+
+#right-panels-wrapper.is-side-by-side #layer-panel {
+    width: var(--layer-panel-width, 240px) !important;
+    min-width: 160px !important;
+    max-width: 420px !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    flex: 0 0 auto !important;
+    border-right: none;
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+
+#right-panels-wrapper.is-side-by-side #controls {
+    flex: 1 1 auto !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    min-width: 200px !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+
+/* Stacked mode (1 column: Layers on top, Controls on bottom) */
+#right-panels-wrapper.is-stacked {
+    flex-direction: column;
+    width: var(--right-panels-width, 320px);
+    min-width: 220px;
+    max-width: 520px;
+}
+
+#right-panels-wrapper.is-stacked #layer-panel {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: var(--layer-panel-height, 42%) !important;
+    min-height: 120px !important;
+    max-height: 75% !important;
+    flex: 0 0 auto !important;
+    border-bottom: none;
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+
+#right-panels-wrapper.is-stacked #controls {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    flex: 1 1 auto !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+
+/* Collapsed mode */
+#right-panels-wrapper.is-collapsed {
+    display: none !important;
+}
+
+/* Canvas Area adapts to fill available space */
+#canvas-area {
+    flex: 1 1 auto !important;
+    width: auto !important;
+    min-width: 320px !important;
+    margin-right: 0 !important;
+}
+
+/* Floating restore trigger when right panels are collapsed */
+.right-sidebar-collapsed-trigger {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-right: none;
+    border-radius: 6px 0 0 6px;
+    padding: 12px 6px;
+    cursor: pointer;
+    z-index: 1040;
+    color: rgba(255, 255, 255, 0.85);
+    display: none;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.4);
+    transition: all 0.15s ease;
+}
+
+.right-sidebar-collapsed-trigger:hover {
+    background: var(--color-accent, #00e5ff);
+    color: #000000;
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.6);
+}
+
+.is-right-collapsed .right-sidebar-collapsed-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Layout Splitters */
+.layout-splitter {
+    background: transparent;
+    transition: background 0.15s ease;
+    z-index: 25;
+    user-select: none;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.layout-splitter::after {
+    content: '';
+    position: absolute;
+    background: rgba(255, 255, 255, 0.08);
+    transition: background 0.15s ease;
+}
+
+.layout-splitter.vertical {
+    width: 6px;
+    cursor: col-resize;
+    height: 100%;
+    margin: 0 -3px;
+}
+
+.layout-splitter.vertical::after {
+    left: 2px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+}
+
+.layout-splitter.horizontal {
+    height: 6px;
+    cursor: row-resize;
+    width: 100%;
+    margin: -3px 0;
+}
+
+.layout-splitter.horizontal::after {
+    top: 2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+}
+
+.layout-splitter:hover::after,
+.layout-splitter.is-active::after {
+    background: var(--color-accent, #00e5ff);
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.8);
+}
+
+/* Buttons in area header */
+.layout-tool-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: none;
+    color: var(--text-color-B, rgba(255, 255, 255, 0.7));
+    margin: 0 2px;
+    padding: 2px 4px;
+    border-radius: var(--fjm-button-border-radius, 4px);
+    transition: background-color 0.15s, color 0.15s;
+    cursor: pointer;
+    vertical-align: middle;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.layout-tool-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+}
+
+.layout-tool-btn.active {
+    background: var(--color-accent, #00e5ff);
+    color: #000000;
+}
+
+/* ===== Region 6 Docking & Multi-row Grid Styles ===== */
+
+/* Bottom Dock (default) */
+.btm-drawer.dock-bottom {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: clamp(320px, 40%, 720px);
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+}
+
+.btm-drawer.dock-bottom.btm-closed {
+    transform: translateX(-50%) translateY(calc(100% - 30px));
+}
+
+.btm-drawer.dock-bottom:not(.btm-closed) {
+    width: 100%;
+    left: 0;
+    transform: none;
+    border-radius: 0;
+}
+
+/* Grid view when docked at bottom: expanded multi-row height */
+.btm-drawer.dock-bottom:not(.btm-closed).view-grid {
+    height: 460px;
+    max-height: 75vh;
+}
+
+.btm-drawer.dock-bottom:not(.btm-closed).view-grid .btm-drawer-content {
+    height: calc(100% - 75px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    white-space: normal;
+}
+
+.btm-drawer.dock-bottom:not(.btm-closed).view-grid .btm-image-container {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)) !important;
+    gap: 14px !important;
+    padding: 10px 16px 24px 16px !important;
+    width: 100% !important;
+    height: auto !important;
+    transform: none !important;
+}
+
+.btm-drawer.dock-bottom:not(.btm-closed).view-grid .btm-image-wrapper {
+    width: 100%;
+    height: 180px;
+    margin: 0;
+}
+
+.btm-drawer.dock-bottom:not(.btm-closed).view-grid .btm-scroll-btn {
+    display: none !important;
+}
+
+/* Right Dock (Docked to right screen edge) */
+.btm-drawer.dock-right {
+    position: fixed;
+    top: 48px;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    width: 380px;
+    max-width: 90vw;
+    height: calc(100vh - 48px);
+    transform: none;
+    border-radius: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.15);
+    border-top: none;
+    display: flex;
+    flex-direction: column;
+    z-index: 1050;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.btm-drawer.dock-right.btm-closed {
+    transform: translateX(calc(100% - 32px));
+}
+
+.btm-drawer.dock-right:not(.btm-closed) {
+    transform: none;
+}
+
+.btm-drawer.dock-right .btm-drawer-handle {
+    border-radius: 0;
+    width: 100%;
+    cursor: pointer;
+}
+
+.btm-drawer.dock-right.btm-closed .btm-drawer-handle {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    height: 100%;
+    width: 32px;
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 4px;
+    background: rgba(0, 0, 0, 0.7);
+    border-right: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.btm-drawer.dock-right .btm-drawer-content {
+    flex: 1;
+    height: auto;
+    max-height: none;
+    overflow-y: auto;
+    overflow-x: hidden;
+    white-space: normal;
+    padding: 10px 12px 20px 12px;
+}
+
+.btm-drawer.dock-right .btm-image-container {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)) !important;
+    gap: 12px !important;
+    width: 100% !important;
+    height: auto !important;
+    padding: 6px 4px !important;
+    transform: none !important;
+}
+
+.btm-drawer.dock-right .btm-image-wrapper {
+    width: 100%;
+    height: 165px;
+    margin: 0;
+}
+
+.btm-drawer.dock-right .btm-scroll-btn {
+    display: none !important;
+}
+
+/* Drag-and-Drop Reorder Feedback (Imagesorter.io style) */
+.btm-image-wrapper {
+    user-select: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.btm-image-wrapper[draggable="true"] {
+    cursor: grab;
+}
+
+.btm-image-wrapper[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+.btm-image-wrapper.is-dragging {
+    opacity: 0.35 !important;
+    transform: scale(0.92) !important;
+    border: 2px dashed var(--color-accent, #00e5ff) !important;
+    border-radius: var(--fjm-border-radius, 6px);
+}
+
+.btm-image-wrapper.drag-over-before {
+    box-shadow: -4px 0 0 0 var(--color-accent, #00e5ff), 0 4px 12px rgba(0, 229, 255, 0.4) !important;
+    transform: translateX(4px);
+}
+
+.btm-image-wrapper.drag-over-after {
+    box-shadow: 4px 0 0 0 var(--color-accent, #00e5ff), 0 4px 12px rgba(0, 229, 255, 0.4) !important;
+    transform: translateX(-4px);
+}

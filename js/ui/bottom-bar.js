@@ -291,6 +291,88 @@ imageWrapper.appendChild(image);
 imageWrapper.appendChild(moveRightBtn);
 imageWrapper.appendChild(deleteBtn);
 imageWrapper.appendChild(addBtn);
+
+// Enable Drag-and-Drop Reordering (Imagesorter.io style)
+imageWrapper.draggable = true;
+
+imageWrapper.addEventListener("dragstart", function(e) {
+if (typeof BatchManager !== 'undefined' && BatchManager.isBatchMode) {
+e.preventDefault();
+return;
+}
+e.dataTransfer.effectAllowed = "move";
+e.dataTransfer.setData("text/plain", guid);
+imageWrapper.classList.add("is-dragging");
+});
+
+imageWrapper.addEventListener("dragend", function(e) {
+imageWrapper.classList.remove("is-dragging");
+document.querySelectorAll(".btm-image-wrapper").forEach(w => {
+w.classList.remove("drag-over-before", "drag-over-after");
+});
+});
+
+imageWrapper.addEventListener("dragover", function(e) {
+if (typeof BatchManager !== 'undefined' && BatchManager.isBatchMode) return;
+e.preventDefault();
+e.dataTransfer.dropEffect = "move";
+
+const dragging = document.querySelector(".btm-image-wrapper.is-dragging");
+if (!dragging || dragging === imageWrapper) return;
+
+const rect = imageWrapper.getBoundingClientRect();
+const isHorizontal = !btmDrawer.classList.contains("view-grid") && !btmDrawer.classList.contains("dock-right");
+const insertBefore = isHorizontal
+? (e.clientX - rect.left < rect.width / 2)
+: (e.clientY - rect.top < rect.height / 2 || e.clientX - rect.left < rect.width / 2);
+
+if (insertBefore) {
+imageWrapper.classList.add("drag-over-before");
+imageWrapper.classList.remove("drag-over-after");
+} else {
+imageWrapper.classList.add("drag-over-after");
+imageWrapper.classList.remove("drag-over-before");
+}
+});
+
+imageWrapper.addEventListener("dragleave", function(e) {
+imageWrapper.classList.remove("drag-over-before", "drag-over-after");
+});
+
+imageWrapper.addEventListener("drop", function(e) {
+if (typeof BatchManager !== 'undefined' && BatchManager.isBatchMode) return;
+e.preventDefault();
+e.stopPropagation();
+
+const sourceGuid = e.dataTransfer.getData("text/plain");
+if (!sourceGuid || sourceGuid === guid) {
+imageWrapper.classList.remove("drag-over-before", "drag-over-after");
+return;
+}
+
+const sourceWrapper = document.querySelector(`.btm-image[data-index="${sourceGuid}"]`)?.parentElement;
+if (!sourceWrapper) return;
+
+const rect = imageWrapper.getBoundingClientRect();
+const isHorizontal = !btmDrawer.classList.contains("view-grid") && !btmDrawer.classList.contains("dock-right");
+const insertBefore = isHorizontal
+? (e.clientX - rect.left < rect.width / 2)
+: (e.clientY - rect.top < rect.height / 2 || e.clientX - rect.left < rect.width / 2);
+
+if (insertBefore) {
+btmImageContainer.insertBefore(sourceWrapper, imageWrapper);
+} else {
+btmImageContainer.insertBefore(sourceWrapper, imageWrapper.nextSibling);
+}
+
+imageWrapper.classList.remove("drag-over-before", "drag-over-after");
+btmSyncMapOrderFromDOM();
+
+if (typeof createToast === 'function') {
+createToast("页面排序", `已调整页面顺序`);
+}
+});
+
 btmImageContainer.appendChild(imageWrapper);
 btmProjectsMap.set(guid,{imageLink,blob});
 }
@@ -351,6 +433,24 @@ const pageNumbers=document.querySelectorAll(".btm-page-number");
 pageNumbers.forEach((numberElement,index)=>{
 numberElement.textContent=index+1;
 });
+btmUpdateHandleText();
+}
+
+function btmSyncMapOrderFromDOM() {
+const wrappers = btmImageContainer.querySelectorAll(".btm-image-wrapper");
+const newMap = new Map();
+wrappers.forEach(wrapper => {
+const img = wrapper.querySelector(".btm-image");
+if (img && img.dataset.index && btmProjectsMap.has(img.dataset.index)) {
+newMap.set(img.dataset.index, btmProjectsMap.get(img.dataset.index));
+}
+});
+btmProjectsMap.forEach((val, key) => {
+if (!newMap.has(key)) newMap.set(key, val);
+});
+btmProjectsMap.clear();
+newMap.forEach((val, key) => btmProjectsMap.set(key, val));
+updateAllPageNumbers();
 btmUpdateHandleText();
 }
 
