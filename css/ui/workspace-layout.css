@@ -26,7 +26,7 @@
     z-index: 10;
 }
 
-/* Side-by-side mode (2 columns) */
+/* Side-by-side mode (2 columns: Layers left, Controls right) */
 #right-panels-wrapper.is-side-by-side {
     flex-direction: row;
     width: var(--right-panels-width, 560px);
@@ -88,8 +88,12 @@
     overflow-y: auto;
 }
 
-/* Collapsed mode */
+/* Collapsed state (Entire right sidebar hidden) */
 #right-panels-wrapper.is-collapsed {
+    display: none !important;
+}
+
+#head-id.is-right-collapsed #splitter-canvas-right {
     display: none !important;
 }
 
@@ -119,7 +123,7 @@
 }
 
 .is-right-collapsed .right-sidebar-collapsed-trigger {
-    display: flex;
+    display: flex !important;
     align-items: center;
     justify-content: center;
 }
@@ -171,36 +175,75 @@
     color: #ffffff;
 }
 
-/* Horizontal Splitter (Between Layer Panel & AI Controls in Stacked Mode) */
-.layout-splitter.horizontal {
-    height: 8px;
-    flex: 0 0 8px;
-    width: 100%;
-    cursor: row-resize;
-    background: rgba(0, 0, 0, 0.45);
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+/* =========================================================
+   SPLITTER BETWEEN LAYER PANEL (AREA 4) & AI CONTROLS (AREA 5)
+   ========================================================= */
+
+/* In Stacked Mode: Horizontal bar between Layer (top) and AI Controls (bottom) */
+#right-panels-wrapper.is-stacked #splitter-layer-controls {
+    display: flex !important;
+    width: 100% !important;
+    height: 8px !important;
+    flex: 0 0 8px !important;
+    cursor: row-resize !important;
+    background: rgba(0, 0, 0, 0.55) !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.18) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.18) !important;
+    position: relative;
+    z-index: 50;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.layout-splitter.horizontal::before {
+#right-panels-wrapper.is-stacked #splitter-layer-controls::before {
     content: '⋯';
-    color: rgba(255, 255, 255, 0.45);
+    color: rgba(255, 255, 255, 0.6);
     font-size: 14px;
     line-height: 1;
     pointer-events: none;
     font-weight: bold;
 }
 
-.layout-splitter.horizontal:hover,
-.layout-splitter.horizontal.is-active {
-    background: rgba(0, 229, 255, 0.3) !important;
-    border-color: var(--color-accent, #00e5ff) !important;
-    box-shadow: 0 0 10px rgba(0, 229, 255, 0.7);
+/* In Side-by-Side Mode: Vertical bar between Layer (left) and AI Controls (right) */
+#right-panels-wrapper.is-side-by-side #splitter-layer-controls {
+    display: flex !important;
+    width: 8px !important;
+    flex: 0 0 8px !important;
+    height: 100% !important;
+    cursor: col-resize !important;
+    background: rgba(0, 0, 0, 0.55) !important;
+    border-left: 1px solid rgba(255, 255, 255, 0.18) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.18) !important;
+    position: relative;
+    z-index: 50;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.layout-splitter.horizontal:hover::before,
-.layout-splitter.horizontal.is-active::before {
-    color: #ffffff;
+#right-panels-wrapper.is-side-by-side #splitter-layer-controls::before {
+    content: '⋮';
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 14px;
+    line-height: 1;
+    pointer-events: none;
+    font-weight: bold;
+}
+
+/* Hover and active states for Layer-Controls Splitter */
+#right-panels-wrapper #splitter-layer-controls:hover,
+#right-panels-wrapper #splitter-layer-controls.is-active {
+    background: rgba(0, 229, 255, 0.35) !important;
+    border-color: var(--color-accent, #00e5ff) !important;
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.7) !important;
+}
+
+#right-panels-wrapper #splitter-layer-controls:hover::before,
+#right-panels-wrapper #splitter-layer-controls.is-active::before {
+    color: #ffffff !important;
 }
 
 /* Hide Left Splitter when no left area is open */
@@ -233,7 +276,7 @@
 }
 
 /* =========================================================
-   REGION 6 (DRAWER) DOCKING & RESIZERS (触控调整条)
+   REGION 6 (DRAWER) RESIZERS (触控调整条)
    ========================================================= */
 
 /* Drawer Top Resizer (when docked to Bottom) */
@@ -323,124 +366,146 @@
 }
 
 /* =========================================================
-   REGION 6 DOCK MODES (BOTTOM VS RIGHT)
+   REGION 6 (TOTAL OPAQUE & ROCK-SOLID LAYOUT)
    ========================================================= */
 
-/* Bottom Dock */
+/* Absolute opacity on dark mode: NEVER leak underlying canvas or AI controls */
+.btm-drawer,
+.btm-drawer-content,
+.btm-drawer-header-bar,
+.btm-image-container {
+    background-color: #1e1e1e !important;
+    background: #1e1e1e !important;
+    box-sizing: border-box !important;
+}
+
+.light-mode .btm-drawer,
+.light-mode .btm-drawer-content,
+.light-mode .btm-drawer-header-bar,
+.light-mode .btm-image-container {
+    background-color: #f4f4f4 !important;
+    background: #f4f4f4 !important;
+}
+
+/* --- BOTTOM DOCK MODE --- */
 .btm-drawer.dock-bottom {
-    position: fixed;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: clamp(320px, 40%, 720px);
-    border-top-left-radius: 12px;
-    border-top-right-radius: 12px;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+    transform: none;
+    border-radius: 0 !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-left: none !important;
+    border-right: none !important;
+    z-index: 1050 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5) !important;
 }
 
 .btm-drawer.dock-bottom.btm-closed {
-    transform: translateX(-50%) translateY(calc(100% - 30px));
+    transform: translateY(calc(100% - 30px)) !important;
 }
 
 .btm-drawer.dock-bottom:not(.btm-closed) {
-    width: 100%;
-    left: 0;
-    transform: none;
-    border-radius: 0;
-    height: var(--drawer-bottom-height, 250px);
-}
-
-.btm-drawer.dock-bottom:not(.btm-closed).view-grid {
-    height: var(--drawer-bottom-height, 460px);
-    max-height: 80vh;
-}
-
-.btm-drawer.dock-bottom:not(.btm-closed).view-grid .btm-drawer-content {
-    height: calc(100% - 75px);
-    overflow-y: auto;
-    overflow-x: hidden;
-    white-space: normal;
-}
-
-.btm-drawer.dock-bottom:not(.btm-closed).view-grid .btm-image-container {
-    display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
-    gap: 14px !important;
-    padding: 10px 16px 24px 16px !important;
-    width: 100% !important;
-    height: auto !important;
     transform: none !important;
+    height: var(--drawer-bottom-height, 360px);
+    max-height: 85vh !important;
+    min-height: 160px !important;
 }
 
-.btm-drawer.dock-bottom:not(.btm-closed).view-grid .btm-image-wrapper {
-    width: 100%;
-    height: 180px;
-    margin: 0;
+/* Bottom Dock Header Bar: Clean single horizontal row */
+.btm-drawer.dock-bottom .btm-drawer-header-bar {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 6px 16px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    flex-shrink: 0 !important;
+    gap: 12px !important;
 }
 
-.btm-drawer.dock-bottom:not(.btm-closed).view-grid .btm-scroll-btn {
-    display: none !important;
+.btm-drawer.dock-bottom .btm-drawer-hint {
+    font-size: 12px !important;
+    color: rgba(255, 255, 255, 0.65) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    flex: 1 1 auto !important;
+    margin: 0 !important;
 }
 
-/* =========================================================
-   RIGHT DOCK STYLES & RESPONSIVE HEADER ADAPTATION
-   ========================================================= */
+.btm-drawer.dock-bottom .btm-batch-tools {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex-shrink: 0 !important;
+}
 
+/* --- RIGHT DOCK MODE --- */
 .btm-drawer.dock-right {
-    position: fixed;
-    top: 48px;
-    right: 0;
-    bottom: 0;
-    left: auto;
-    width: var(--drawer-right-width, 390px);
-    min-width: 290px;
-    max-width: 85vw;
-    height: calc(100vh - 48px);
-    transform: none;
-    border-radius: 0;
-    border-left: 1px solid rgba(255, 255, 255, 0.18);
-    border-top: none;
-    display: flex;
-    flex-direction: column;
-    z-index: 1050;
-    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.6);
+    position: fixed !important;
+    top: 48px !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: auto !important;
+    height: calc(100vh - 48px) !important;
+    max-height: calc(100vh - 48px) !important;
+    min-width: 280px !important;
+    max-width: 85vw !important;
+    width: var(--drawer-right-width, 400px);
+    box-sizing: border-box !important;
+    border-radius: 0 !important;
+    border-left: 1px solid rgba(255, 255, 255, 0.18) !important;
+    border-top: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    z-index: 1050 !important;
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.65) !important;
 }
 
 .btm-drawer.dock-right.btm-closed {
-    transform: translateX(calc(100% - 32px));
+    transform: translateX(calc(100% - 32px)) !important;
 }
 
 .btm-drawer.dock-right:not(.btm-closed) {
-    transform: none;
+    transform: none !important;
 }
 
-/* Right-Dock Handle: Compact Single Row Header */
+/* Right Dock Handle */
 .btm-drawer.dock-right .btm-drawer-handle {
-    border-radius: 0;
-    width: 100%;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 10px;
-    gap: 4px;
-    height: 32px;
+    border-radius: 0 !important;
+    width: 100% !important;
+    height: 32px !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 0 8px !important;
+    background: rgba(0, 0, 0, 0.4) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    flex-shrink: 0 !important;
 }
 
 .btm-drawer.dock-right.btm-closed .btm-drawer-handle {
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
-    height: 100%;
-    width: 32px;
-    position: absolute;
-    left: 0;
-    top: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 16px 4px;
-    background: rgba(0, 0, 0, 0.7);
-    border-right: 1px solid rgba(255, 255, 255, 0.15);
+    writing-mode: vertical-rl !important;
+    text-orientation: mixed !important;
+    height: 100% !important;
+    width: 32px !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 16px 4px !important;
+    background: rgba(0, 0, 0, 0.75) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.18) !important;
 }
 
 .btm-drawer.dock-right .btm-nav-left,
@@ -468,97 +533,111 @@
     flex-shrink: 0;
 }
 
-/* Right-Dock Header Toolbar: Responds so buttons NEVER get cut off */
+/* Right Dock Header Bar: 2 neat rows */
 .btm-drawer.dock-right .btm-drawer-header-bar {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
-    padding: 8px 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    padding: 8px 12px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    flex-shrink: 0 !important;
 }
 
 .btm-drawer.dock-right .btm-drawer-hint {
-    font-size: 11px;
-    line-height: 1.35;
-    white-space: normal;
-    padding: 0;
-    opacity: 0.75;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+    color: rgba(255, 255, 255, 0.65) !important;
+    margin: 0 !important;
 }
 
 .btm-drawer.dock-right .btm-batch-tools {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    width: 100%;
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 8px !important;
+    width: 100% !important;
 }
 
-.btm-drawer.dock-right .btm-batch-btn,
-.btm-drawer.dock-right .btm-batch-toggle-btn {
-    flex: 1 1 calc(33.3% - 6px);
-    justify-content: center;
-    padding: 4px 6px;
-    font-size: 11px;
-    text-align: center;
-    white-space: nowrap;
+.btm-drawer.dock-right .btm-batch-tools .btm-batch-btn,
+.btm-drawer.dock-right .btm-batch-tools .btm-batch-toggle-btn {
+    flex: 1 1 50% !important;
+    justify-content: center !important;
+    padding: 6px 8px !important;
+    font-size: 11px !important;
 }
 
 .btm-drawer.dock-right .btm-batch-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    width: 100%;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+    width: 100% !important;
 }
 
 .btm-drawer.dock-right .btm-batch-actions .btm-batch-btn {
-    flex: 1 1 auto;
-    padding: 3px 6px;
-    font-size: 11px;
+    flex: 1 1 auto !important;
+    padding: 4px 6px !important;
+    font-size: 11px !important;
 }
 
-.btm-drawer.dock-right .btm-drawer-content {
-    flex: 1;
-    height: auto;
-    max-height: none;
-    overflow-y: auto;
-    overflow-x: hidden;
-    white-space: normal;
-    padding: 10px 12px 20px 12px;
+/* General button styling in Region 6 header */
+.btm-batch-btn,
+.btm-batch-toggle-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    padding: 4px 10px !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius: 4px !important;
+    color: #e0e0e0 !important;
+    font-size: 12px !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    transition: all 0.15s ease !important;
 }
 
-.btm-drawer.dock-right .btm-image-container {
-    display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important;
-    gap: 12px !important;
-    width: 100% !important;
-    height: auto !important;
-    padding: 6px 2px !important;
-    transform: none !important;
-}
-
-.btm-drawer.dock-right .btm-image-wrapper {
-    width: 100%;
-    height: 170px;
-    margin: 0;
-}
-
-.btm-drawer.dock-right .btm-scroll-btn {
-    display: none !important;
-}
-
-/* In Grid & Right-Dock view: hide cramped step buttons and focus on Drag & Drop */
-.btm-drawer.dock-right .btm-move-btn,
-.btm-drawer.dock-right .btm-add-btn,
-.btm-drawer.view-grid .btm-move-btn,
-.btm-drawer.view-grid .btm-add-btn {
-    display: none !important;
+.btm-batch-btn:hover,
+.btm-batch-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.18) !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.25) !important;
 }
 
 /* =========================================================
-   DRAG-AND-DROP REORDER FEEDBACK (IMAGESORTER.IO STYLE)
+   ALWAYS MULTI-ROW GRID VIEW (IMAGESORTER.IO STYLE)
    ========================================================= */
 
+.btm-drawer-content {
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 12px 14px 24px 14px !important;
+    box-sizing: border-box !important;
+    min-height: 0 !important;
+}
+
+.btm-image-container {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+    gap: 14px !important;
+    width: 100% !important;
+    height: auto !important;
+    transform: none !important;
+    box-sizing: border-box !important;
+}
+
+.btm-drawer.dock-right .btm-image-container {
+    grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)) !important;
+    gap: 10px !important;
+    padding: 2px !important;
+}
+
 .btm-image-wrapper {
+    width: 100% !important;
+    height: 175px !important;
+    margin: 0 !important;
+    position: relative !important;
+    box-sizing: border-box !important;
     user-select: none;
     transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
 }
@@ -586,4 +665,12 @@
 .btm-image-wrapper.drag-over-after {
     box-shadow: 4px 0 0 0 var(--color-accent, #00e5ff), 0 4px 16px rgba(0, 229, 255, 0.45) !important;
     transform: translateX(-4px);
+}
+
+/* Hide horizontal scroll buttons and move buttons (dnd is primary) */
+.btm-scroll-btn,
+#btm-scroll-left,
+#btm-scroll-right,
+.btm-move-btn {
+    display: none !important;
 }

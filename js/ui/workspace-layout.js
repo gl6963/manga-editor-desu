@@ -3,7 +3,7 @@
  * 1. Resizable Splitters (Left/Canvas/Right/Layer/Controls/Drawer)
  * 2. Collapse/Expand Right Sidebar
  * 3. Stacked vs Side-by-side for Layer & AI Panels
- * 4. Region 6 Docking (Bottom vs Right) & View (Grid vs Filmstrip) & Drawer Resizers
+ * 4. Region 6 Docking (Bottom vs Right) & Always Multi-Row Grid & Drawer Resizers
  */
 (function() {
     window.WorkspaceLayout = {
@@ -11,7 +11,6 @@
         isRightCollapsed: false,
         isStackMode: true, // Default to stacked for compact view
         drawerDockMode: 'bottom', // 'bottom' | 'right'
-        drawerViewMode: 'single', // 'single' | 'grid'
 
         init() {
             this.loadStoredPreferences();
@@ -31,9 +30,6 @@
 
                 const dock = localStorage.getItem('desu_drawer_dock_mode');
                 if (dock === 'right' || dock === 'bottom') this.drawerDockMode = dock;
-
-                const view = localStorage.getItem('desu_drawer_view_mode');
-                if (view === 'grid' || view === 'single') this.drawerViewMode = view;
 
                 // Load custom widths/heights
                 const rightWidth = localStorage.getItem('desu_right_panels_width');
@@ -80,6 +76,7 @@
             const head = document.getElementById('head-id');
             const wrapper = document.getElementById('right-panels-wrapper');
             const drawer = document.getElementById('btm-drawer');
+            const layerPanel = document.getElementById('layer-panel');
 
             if (wrapper) {
                 wrapper.classList.remove('is-stacked', 'is-side-by-side', 'is-collapsed');
@@ -90,28 +87,69 @@
                     if (head) head.classList.remove('is-right-collapsed');
                     if (this.isStackMode) {
                         wrapper.classList.add('is-stacked');
+                        if (layerPanel) {
+                            layerPanel.style.removeProperty('width');
+                            layerPanel.style.width = '';
+                            const h = localStorage.getItem('desu_layer_panel_height');
+                            if (h && !isNaN(parseInt(h))) {
+                                layerPanel.style.height = parseInt(h) + 'px';
+                            } else {
+                                layerPanel.style.removeProperty('height');
+                                layerPanel.style.height = '';
+                            }
+                        }
                     } else {
                         wrapper.classList.add('is-side-by-side');
+                        if (layerPanel) {
+                            layerPanel.style.removeProperty('height');
+                            layerPanel.style.height = '';
+                            const w = localStorage.getItem('desu_layer_panel_width');
+                            if (w && !isNaN(parseInt(w))) {
+                                layerPanel.style.width = parseInt(w) + 'px';
+                            } else {
+                                layerPanel.style.removeProperty('width');
+                                layerPanel.style.width = '';
+                            }
+                        }
                     }
                 }
             }
 
             if (drawer) {
-                drawer.classList.remove('dock-bottom', 'dock-right', 'view-grid', 'view-single');
+                drawer.classList.remove('dock-bottom', 'dock-right', 'view-single');
                 drawer.classList.add(`dock-${this.drawerDockMode}`);
-                drawer.classList.add(`view-${this.drawerViewMode}`);
+                drawer.classList.add('view-grid'); // Region 6 is always multi-row grid
 
-                // Restore custom height or width
                 if (this.drawerDockMode === 'bottom') {
+                    // Completely clear all right-dock inline styling
+                    drawer.style.removeProperty('width');
+                    drawer.style.removeProperty('top');
+                    drawer.style.removeProperty('bottom');
+                    drawer.style.removeProperty('right');
+                    drawer.style.removeProperty('max-width');
+                    drawer.style.removeProperty('min-width');
+                    drawer.style.width = '';
+                    drawer.style.left = '';
+                    drawer.style.right = '';
+                    drawer.style.top = '';
+
                     const h = localStorage.getItem('desu_drawer_height');
-                    if (h && !isNaN(parseInt(h))) {
-                        drawer.style.height = parseInt(h) + 'px';
-                    }
+                    const finalH = (h && !isNaN(parseInt(h))) ? parseInt(h) : 360;
+                    drawer.style.setProperty('--drawer-bottom-height', finalH + 'px');
+                    drawer.style.height = finalH + 'px';
                 } else {
+                    // Completely clear all bottom-dock inline styling
+                    drawer.style.removeProperty('height');
+                    drawer.style.removeProperty('left');
+                    drawer.style.removeProperty('max-height');
+                    drawer.style.removeProperty('min-height');
+                    drawer.style.height = '';
+                    drawer.style.left = '';
+
                     const w = localStorage.getItem('desu_drawer_width');
-                    if (w && !isNaN(parseInt(w))) {
-                        drawer.style.width = parseInt(w) + 'px';
-                    }
+                    const finalW = (w && !isNaN(parseInt(w))) ? parseInt(w) : 400;
+                    drawer.style.setProperty('--drawer-right-width', finalW + 'px');
+                    drawer.style.width = finalW + 'px';
                 }
             }
 
@@ -139,21 +177,6 @@
                     if (label) label.textContent = '靠右停靠';
                     if (icon) icon.textContent = 'dock_to_right';
                     btnDock.title = '切换到屏幕右侧停靠';
-                }
-            }
-
-            const btnView = document.getElementById('btm-btn-toggle-view');
-            if (btnView) {
-                const label = btnView.querySelector('#btm-view-label');
-                const icon = btnView.querySelector('.material-symbols-outlined');
-                if (this.drawerViewMode === 'grid') {
-                    if (label) label.textContent = '胶卷视图';
-                    if (icon) icon.textContent = 'view_stream';
-                    btnView.title = '切换为单行胶卷视图';
-                } else {
-                    if (label) label.textContent = '网格视图';
-                    if (icon) icon.textContent = 'grid_view';
-                    btnView.title = '切换为多行网格视图 (imagesorter.io 风格)';
                 }
             }
         },
@@ -186,30 +209,10 @@
                 localStorage.setItem('desu_drawer_dock_mode', this.drawerDockMode);
             } catch (e) {}
 
-            // When switching to right dock, automatically set grid view for optimal vertical fit
-            if (this.drawerDockMode === 'right') {
-                this.drawerViewMode = 'grid';
-                try {
-                    localStorage.setItem('desu_drawer_view_mode', 'grid');
-                } catch (e) {}
-            }
-
             this.applyClasses();
             if (typeof btmUpdateScrollButtons === 'function') btmUpdateScrollButtons();
             if (typeof createToast === 'function') {
                 createToast('总览栏位置', this.drawerDockMode === 'right' ? '已吸附停靠至屏幕右侧' : '已吸附停靠至屏幕底部');
-            }
-        },
-
-        toggleDrawerViewMode() {
-            this.drawerViewMode = (this.drawerViewMode === 'single') ? 'grid' : 'single';
-            try {
-                localStorage.setItem('desu_drawer_view_mode', this.drawerViewMode);
-            } catch (e) {}
-            this.applyClasses();
-            if (typeof btmUpdateScrollButtons === 'function') btmUpdateScrollButtons();
-            if (typeof createToast === 'function') {
-                createToast('总览栏视图', this.drawerViewMode === 'grid' ? '已切换为：多行网格展示' : '已切换为：单行胶卷展示');
             }
         },
 
@@ -384,7 +387,11 @@
                 startX = e.clientX;
                 startY = e.clientY;
                 splitterEl.classList.add('is-active');
-                document.body.style.cursor = (type === 'horizontal-drag' || type === 'col-resize' || !this.isStackMode) ? 'col-resize' : 'row-resize';
+                if (type === 'horizontal-drag' || type === 'col-resize' || (type === 'inner-drag' && !this.isStackMode)) {
+                    document.body.style.cursor = 'col-resize';
+                } else {
+                    document.body.style.cursor = 'row-resize';
+                }
                 document.body.style.userSelect = 'none';
                 window.addEventListener('mousemove', onMouseMove);
                 window.addEventListener('mouseup', onMouseUp);
