@@ -441,13 +441,14 @@ scaleY: scale,
 
 
 /** Load SVG(Verfical, Landscope) */
-function loadSVGPlusReset(svgString,isLand=false) {
+function loadSVGPlusReset(svgString,isLand=false,autoRegister=true) {
+return new Promise(function(resolve, reject) {
 initImageHistory();
 changeDoNotSaveHistory();
 // console.log("svgPagging", svgPagging);
 
 skipForcedAdjust=true;
-fabric.loadSVGFromString(svgString,function (objects,options) {
+fabric.loadSVGFromString(svgString,async function (objects,options) {
 try{
 resizeCanvasToObject(options.width,options.height);
 
@@ -567,6 +568,17 @@ changeDoSaveHistory();
 }
 saveState();
 updateLayerPanel();
+if (autoRegister && typeof btmRegisterCurrentPage === 'function') {
+    try {
+        await btmRegisterCurrentPage(false);
+        if (typeof updateAllPageNumbers === 'function') updateAllPageNumbers();
+        if (typeof btmUpdateHandleText === 'function') btmUpdateHandleText();
+    } catch(err) {
+        console.warn("loadSVGPlusReset autoRegister failed", err);
+    }
+}
+resolve();
+});
 });
 }
 

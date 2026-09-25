@@ -726,49 +726,184 @@ return Array.from(btmProjectsMap.keys())[0];
 }
 
 function btmShowAddPageDialog(guid) {
-// 二重に開くとIDが重複して2枚目のボタンが効かなくなる
 if(document.querySelector(".btm-dialog-overlay"))return;
+var currentIndex=btmGetGuidIndex(guid);
 var dialog=document.createElement("div");
 dialog.className="btm-dialog-overlay";
-dialog.innerHTML='<div class="btm-dialog"><div class="btm-dialog-content">'+
-'<h3>'+getText("pageAddDialogTitle")+'</h3>'+
-'<div class="btm-radio-group">'+
-'<label><input type="radio" name="page-size" value="portrait" checked>'+getText("pagePortrait")+'</label>'+
-'<label><input type="radio" name="page-size" value="landscape">'+getText("pageLandscape")+'</label>'+
-'</div>'+
-'<div class="btm-dialog-buttons">'+
-'<button class="btm-dialog-button" id="btm-dialog-cancel">'+getText("cancel")+'</button>'+
-'<button class="btm-dialog-button btm-dialog-submit" id="btm-dialog-submit">'+getText("pageAddDialogSubmit")+'</button>'+
-'</div></div></div>';
+
+var dialogBox=document.createElement("div");
+dialogBox.className="btm-dialog btm-add-page-dialog";
+
+var title=document.createElement("h3");
+title.textContent=getText("pageAddDialogTitle")||"插入新页面";
+
+var orientationGroup=document.createElement("div");
+orientationGroup.className="btm-dialog-orientation-row";
+orientationGroup.innerHTML=
+'<label><input type="radio" name="add-page-orient" value="portrait" checked> '+(getText("pagePortrait")||"纵向页面")+' (210×297mm)</label>'+
+'<label><input type="radio" name="add-page-orient" value="landscape"> '+(getText("pageLandscape")||"横向页面")+' (297×210mm)</label>';
+
+var templateSection=document.createElement("div");
+templateSection.className="btm-dialog-template-section";
+
+var templateLabel=document.createElement("div");
+templateLabel.className="btm-dialog-template-label";
+templateLabel.textContent="选择分格模板（点击选中，双击直接创建）：";
+
+var templateGrid=document.createElement("div");
+templateGrid.className="btm-dialog-template-grid";
+
+templateSection.appendChild(templateLabel);
+templateSection.appendChild(templateGrid);
+
+var buttonsRow=document.createElement("div");
+buttonsRow.className="btm-dialog-buttons";
+buttonsRow.innerHTML=
+'<button type="button" class="btm-dialog-button" id="btm-dialog-cancel">'+(getText("cancel")||"取消")+'</button>'+
+'<button type="button" class="btm-dialog-button btm-dialog-submit" id="btm-dialog-submit">'+(getText("pageAddDialogSubmit")||"创建并插入")+'</button>';
+
+dialogBox.appendChild(title);
+dialogBox.appendChild(orientationGroup);
+dialogBox.appendChild(templateSection);
+dialogBox.appendChild(buttonsRow);
+dialog.appendChild(dialogBox);
 document.body.appendChild(dialog);
+
+var selectedTemplateSvg=null;
+var currentOrientation="portrait";
+
+async function loadTemplates(isLandscape) {
+templateGrid.innerHTML='<div class="btm-dialog-loading">正在加载模板列表...</div>';
+let list=[];
+try {
+if(isLandscape){
+if(typeof MangaPanelsImage_Landscape==='undefined'&&typeof loadSvgScript==='function'){
+await loadSvgScript("js/svg/manga-panels-image-landscape.js?v=7.2");
+}
+list=(typeof MangaPanelsImage_Landscape!=='undefined')?MangaPanelsImage_Landscape:[];
+}else{
+if(typeof MangaPanelsImage_Vertical==='undefined'&&typeof loadSvgScript==='function'){
+await loadSvgScript("js/svg/manga-panels-image-vertical.js?v=7.2");
+}
+list=(typeof MangaPanelsImage_Vertical!=='undefined')?MangaPanelsImage_Vertical:[];
+}
+}catch(err){
+console.warn("Failed to load template svgs",err);
+}
+
+templateGrid.innerHTML='';
+
+// 1. Blank page option
+var blankItem=document.createElement("div");
+blankItem.className="btm-dialog-tpl-item is-selected";
+blankItem.title="空白页面 (无分格)";
+blankItem.innerHTML=
+'<div class="btm-dialog-tpl-preview btm-dialog-tpl-blank">'+
+'<span class="material-symbols-outlined" style="font-size:24px; opacity:0.6;">check_box_outline_blank</span>'+
+'</div>'+
+'<div class="btm-dialog-tpl-name">空白页</div>';
+blankItem.addEventListener("click",function(){
+templateGrid.querySelectorAll(".btm-dialog-tpl-item").forEach(function(el){el.classList.remove("is-selected");});
+blankItem.classList.add("is-selected");
+selectedTemplateSvg=null;
+});
+blankItem.addEventListener("dblclick",function(){
+selectedTemplateSvg=null;
+doCreate();
+});
+templateGrid.appendChild(blankItem);
+selectedTemplateSvg=null;
+
+// 2. SVG templates
+list.forEach(function(tpl){
+var itemEl=document.createElement("div");
+itemEl.className="btm-dialog-tpl-item";
+itemEl.title=tpl.name||"分格模板";
+
+var previewEl=document.createElement("div");
+previewEl.className="btm-dialog-tpl-preview";
+var img=document.createElement("img");
+img.src="data:image/svg+xml;utf8,"+encodeURIComponent(tpl.svg);
+img.alt=tpl.name||"template";
+previewEl.appendChild(img);
+
+var nameEl=document.createElement("div");
+nameEl.className="btm-dialog-tpl-name";
+nameEl.textContent=tpl.name?tpl.name.replace(/^[0-9]+[_\-]/,''):"模板";
+
+itemEl.appendChild(previewEl);
+itemEl.appendChild(nameEl);
+
+itemEl.addEventListener("click",function(){
+templateGrid.querySelectorAll(".btm-dialog-tpl-item").forEach(function(el){el.classList.remove("is-selected");});
+itemEl.classList.add("is-selected");
+selectedTemplateSvg=tpl.svg;
+});
+
+itemEl.addEventListener("dblclick",function(){
+selectedTemplateSvg=tpl.svg;
+doCreate();
+});
+
+templateGrid.appendChild(itemEl);
+});
+}
+
+var radios=orientationGroup.querySelectorAll('input[name="add-page-orient"]');
+radios.forEach(function(radio){
+radio.addEventListener("change",function(e){
+currentOrientation=e.target.value;
+loadTemplates(currentOrientation==="landscape");
+});
+});
+
+loadTemplates(false);
+
 var cancelButton=document.getElementById("btm-dialog-cancel");
 var submitButton=document.getElementById("btm-dialog-submit");
+
 cancelButton.addEventListener("click",function(){
-document.body.removeChild(dialog);
+if(dialog.parentElement)dialog.parentElement.removeChild(dialog);
 });
-submitButton.addEventListener("click",async function(){
+
+dialog.addEventListener("click",function(e){
+if(e.target===dialog&&dialog.parentElement){
+dialog.parentElement.removeChild(dialog);
+}
+});
+
+async function doCreate() {
 if(isProjectBusy())return;
-var selectedSize=document.querySelector('input[name="page-size"]:checked').value;
-document.body.removeChild(dialog);
-var currentIndex=btmGetGuidIndex(guid);
+if(dialog.parentElement)dialog.parentElement.removeChild(dialog);
+
+var isLand=(currentOrientation==="landscape");
+var w=isLand?297:210;
+var h=isLand?210:297;
 var newGuid=generateGUID();
-var w,h;
-if(selectedSize==="portrait"){w=210;h=297;}
-else{w=297;h=210;}
-// 離れる前に今のページを確定する。原稿サイズ(mm)はこの後の
-// resizeCanvasToObject()が決めるので、ここで書き換えると
-// 今のページに次のページのサイズが記録されてしまう
+
 await btmSaveCurrentPage(false);
+
 withoutHistory(function(){
 resizeCanvasToObject(w,h);
 });
-initImageHistory();
 setCanvasGUID(newGuid);
-// 中身は空で揃える。案内文はページの中身とは数えない
+
+if(selectedTemplateSvg){
+await loadSVGPlusReset(selectedTemplateSvg,isLand,false);
+}else{
+initImageHistory();
 showEmptyPageMessage();
+}
+
 await btmRegisterCurrentPage(true);
 reorderImages(currentIndex+1,newGuid);
 updateAllPageNumbers();
 btmUpdateHandleText();
-});
+
+if(typeof createToast==='function'){
+createToast("插入页面","已在第 "+(currentIndex+1)+" 页后插入新页面");
+}
+}
+
+submitButton.addEventListener("click",doCreate);
 }

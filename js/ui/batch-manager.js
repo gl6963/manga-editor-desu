@@ -94,7 +94,7 @@
                         // Load default 1x1 single panel template into canvas
                         await new Promise((resolve) => {
                             if (typeof loadSVGPlusReset === 'function') {
-                                loadSVGPlusReset(svgString, false);
+                                loadSVGPlusReset(svgString, false, false);
                                 const timer = setInterval(() => {
                                     if (canvas && canvas.getObjects().some(o => o.isPanel)) {
                                         clearInterval(timer);

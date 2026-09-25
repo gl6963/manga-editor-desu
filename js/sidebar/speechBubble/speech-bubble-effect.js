@@ -240,16 +240,11 @@ panelLogger.info("[verticalTemplate] saving current page to bottom bar");
 OP_updateLoadingState(loading,{
 icon:'process',step:'Step2',substep:'Zip Start',progress:20
 });
-await btmSaveProjectFile().then(()=>{
+await btmSaveProjectFile();
 panelLogger.info("[verticalTemplate] btmSaveProjectFile done. btmProjectsMap.size="+btmProjectsMap.size);
-setCanvasGUID();
-loadSVGPlusReset(item.svg);
-});
-}else{
-panelLogger.info("[verticalTemplate] skipping save (empty canvas)");
-setCanvasGUID();
-loadSVGPlusReset(item.svg);
 }
+setCanvasGUID();
+await loadSVGPlusReset(item.svg,false,true);
 }finally{
 OP_hideLoading(loading);
 }
@@ -276,16 +271,11 @@ panelLogger.info("[landscapeTemplate] saving current page to bottom bar");
 OP_updateLoadingState(loading,{
 icon:'process',step:'Step2',substep:'Zip Start',progress:20
 });
-await btmSaveProjectFile().then(()=>{
+await btmSaveProjectFile();
 panelLogger.info("[landscapeTemplate] btmSaveProjectFile done. btmProjectsMap.size="+btmProjectsMap.size);
-setCanvasGUID();
-loadSVGPlusReset(item.svg,true);
-});
-}else{
-panelLogger.info("[landscapeTemplate] skipping save (empty canvas)");
-setCanvasGUID();
-loadSVGPlusReset(item.svg,true);
 }
+setCanvasGUID();
+await loadSVGPlusReset(item.svg,true,true);
 }finally{
 OP_hideLoading(loading);
 }
