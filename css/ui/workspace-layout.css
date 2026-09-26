@@ -14,19 +14,64 @@ body.is-layout-dragging canvas {
     pointer-events: none !important;
 }
 
+/* Work area container horizontal scrolling in half-window / narrow viewports */
+#head-id {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: thin;
+}
+
+#head-id::-webkit-scrollbar {
+    height: 10px;
+}
+
+#head-id::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.45);
+}
+
+#head-id::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.22);
+    border-radius: 5px;
+}
+
+#head-id::-webkit-scrollbar-thumb:hover {
+    background: var(--color-accent, #00e5ff);
+}
+
+/* Navbar single-line overflow protection on narrow viewports */
+.custom-navbar,
+#desu-nav {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    white-space: nowrap !important;
+    scrollbar-width: none !important;
+}
+
+.custom-navbar::-webkit-scrollbar,
+#desu-nav::-webkit-scrollbar {
+    display: none !important;
+}
+
+.custom-navbar .navbar-nav {
+    flex-wrap: nowrap !important;
+    white-space: nowrap !important;
+}
+
 /* Override hardcoded min-width and max-width from legacy CSS */
 .left_area {
     min-width: 140px !important;
     max-width: 650px !important;
     box-sizing: border-box !important;
+    flex-shrink: 0 !important;
 }
 
 #canvas-area {
     flex: 1 1 auto !important;
     width: auto !important;
-    min-width: 0 !important;
+    min-width: 650px !important;
     margin-right: 0 !important;
     position: relative;
+    overflow: hidden !important;
 }
 
 /* Right Panels Wrapper */
