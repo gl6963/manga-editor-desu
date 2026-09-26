@@ -15,9 +15,14 @@ body.is-layout-dragging canvas {
 }
 
 /* Allow native window-level horizontal scrolling for the viewport (recovers native bottom scrollbar) */
-html,
-body {
+html {
     overflow-x: auto !important;
+}
+
+body {
+    min-width: max-content !important;
+    width: 100% !important;
+    overflow-x: visible !important;
 }
 
 #head-id {
