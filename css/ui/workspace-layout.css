@@ -14,42 +14,24 @@ body.is-layout-dragging canvas {
     pointer-events: none !important;
 }
 
-/* Work area container horizontal scrolling in half-window / narrow viewports */
-#head-id {
+/* Allow native window-level horizontal scrolling for the viewport (recovers native bottom scrollbar) */
+html,
+body {
     overflow-x: auto !important;
-    overflow-y: hidden !important;
-    scrollbar-width: thin;
 }
 
-#head-id::-webkit-scrollbar {
-    height: 10px;
-}
-
-#head-id::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.45);
-}
-
-#head-id::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.22);
-    border-radius: 5px;
-}
-
-#head-id::-webkit-scrollbar-thumb:hover {
-    background: var(--color-accent, #00e5ff);
+#head-id {
+    width: max-content !important;
+    min-width: 100% !important;
+    box-sizing: border-box !important;
 }
 
 /* Navbar single-line overflow protection on narrow viewports */
 .custom-navbar,
 #desu-nav {
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
+    min-width: 100% !important;
+    width: max-content !important;
     white-space: nowrap !important;
-    scrollbar-width: none !important;
-}
-
-.custom-navbar::-webkit-scrollbar,
-#desu-nav::-webkit-scrollbar {
-    display: none !important;
 }
 
 .custom-navbar .navbar-nav {
