@@ -460,6 +460,182 @@ var customOpenAIServiceManager = (function() {
             }
         },
 
+        // Fetch model list from /models endpoint
+        async fetchModelsList(baseUrl, apiKey) {
+            baseUrl = (baseUrl || '').trim().replace(/\/+$/, '');
+            apiKey = (apiKey || '').trim();
+
+            if (!baseUrl) {
+                throw new Error('请先填写 Base URL');
+            }
+
+            const headers = { 'Content-Type': 'application/json' };
+            if (apiKey) {
+                headers['Authorization'] = 'Bearer ' + apiKey;
+            }
+
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 12000);
+
+            let res;
+            try {
+                res = await fetch(baseUrl + '/models', {
+                    method: 'GET',
+                    headers: headers,
+                    signal: controller.signal
+                });
+            } catch (e) {
+                throw new Error(e.name === 'AbortError' ? '请求超时 (12秒)' : '网络连接失败: ' + e.message);
+            } finally {
+                clearTimeout(timer);
+            }
+
+            if (!res.ok) {
+                const detail = await res.text();
+                throw new Error('HTTP ' + res.status + ': ' + detail.slice(0, 200));
+            }
+
+            const data = await res.json();
+            let rawList = [];
+            if (data && Array.isArray(data.data)) {
+                rawList = data.data;
+            } else if (data && Array.isArray(data.models)) {
+                rawList = data.models;
+            } else if (Array.isArray(data)) {
+                rawList = data;
+            }
+
+            const modelIds = rawList.map(item => {
+                if (typeof item === 'string') return item;
+                if (item && item.id) return item.id;
+                if (item && item.name) return item.name;
+                if (item && item.model) return item.model;
+                return null;
+            }).filter(Boolean);
+
+            const uniqueIds = Array.from(new Set(modelIds)).sort();
+            return uniqueIds;
+        },
+
+        async fetchAndPopulateModels(silent = false) {
+            const baseUrl = document.getElementById('customFormBaseUrl').value.trim();
+            const apiKey = document.getElementById('customFormApiKey').value.trim();
+            const btn = document.getElementById('btnFetchCustomModels');
+            const resultEl = document.getElementById('customFormTestResult');
+
+            if (!baseUrl) {
+                if (!silent) {
+                    alert('请先填写 Base URL');
+                    document.getElementById('customFormBaseUrl').focus();
+                }
+                return;
+            }
+
+            const origBtnText = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '⏳ 提取中...';
+            }
+            if (resultEl && !silent) {
+                resultEl.style.color = 'rgba(255,255,255,0.7)';
+                resultEl.textContent = '正在获取模型列表...';
+            }
+
+            try {
+                const models = await this.fetchModelsList(baseUrl, apiKey);
+                if (models.length === 0) {
+                    if (resultEl && !silent) {
+                        resultEl.style.color = '#ff9532';
+                        resultEl.textContent = '接口返回成功，但未解析出模型 ID';
+                    }
+                    if (!silent) alert('未解析到可用模型列表，请手动输入模型名称。');
+                    return;
+                }
+
+                const currentTextVal = document.getElementById('customFormTextModel').value.trim();
+                const currentImgVal = document.getElementById('customFormImageModel').value.trim();
+
+                this._populateSelect('customFormTextModelSelect', models, 'text', currentTextVal);
+                this._populateSelect('customFormImageModelSelect', models, 'image', currentImgVal);
+
+                if (resultEl) {
+                    resultEl.style.color = '#5cb85c';
+                    resultEl.textContent = `✓ 成功提取 ${models.length} 个模型！请在下方下拉框中选择`;
+                }
+
+                if (!silent && typeof createToast === 'function') {
+                    createToast('模型列表提取', `成功获取到 ${models.length} 个可用模型`);
+                }
+            } catch (err) {
+                if (resultEl && !silent) {
+                    resultEl.style.color = '#ff6b6b';
+                    resultEl.textContent = '✗ 提取失败: ' + err.message;
+                }
+                if (!silent) {
+                    alert('提取模型列表失败: ' + err.message + '\n\n提示：若服务不支持 /models 端点，你可以直接手动输入模型名称。');
+                }
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = origBtnText;
+                }
+            }
+        },
+
+        _populateSelect(selectId, models, kind, currentValue) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+
+            select.innerHTML = '';
+            const defOpt = document.createElement('option');
+            defOpt.value = '';
+            defOpt.textContent = kind === 'image' ? '-- 从提取列表中选择生图模型 --' : '-- 从提取列表中选择文本模型 --';
+            select.appendChild(defOpt);
+
+            const isImageKeyword = id => /image|dall-e|dalle|flux|sdxl|stable-diffusion|midjourney|recraft|imagen/i.test(id);
+            const prioritized = [];
+            const others = [];
+
+            models.forEach(id => {
+                if (kind === 'image') {
+                    if (isImageKeyword(id)) prioritized.push(id);
+                    else others.push(id);
+                } else {
+                    if (!isImageKeyword(id)) prioritized.push(id);
+                    else others.push(id);
+                }
+            });
+
+            const combined = prioritized.concat(others);
+            let matched = false;
+
+            combined.forEach(id => {
+                const opt = document.createElement('option');
+                opt.value = id;
+                opt.textContent = id;
+                if (currentValue && currentValue === id) {
+                    opt.selected = true;
+                    matched = true;
+                }
+                select.appendChild(opt);
+            });
+
+            select.style.display = 'block';
+            const hint = document.getElementById(kind === 'image' ? 'customFormImageModelHint' : 'customFormTextModelHint');
+            if (hint) hint.style.display = 'block';
+        },
+
+        onSelectModel(kind, value) {
+            if (!value) return;
+            if (kind === 'text') {
+                const input = document.getElementById('customFormTextModel');
+                if (input) input.value = value;
+            } else if (kind === 'image') {
+                const input = document.getElementById('customFormImageModel');
+                if (input) input.value = value;
+            }
+        },
+
         renderCustomListUI() {
             const container = document.getElementById('customApiListContainer');
             if (!container) return;
@@ -532,8 +708,27 @@ var customOpenAIServiceManager = (function() {
             document.getElementById('customFormTestResult').textContent = '';
             document.getElementById('customFormTestResult').style.color = '';
 
+            const textSel = document.getElementById('customFormTextModelSelect');
+            const imgSel = document.getElementById('customFormImageModelSelect');
+            const textHint = document.getElementById('customFormTextModelHint');
+            const imgHint = document.getElementById('customFormImageModelHint');
+            if (textSel) { textSel.style.display = 'none'; textSel.innerHTML = ''; }
+            if (imgSel) { imgSel.style.display = 'none'; imgSel.innerHTML = ''; }
+            if (textHint) textHint.style.display = 'none';
+            if (imgHint) imgHint.style.display = 'none';
+
+            const textRow = document.getElementById('customFormTextModelRow');
+            const imgRow = document.getElementById('customFormImageModelRow');
+            if (textRow) textRow.style.display = data.enableText ? 'flex' : 'none';
+            if (imgRow) imgRow.style.display = data.enableImage ? 'flex' : 'none';
+
             card.style.display = 'block';
             card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+            // If editing an existing service with baseUrl, auto-fetch models quietly
+            if (isEdit && data.baseUrl) {
+                this.fetchAndPopulateModels(true);
+            }
         },
 
         closeFormCard() {

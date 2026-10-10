@@ -2493,6 +2493,9 @@ function getElementClasses(element) {
             <div style="display: flex; gap: 6px;">
                 <input type="password" id="customFormApiKey" placeholder="sk-..." style="flex: 1 1 auto; box-sizing: border-box;" autocomplete="off">
                 <button type="button" class="us-btn-s" onclick="var el=$('customFormApiKey'); el.type=(el.type==='password'?'text':'password');">显示</button>
+                <button type="button" class="us-btn-s" id="btnFetchCustomModels" style="background: rgba(0,229,255,0.18); border-color: rgba(0,229,255,0.4); color: #00e5ff; font-weight: bold; white-space: nowrap;" onclick="customOpenAIServiceManager.fetchAndPopulateModels()">
+                    🔄 提取模型列表
+                </button>
             </div>
         </div>
 
@@ -2504,9 +2507,15 @@ function getElementClasses(element) {
                     <input type="checkbox" id="customFormEnableText" checked onchange="document.getElementById('customFormTextModelRow').style.display = this.checked ? 'flex' : 'none';">
                     <span>大语言模型 (LLM) — 用于提示词生成 (Text2Prompt) 与视觉反推</span>
                 </label>
-                <div id="customFormTextModelRow" style="display: flex; align-items: center; gap: 8px; margin-top: 4px; padding-left: 20px;">
-                    <span style="font-size: 11px; color: rgba(255,255,255,0.6); flex-shrink: 0;">文本模型名:</span>
-                    <input type="text" id="customFormTextModel" placeholder="如: deepseek-chat / gpt-4o / qwen-plus" style="flex: 1 1 auto; box-sizing: border-box;">
+                <div id="customFormTextModelRow" style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px; padding-left: 20px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 11px; color: rgba(255,255,255,0.6); flex-shrink: 0;">文本模型:</span>
+                        <select id="customFormTextModelSelect" style="display: none; flex: 1 1 50%; max-width: 50%; box-sizing: border-box; background: #2a2a2a; color: #fff; border: 1px solid rgba(0,229,255,0.4); border-radius: 4px; padding: 3px 6px; font-size: 11px;" onchange="customOpenAIServiceManager.onSelectModel('text', this.value)">
+                            <option value="">-- 从提取列表中选择 --</option>
+                        </select>
+                        <input type="text" id="customFormTextModel" placeholder="输入或从下拉选择 (如: deepseek-chat / gpt-4o)" style="flex: 1 1 50%; box-sizing: border-box;">
+                    </div>
+                    <div id="customFormTextModelHint" style="font-size: 10px; color: #5cb85c; display: none;">✓ 已提取可用模型，可在左侧下拉选择直接填入，亦可手动修改</div>
                 </div>
             </div>
 
@@ -2515,9 +2524,15 @@ function getElementClasses(element) {
                     <input type="checkbox" id="customFormEnableImage" onchange="document.getElementById('customFormImageModelRow').style.display = this.checked ? 'flex' : 'none';">
                     <span>图像生成模型 (Image Gen) — 用于分镜文生图 (Text2Image)</span>
                 </label>
-                <div id="customFormImageModelRow" style="display: none; align-items: center; gap: 8px; margin-top: 4px; padding-left: 20px;">
-                    <span style="font-size: 11px; color: rgba(255,255,255,0.6); flex-shrink: 0;">生图模型名:</span>
-                    <input type="text" id="customFormImageModel" placeholder="如: gemini-3.1-flash-image / gpt-image-2 / dall-e-3 / flux" style="flex: 1 1 auto; box-sizing: border-box;">
+                <div id="customFormImageModelRow" style="display: none; flex-direction: column; gap: 4px; margin-top: 4px; padding-left: 20px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 11px; color: rgba(255,255,255,0.6); flex-shrink: 0;">生图模型:</span>
+                        <select id="customFormImageModelSelect" style="display: none; flex: 1 1 50%; max-width: 50%; box-sizing: border-box; background: #2a2a2a; color: #fff; border: 1px solid rgba(0,229,255,0.4); border-radius: 4px; padding: 3px 6px; font-size: 11px;" onchange="customOpenAIServiceManager.onSelectModel('image', this.value)">
+                            <option value="">-- 从提取列表中选择 --</option>
+                        </select>
+                        <input type="text" id="customFormImageModel" placeholder="输入或从下拉选择 (如: gemini-3.1-flash-image / dall-e-3)" style="flex: 1 1 50%; box-sizing: border-box;">
+                    </div>
+                    <div id="customFormImageModelHint" style="font-size: 10px; color: #5cb85c; display: none;">✓ 已提取可用模型，可在左侧下拉选择直接填入，亦可手动修改</div>
                 </div>
             </div>
         </div>
