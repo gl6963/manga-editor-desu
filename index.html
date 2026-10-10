@@ -2453,6 +2453,87 @@ function getElementClasses(element) {
 </tr>
 </tbody>
 </table>
+
+<!-- Custom OpenAI API Services Section -->
+<div class="custom-api-section" id="customApiSection" style="margin-top: 24px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.12);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <div class="us-panel-title" style="padding-bottom: 0;">自定义 API 服务 (OpenAI 兼容协议)</div>
+        <button type="button" class="us-btn-s" id="btnOpenAddCustomService" style="padding: 4px 12px; background: rgba(0,229,255,0.18); border-color: var(--color-accent, #00e5ff); color: #00e5ff; font-weight: bold;" onclick="customOpenAIServiceManager.openAddModal()">
+            + 添加自定义服务
+        </button>
+    </div>
+    <div style="font-size: 11px; color: rgba(255,255,255,0.5); line-height: 1.4; margin-bottom: 8px;">
+        支持标准 OpenAI 协议（DeepSeek, OneAPI, 聚合中转等），可同时开启文本大模型（提示词生成/视觉反推）与生图模型（文生图，如 gemini-3.1-flash-image 等）。新增后将在左侧表格自动生成新列。
+    </div>
+
+    <!-- Active Custom API List -->
+    <div id="customApiListContainer"></div>
+
+    <!-- Add/Edit Form Card -->
+    <div id="customApiFormCard" style="display: none; background: rgba(0,0,0,0.45); border: 1px solid rgba(0,229,255,0.35); border-radius: 6px; padding: 14px; margin-top: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.5);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <strong id="customFormTitle" style="color: #00e5ff; font-size: 13px;">添加自定义 API 服务</strong>
+            <button type="button" class="us-btn-s" onclick="customOpenAIServiceManager.closeFormCard()" style="padding: 1px 6px;">✕</button>
+        </div>
+        <input type="hidden" id="customFormServiceId">
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+            <div>
+                <label style="display: block; font-size: 11px; color: rgba(255,255,255,0.7); margin-bottom: 4px;">服务名称 *</label>
+                <input type="text" id="customFormName" placeholder="如: DeepSeek / 第三方聚合生图" style="width: 100%; box-sizing: border-box;">
+            </div>
+            <div>
+                <label style="display: block; font-size: 11px; color: rgba(255,255,255,0.7); margin-bottom: 4px;">Base URL *</label>
+                <input type="text" id="customFormBaseUrl" placeholder="https://api.deepseek.com/v1" style="width: 100%; box-sizing: border-box;">
+            </div>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+            <label style="display: block; font-size: 11px; color: rgba(255,255,255,0.7); margin-bottom: 4px;">API Key (密钥)</label>
+            <div style="display: flex; gap: 6px;">
+                <input type="password" id="customFormApiKey" placeholder="sk-..." style="flex: 1 1 auto; box-sizing: border-box;" autocomplete="off">
+                <button type="button" class="us-btn-s" onclick="var el=$('customFormApiKey'); el.type=(el.type==='password'?'text':'password');">显示</button>
+            </div>
+        </div>
+
+        <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 10px; margin-bottom: 12px;">
+            <div style="font-size: 11px; font-weight: bold; color: rgba(255,255,255,0.85); margin-bottom: 8px;">启用能力与模型配置（至少选一项）:</div>
+            
+            <div style="margin-bottom: 8px;">
+                <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #fff; cursor: pointer;">
+                    <input type="checkbox" id="customFormEnableText" checked onchange="document.getElementById('customFormTextModelRow').style.display = this.checked ? 'flex' : 'none';">
+                    <span>大语言模型 (LLM) — 用于提示词生成 (Text2Prompt) 与视觉反推</span>
+                </label>
+                <div id="customFormTextModelRow" style="display: flex; align-items: center; gap: 8px; margin-top: 4px; padding-left: 20px;">
+                    <span style="font-size: 11px; color: rgba(255,255,255,0.6); flex-shrink: 0;">文本模型名:</span>
+                    <input type="text" id="customFormTextModel" placeholder="如: deepseek-chat / gpt-4o / qwen-plus" style="flex: 1 1 auto; box-sizing: border-box;">
+                </div>
+            </div>
+
+            <div>
+                <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #fff; cursor: pointer;">
+                    <input type="checkbox" id="customFormEnableImage" onchange="document.getElementById('customFormImageModelRow').style.display = this.checked ? 'flex' : 'none';">
+                    <span>图像生成模型 (Image Gen) — 用于分镜文生图 (Text2Image)</span>
+                </label>
+                <div id="customFormImageModelRow" style="display: none; align-items: center; gap: 8px; margin-top: 4px; padding-left: 20px;">
+                    <span style="font-size: 11px; color: rgba(255,255,255,0.6); flex-shrink: 0;">生图模型名:</span>
+                    <input type="text" id="customFormImageModel" placeholder="如: gemini-3.1-flash-image / gpt-image-2 / dall-e-3 / flux" style="flex: 1 1 auto; box-sizing: border-box;">
+                </div>
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button type="button" class="us-btn-s" onclick="customOpenAIServiceManager.runTestFromForm()">⚡ 测试连接</button>
+                <span id="customFormTestResult" style="font-size: 11px;"></span>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" class="us-btn-s" onclick="customOpenAIServiceManager.closeFormCard()">取消</button>
+                <button type="button" class="us-btn-s" style="background: var(--color-accent, #00e5ff); color: #000; font-weight: bold; border-color: var(--color-accent, #00e5ff);" onclick="customOpenAIServiceManager.submitForm()">保存服务</button>
+            </div>
+        </div>
+    </div>
+</div>
 </div>
 </div>
 </div>
@@ -2703,6 +2784,7 @@ function getElementClasses(element) {
     <script src="js/ai/provider/llm-provider.js?v=7.6" defer></script>
     <script src="js/ai/provider/grok-provider.js?v=7.5" defer></script>
     <script src="js/ai/provider/ollama-provider.js?v=7.5" defer></script>
+    <script src="js/ai/provider/custom-openai-provider.js?v=1.0" defer></script>
     <!-- llm-storyboard-service.js が先。MANGA_EXPRESSION_TAGS を
          llm-prompt-service.js が読み込み時に参照するため -->
     <script src="js/ai/prompt/llm/llm-storyboard-service.js?v=7.6" defer></script>

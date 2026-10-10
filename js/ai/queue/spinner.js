@@ -52,6 +52,10 @@ if(name==='falai'&&typeof falaiQueue!=='undefined')return falaiQueue;
 if(name==='googleImage'&&typeof googleImageQueue!=='undefined')return googleImageQueue;
 if(name==='grok'&&typeof grokQueue!=='undefined')return grokQueue;
 if(name==='ollama'&&typeof ollamaQueue!=='undefined')return ollamaQueue;
+if(typeof providerRegistry!=='undefined'){
+    var p=providerRegistry.get(name);
+    if(p&&typeof p.getQueue==='function')return p.getQueue();
+}
 return null;
 }
 

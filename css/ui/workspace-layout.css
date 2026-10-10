@@ -899,3 +899,34 @@ body {
     color: rgba(255, 255, 255, 0.6);
     font-size: 13px;
 }
+
+/* Custom columns & role matrix scroll support */
+.us-left {
+    overflow-x: auto !important;
+}
+
+.role-matrix {
+    table-layout: auto !important;
+    min-width: 100% !important;
+}
+
+.role-matrix th:first-child,
+.role-matrix td:first-child {
+    min-width: 120px !important;
+    white-space: nowrap !important;
+    position: sticky !important;
+    left: 0 !important;
+    background: #18181c !important;
+    z-index: 5 !important;
+}
+
+.role-matrix th {
+    min-width: 65px !important;
+    padding: 8px 4px 22px 4px !important;
+}
+
+.role-matrix .role-col-custom {
+    background: rgba(0, 229, 255, 0.05) !important;
+    min-width: 78px !important;
+    border-color: rgba(0, 229, 255, 0.25) !important;
+}

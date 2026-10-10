@@ -116,6 +116,7 @@ provider.fetchModels({silent:true});
 function getLLMQueue(provider){
 if(provider.id==='grok')return grokQueue;
 if(provider.id==='ollama')return ollamaQueue;
+if(provider&&typeof provider.getQueue==='function')return provider.getQueue();
 return null;
 }
 

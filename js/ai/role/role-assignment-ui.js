@@ -1,6 +1,6 @@
 // Role Assignment: Role×プロバイダーのマトリクスUI
 var roleAssignmentUI=(function(){
-var PROVIDER_COLUMNS=[
+var BASE_PROVIDER_COLUMNS=[
 {id:ROLE_NONE,label:'None'},
 {id:'localComfyUI',label:'ComfyUI (Local)'},
 {id:'runpodComfyUI',label:'RunPod ComfyUI'},
@@ -10,6 +10,22 @@ var PROVIDER_COLUMNS=[
 {id:'grok',label:'Grok'},
 {id:'ollama',label:'Ollama'}
 ];
+
+function getProviderColumns() {
+    var cols = BASE_PROVIDER_COLUMNS.slice();
+    if (typeof customOpenAIServiceManager !== 'undefined') {
+        var customs = customOpenAIServiceManager.getAll();
+        customs.forEach(function(c) {
+            cols.push({
+                id: c.id,
+                label: c.name,
+                isCustom: true
+            });
+        });
+    }
+    return cols;
+}
+
 var ROLE_ROWS=ROLE_MATRIX_ROWS;
 var tempAssignments={};
 // 「設定値自動保存」OFF のときは保存しない。URL・APIキーは OFF で保存されないのに
@@ -39,16 +55,58 @@ tempAssignments={};
 ROLE_ROWS.forEach(function(row){
 tempAssignments[row.role]=providerRegistry.getRoleAssignment(row.role);
 });
+
+var columns = getProviderColumns();
+
+// Dynamically generate thead to support custom columns
+var table = document.querySelector('.role-matrix');
+if (table) {
+    var thead = table.querySelector('thead');
+    if (!thead) {
+        thead = document.createElement('thead');
+        table.insertBefore(thead, table.firstChild);
+    }
+    var trHead = document.createElement('tr');
+    var thFirst = document.createElement('th');
+    trHead.appendChild(thFirst);
+
+    columns.forEach(function(col) {
+        var th = document.createElement('th');
+        if (col.id === ROLE_NONE) {
+            th.className = 'role-col-none';
+            th.setAttribute('data-i18n', 'roleNone');
+            th.textContent = (typeof i18next !== 'undefined' ? i18next.t('roleNone') : null) || '无';
+        } else if (col.isCustom) {
+            th.className = 'role-col-custom';
+            th.innerHTML = `${escapeHtml(col.label)}<span class="us-tag us-tag-ext">自定义</span>`;
+        } else {
+            var headerMap = {
+                'localComfyUI': 'ComfyUI<span class="us-tag us-tag-local" data-i18n="usTagLocal">本地</span>',
+                'runpodComfyUI': 'RunPod<br>ComfyUI<span class="us-tag us-tag-ext" data-i18n="usTagExternal">外部</span>',
+                'localSDWebUI': 'SD WebUI<br>(A1111/Forge)<span class="us-tag us-tag-local" data-i18n="usTagLocal">本地</span>',
+                'falai': 'Fal.ai<span class="us-tag us-tag-ext" data-i18n="usTagExternal">外部</span>',
+                'googleImage': 'Google<br>Nano Banana<span class="us-tag us-tag-ext" data-i18n="usTagExternal">外部</span>',
+                'grok': 'Grok<span class="us-tag us-tag-ext" data-i18n="usTagExternal">外部</span>',
+                'ollama': 'Ollama<span class="us-tag us-tag-local" data-i18n="usTagLocal">本地</span>'
+            };
+            th.innerHTML = headerMap[col.id] || col.label;
+        }
+        trHead.appendChild(th);
+    });
+    thead.innerHTML = '';
+    thead.appendChild(trHead);
+}
+
 var tbody=$('roleMatrixBody');
 tbody.innerHTML='';
 ROLE_ROWS.forEach(function(row){
 var tr=document.createElement('tr');
 var tdLabel=document.createElement('td');
 tdLabel.setAttribute('data-i18n',row.labelKey);
-tdLabel.innerHTML=i18next.t(row.labelKey);
+tdLabel.innerHTML=(typeof i18next !== 'undefined' ? i18next.t(row.labelKey) : '') || row.labelKey;
 tr.appendChild(tdLabel);
 var effective=providerRegistry.getProviderForRole(row.role);
-PROVIDER_COLUMNS.forEach(function(col){
+columns.forEach(function(col){
 var isNoneColumn=(col.id===ROLE_NONE);
 var td=document.createElement('td');
 if(isNoneColumn)td.classList.add('role-col-none');
@@ -76,10 +134,10 @@ radio.addEventListener('change',function(){
 if(this.checked){
 tempAssignments[row.role]=col.id;
 providerRegistry.setRoleAssignment(row.role,col.id);
-updateWorkflowType();
-updateLayerPanel();
+if(typeof updateWorkflowType==='function')updateWorkflowType();
+if(typeof updateLayerPanel==='function')updateLayerPanel();
 saveIfAutoSaveEnabled();
-apiHeartbeat();
+if(typeof apiHeartbeat==='function')apiHeartbeat();
 }
 });
 td.appendChild(radio);
