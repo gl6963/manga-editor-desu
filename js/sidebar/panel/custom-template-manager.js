@@ -1,6 +1,6 @@
 /**
  * custom-template-manager.js
- * 自定义分镜模板管理器：提取当前画板纯净分镜、带尺寸与比例保存、左侧模板面板分组渲染与即点即用
+ * 自定义分镜模板管理器：提取当前画板纯净分镜、带尺寸与比例保存、左侧模板面板分组渲染与100%无变形还原
  */
 
 const CustomTemplateManager = {
@@ -46,7 +46,6 @@ const CustomTemplateManager = {
             saveBtn.innerHTML = `<i class="material-icons">bookmark_add</i><span>保存当前分镜为模板</span>`;
             saveBtn.onclick = () => this.openSaveModal();
 
-            // 插入在自定义页面输入组下方
             const paramGroup = customBtn.closest(".param-group");
             if (paramGroup) {
                 paramGroup.appendChild(saveBtn);
@@ -67,7 +66,6 @@ const CustomTemplateManager = {
                 <div id="custom-template-grid" class="custom-template-grid"></div>
                 <div class="custom-template-divider"></div>
             `;
-            // 插入在竖版/横版切换栏与原有列表之间
             const header = templatePanel.querySelector(".template-header");
             if (header && header.nextSibling) {
                 templatePanel.insertBefore(section, header.nextSibling);
@@ -78,12 +76,11 @@ const CustomTemplateManager = {
     },
 
     /**
-     * 从当前 Fabric 画布中提取纯净的漫画分镜多边形，构建无杂质 SVG
+     * 从当前 Fabric 画布中提取纯净的漫画分镜多边形，归一化坐标并构建 SVG
      */
-    extractCleanPanelSVG() {
+    extractCleanPanelData() {
         if (!window.canvas) return null;
         const objects = canvas.getObjects();
-        // 筛选出分镜框
         const panels = objects.filter(obj => obj && obj.isPanel && !obj.isImage);
         if (!panels || panels.length === 0) {
             return null;
@@ -92,25 +89,47 @@ const CustomTemplateManager = {
         const width = canvas.width;
         const height = canvas.height;
 
-        // 生成纯净的 SVG 结构
+        let panelsData = [];
         let svgElements = [];
+
         panels.forEach(p => {
+            let absPoints = [];
             if (p.type === 'polygon' && p.points) {
-                // 计算全局坐标顶点
                 const matrix = p.calcTransformMatrix();
-                const globalPoints = p.points.map(pt => fabric.util.transformPoint(pt, matrix));
-                const ptsStr = globalPoints.map(pt => `${pt.x.toFixed(2)},${pt.y.toFixed(2)}`).join(' ');
-                const stroke = p.stroke || 'black';
-                const strokeWidth = p.strokeWidth || 2;
-                svgElements.push(`<polygon points="${ptsStr}" style="stroke: ${stroke}; stroke-width: ${strokeWidth}; fill: rgb(255,255,255); fill-opacity: 0.25; stroke-linejoin: miter; stroke-miterlimit: 4;" />`);
+                absPoints = p.points.map(pt => fabric.util.transformPoint(pt, matrix));
             } else if (p.type === 'rect') {
                 const matrix = p.calcTransformMatrix();
-                const p1 = fabric.util.transformPoint({x: -p.width/2, y: -p.height/2}, matrix);
-                const p2 = fabric.util.transformPoint({x: p.width/2, y: -p.height/2}, matrix);
-                const p3 = fabric.util.transformPoint({x: p.width/2, y: p.height/2}, matrix);
-                const p4 = fabric.util.transformPoint({x: -p.width/2, y: p.height/2}, matrix);
-                const ptsStr = `${p1.x.toFixed(2)},${p1.y.toFixed(2)} ${p2.x.toFixed(2)},${p2.y.toFixed(2)} ${p3.x.toFixed(2)},${p3.y.toFixed(2)} ${p4.x.toFixed(2)},${p4.y.toFixed(2)}`;
-                svgElements.push(`<polygon points="${ptsStr}" style="stroke: black; stroke-width: 2; fill: rgb(255,255,255); fill-opacity: 0.25;" />`);
+                absPoints = [
+                    fabric.util.transformPoint({x: -p.width/2, y: -p.height/2}, matrix),
+                    fabric.util.transformPoint({x: p.width/2, y: -p.height/2}, matrix),
+                    fabric.util.transformPoint({x: p.width/2, y: p.height/2}, matrix),
+                    fabric.util.transformPoint({x: -p.width/2, y: p.height/2}, matrix)
+                ];
+            }
+
+            if (absPoints.length >= 3) {
+                // 1. 记录归一化比例坐标 (0.0 ~ 1.0)，在任何分辨率画布下都能 1:1 绝对贴合
+                const normPoints = absPoints.map(pt => ({
+                    nx: pt.x / width,
+                    ny: pt.y / height
+                }));
+
+                const stroke = p.stroke || 'black';
+                const strokeWidth = p.strokeWidth || 2;
+                const fill = p.fill || 'rgb(255,255,255)';
+                const opacity = (p.opacity !== undefined) ? p.opacity : 1;
+
+                panelsData.push({
+                    normPoints,
+                    stroke,
+                    strokeWidth,
+                    fill,
+                    opacity
+                });
+
+                // 2. 同时生成供缩略图展示的 SVG
+                const ptsStr = absPoints.map(pt => `${pt.x.toFixed(2)},${pt.y.toFixed(2)}`).join(' ');
+                svgElements.push(`<polygon points="${ptsStr}" style="stroke: ${stroke}; stroke-width: ${strokeWidth}; fill: rgb(255,255,255); fill-opacity: 0.25; stroke-linejoin: miter; stroke-miterlimit: 4;" />`);
             }
         });
 
@@ -121,9 +140,10 @@ const CustomTemplateManager = {
 
         return {
             svg: svgContent,
+            panelsData: panelsData,
             panelCount: panels.length,
-            width,
-            height
+            canvasWidth: width,
+            canvasHeight: height
         };
     },
 
@@ -131,7 +151,7 @@ const CustomTemplateManager = {
      * 打开保存自定义模板的弹窗
      */
     openSaveModal() {
-        const panelData = this.extractCleanPanelSVG();
+        const panelData = this.extractCleanPanelData();
         if (!panelData) {
             if (typeof createToastError === 'function') {
                 createToastError("无法保存模板", "当前画布中没有检测到任何分镜框！请先绘制或切割分镜。");
@@ -141,13 +161,11 @@ const CustomTemplateManager = {
             return;
         }
 
-        // 读取当前物理 mm
         const curSize = (typeof getPageSizeMm === 'function') ? getPageSizeMm() : { width: 210, height: 297 };
         const mmW = curSize.width;
         const mmH = curSize.height;
         const ratioLabel = mmW === mmH ? "1:1 正方形" : (mmW > mmH ? "横向版式" : "纵向版式");
 
-        // 移除已有弹窗
         const oldModal = document.getElementById("save-template-modal-overlay");
         if (oldModal) oldModal.remove();
 
@@ -155,7 +173,6 @@ const CustomTemplateManager = {
         overlay.id = "save-template-modal-overlay";
         overlay.className = "btm-dialog-overlay custom-tpl-modal-overlay";
 
-        // 生成预览图
         const previewDataUrl = "data:image/svg+xml;utf8," + encodeURIComponent(panelData.svg);
 
         overlay.innerHTML = `
@@ -208,6 +225,7 @@ const CustomTemplateManager = {
                 createdAt: Date.now(),
                 pageSizeMm: { width: mmW, height: mmH },
                 svg: panelData.svg,
+                panelsData: panelData.panelsData,
                 panelCount: panelData.panelCount
             };
 
@@ -260,7 +278,6 @@ const CustomTemplateManager = {
                 <div class="custom-tpl-card-name">${item.name}</div>
             `;
 
-            // 点击删除
             const delBtn = card.querySelector(".custom-tpl-del-btn");
             delBtn.onclick = (e) => {
                 e.stopPropagation();
@@ -270,7 +287,6 @@ const CustomTemplateManager = {
                 }
             };
 
-            // 点击应用模板
             card.onclick = () => {
                 this.applyCustomTemplate(item);
             };
@@ -280,27 +296,25 @@ const CustomTemplateManager = {
     },
 
     /**
-     * 应用选中的自定义模板：同步更新原稿物理尺寸、重置画板并加载分镜
+     * 应用自定义模板：直接通过 Fabric 原生多边形精准还原，彻底避开 SVG 偏移缺陷
      */
     async applyCustomTemplate(item) {
-        if (!item || !item.svg) return;
+        if (!item) return;
 
         const loading = (typeof OP_showLoading === 'function') 
             ? OP_showLoading({ icon: 'process', step: 'Step1', substep: 'Apply Template', progress: 0 }) 
             : null;
 
         try {
-            // 1. 同步物理尺寸到原稿尺寸输入框
             const wMm = item.pageSizeMm.width;
             const hMm = item.pageSizeMm.height;
+
+            // 1. 同步原稿尺寸输入框
             if (typeof setPageSizeMm === 'function') {
                 setPageSizeMm(wMm, hMm);
             }
 
-            // 2. 判断横向/纵向
-            const isLand = wMm > hMm;
-
-            // 3. 换新 GUID 并保存前一页
+            // 2. 离屏保存当前页并创建新页 GUID
             if (typeof btmShouldSaveCurrentPage === 'function' && btmShouldSaveCurrentPage()) {
                 await btmSaveProjectFile();
             }
@@ -308,13 +322,104 @@ const CustomTemplateManager = {
                 setCanvasGUID();
             }
 
-            // 4. 加载 SVG 模板并自适应构建分镜
-            if (typeof loadSVGPlusReset === 'function') {
-                await loadSVGPlusReset(item.svg, isLand, true);
+            // 3. 按照原稿尺寸重塑画板物理长宽比
+            if (typeof resizeCanvasToObject === 'function') {
+                resizeCanvasToObject(wMm, hMm);
+            }
+
+            // 4. 清理旧图层与历史状态
+            if (typeof initImageHistory === 'function') {
+                initImageHistory();
+            }
+            if (typeof changeDoNotSaveHistory === 'function') {
+                changeDoNotSaveHistory();
+            }
+
+            // 清空画板上现有的所有分镜多边形
+            const oldObjects = canvas.getObjects().slice();
+            oldObjects.forEach(obj => {
+                if (obj && obj.isPanel) {
+                    canvas.remove(obj);
+                }
+            });
+
+            const canvasW = canvas.width;
+            const canvasH = canvas.height;
+
+            // 5. 原生精准重建每个分镜画框
+            if (item.panelsData && Array.isArray(item.panelsData) && item.panelsData.length > 0) {
+                item.panelsData.forEach(pData => {
+                    // 根据当前画布宽高把归一化点还原为当前画布绝对点
+                    const curPoints = pData.normPoints.map(pt => ({
+                        x: pt.nx * canvasW,
+                        y: pt.ny * canvasH
+                    }));
+
+                    // 计算该多边形的几何包围盒作为原点基准
+                    const minX = Math.min(...curPoints.map(pt => pt.x));
+                    const maxX = Math.max(...curPoints.map(pt => pt.x));
+                    const minY = Math.min(...curPoints.map(pt => pt.y));
+                    const maxY = Math.max(...curPoints.map(pt => pt.y));
+
+                    // 构建相对于左上角 (0, 0) 的多边形内部相对点数组
+                    const localPoints = curPoints.map(pt => ({
+                        x: pt.x - minX,
+                        y: pt.y - minY
+                    }));
+
+                    const polygon = new fabric.Polygon(localPoints, {
+                        left: minX,
+                        top: minY,
+                        scaleX: 1,
+                        scaleY: 1,
+                        fill: pData.fill || 'rgb(255,255,255)',
+                        opacity: (pData.opacity !== undefined) ? pData.opacity : 1,
+                        stroke: pData.stroke || 'black',
+                        strokeWidth: pData.strokeWidth || 2,
+                        strokeUniform: true,
+                        isPanel: true,
+                        selectable: false,
+                        hasControls: true,
+                        objectCaching: false
+                    });
+
+                    if (typeof setText2ImageInitPrompt === 'function') {
+                        setText2ImageInitPrompt(polygon);
+                    }
+                    if (typeof setPanelValue === 'function') {
+                        setPanelValue(polygon);
+                    }
+
+                    canvas.add(polygon);
+                });
+            } else if (item.svg && typeof loadSVGPlusReset === 'function') {
+                // 兼容旧版只存了 SVG 的模板降级方案
+                const isLand = wMm > hMm;
+                await loadSVGPlusReset(item.svg, isLand, false);
+            }
+
+            // 6. 状态持久化与界面刷新
+            if (typeof changeDoSaveHistory === 'function') {
+                changeDoSaveHistory();
+            }
+            if (typeof saveState === 'function') {
+                saveState();
+            }
+            if (typeof updateLayerPanel === 'function') {
+                updateLayerPanel();
+            }
+
+            canvas.requestRenderAll();
+
+            // 7. 注册到总览底栏并更新页码
+            if (typeof btmRegisterCurrentPage === 'function') {
+                await btmRegisterCurrentPage(true);
+                if (typeof updateAllPageNumbers === 'function') updateAllPageNumbers();
+                if (typeof btmUpdateHandleText === 'function') btmUpdateHandleText();
             }
 
             if (typeof createToast === 'function') {
-                createToast("应用模板", `已加载模板【${item.name}】 (${wMm}×${hMm}mm)`);
+                createToast("应用模板", `已完美加载模板【${item.name}】 (${wMm}×${hMm}mm)`);
             }
         } catch (err) {
             console.error("Failed to apply custom template", err);
