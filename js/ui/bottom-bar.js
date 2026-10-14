@@ -802,10 +802,9 @@ templateGrid.innerHTML='';
 var blankItem=document.createElement("div");
 blankItem.className="btm-dialog-tpl-item is-selected";
 blankItem.title="空白页面 (无分格)";
-blankItem.innerHTML=
-'<div class="btm-dialog-tpl-preview btm-dialog-tpl-blank">'+
-'<span class="material-symbols-outlined" style="font-size:24px; opacity:0.6;">check_box_outline_blank</span>'+
-'</div>'+
+blankItem.innerHTML = '<div class="btm-dialog-tpl-preview btm-dialog-tpl-blank">' +
+'<span class="material-symbols-outlined" style="font-size:24px; opacity:0.6;">check_box_outline_blank</span>' +
+'</div>' +
 '<div class="btm-dialog-tpl-name">空白页</div>';
 blankItem.addEventListener("click",function(){
 templateGrid.querySelectorAll(".btm-dialog-tpl-item").forEach(function(el){el.classList.remove("is-selected");});
@@ -818,6 +817,42 @@ doCreate();
 });
 templateGrid.appendChild(blankItem);
 selectedTemplateSvg=null;
+
+// 1.5. 用户保存的自定义模板
+if (typeof CustomTemplateManager !== 'undefined' && CustomTemplateManager.getTemplates) {
+    var customList = CustomTemplateManager.getTemplates();
+    customList.forEach(function(cTpl) {
+        var cItem = document.createElement("div");
+        cItem.className = "btm-dialog-tpl-item";
+        cItem.title = "[自定义] " + cTpl.name + " (" + cTpl.pageSizeMm.width + "×" + cTpl.pageSizeMm.height + "mm)";
+        var pWrap = document.createElement("div");
+        pWrap.className = "btm-dialog-tpl-preview";
+        var cImg = document.createElement("img");
+        cImg.src = "data:image/svg+xml;utf8," + encodeURIComponent(cTpl.svg);
+        cImg.alt = cTpl.name;
+        pWrap.appendChild(cImg);
+        var badge = document.createElement("span");
+        badge.style.cssText = "position:absolute; bottom:2px; right:2px; background:#00e5ff; color:#000; font-size:8px; font-weight:bold; padding:1px 3px; border-radius:2px;";
+        badge.textContent = "自定义";
+        pWrap.style.position = "relative";
+        pWrap.appendChild(badge);
+        var cName = document.createElement("div");
+        cName.className = "btm-dialog-tpl-name";
+        cName.textContent = cTpl.name;
+        cItem.appendChild(pWrap);
+        cItem.appendChild(cName);
+        cItem.addEventListener("click", function() {
+            templateGrid.querySelectorAll(".btm-dialog-tpl-item").forEach(function(el){el.classList.remove("is-selected");});
+            cItem.classList.add("is-selected");
+            selectedTemplateSvg = cTpl.svg;
+        });
+        cItem.addEventListener("dblclick", function() {
+            selectedTemplateSvg = cTpl.svg;
+            doCreate();
+        });
+        templateGrid.appendChild(cItem);
+    });
+}
 
 // 2. SVG templates
 list.forEach(function(tpl){
