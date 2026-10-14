@@ -112,10 +112,21 @@ loadBookSize(x,y,false,true);
 canvas.renderAll();
 adjustCanvasSize();
 });
-// 「縦ページ」「横ページ」も中身は空にして、カスタムページ・ボトムバーの＋と揃える。
-// 全面コマ1枚が要るときはコマのひな形かランダムカットを使う
-$on($("page-portrait"),"click",()=>{loadBookSize(210,297,false,true);});
-$on($("page-landscape"),"click",()=>{loadBookSize(297,210,false,true);});
+// 「縦ページ」「横ページ」も入力欄（pageWidthMm / pageHeightMm）の値を反映する
+$on($("page-portrait"),"click",()=>{
+    var size = (typeof getPageSizeMm === 'function') ? getPageSizeMm() : {width: 210, height: 297};
+    var w = Math.min(size.width, size.height);
+    var h = Math.max(size.width, size.height);
+    if (size.width === size.height) { w = size.width; h = size.height; }
+    loadBookSize(w, h, false, true);
+});
+$on($("page-landscape"),"click",()=>{
+    var size = (typeof getPageSizeMm === 'function') ? getPageSizeMm() : {width: 210, height: 297};
+    var w = Math.max(size.width, size.height);
+    var h = Math.min(size.width, size.height);
+    if (size.width === size.height) { w = size.width; h = size.height; }
+    loadBookSize(w, h, false, true);
+});
 });
 
 

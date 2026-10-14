@@ -441,7 +441,7 @@ scaleY: scale,
 
 
 /** Load SVG(Verfical, Landscope) */
-function loadSVGPlusReset(svgString,isLand=false,autoRegister=true) {
+async function loadSVGPlusReset(svgString,isLand=false,autoRegister=true) {
 return new Promise(function(resolve, reject) {
 initImageHistory();
 changeDoNotSaveHistory();
@@ -450,7 +450,17 @@ changeDoNotSaveHistory();
 skipForcedAdjust=true;
 fabric.loadSVGFromString(svgString,async function (objects,options) {
 try{
-resizeCanvasToObject(options.width,options.height);
+var userSize = (typeof getPageSizeMm === 'function') ? getPageSizeMm() : null;
+if (userSize && userSize.width > 0 && userSize.height > 0) {
+    var minD = Math.min(userSize.width, userSize.height);
+    var maxD = Math.max(userSize.width, userSize.height);
+    if (userSize.width === userSize.height) { minD = userSize.width; maxD = userSize.height; }
+    var targetW = isLand ? maxD : minD;
+    var targetH = isLand ? minD : maxD;
+    resizeCanvasToObject(targetW, targetH);
+} else {
+    resizeCanvasToObject(options.width,options.height);
+}
 
 var strokeWidthScale=canvas.width/700;
 var strokeWidth=2*strokeWidthScale;
@@ -459,6 +469,16 @@ var canvasUsableWidth=canvas.width-svgPagging;
 var overallScaleX=canvasUsableWidth/options.width;
 var overallScaleY=canvasUsableHeight/options.height;
 var scaleToFit=Math.min(overallScaleX,overallScaleY);
+var scaleXRatio = overallScaleX;
+var scaleYRatio = overallScaleY;
+// 如果当前画布长宽比与模板SVG一致，使用统一缩放；若用户自定义了比例（如正方形），对面板进行自适应平铺拉伸
+if (Math.abs((canvas.width/canvas.height) - (options.width/options.height)) > 0.05) {
+    scaleXRatio = overallScaleX;
+    scaleYRatio = overallScaleY;
+} else {
+    scaleXRatio = scaleToFit;
+    scaleYRatio = scaleToFit;
+}
 var offsetVerticalY=(svgPagging/1.5)+((canvasUsableHeight-options.height*overallScaleY)/2)+strokeWidth;
 var offsetHorizontalY=(svgPagging/2)+((canvasUsableHeight-options.height*overallScaleY)/2)+strokeWidth;
 var offsetVerticalX=(svgPagging/2)+((canvasUsableWidth-options.width*overallScaleX)/2);
@@ -509,10 +529,10 @@ return false;
 
 var polygon=new fabric.Polygon(vertices,{
 isPanel: true,
-scaleX: scaleToFit,
-scaleY: scaleToFit,
-top: obj.top*scaleToFit+offsetY,
-left: obj.left*scaleToFit+offsetX,
+scaleX: scaleXRatio,
+scaleY: scaleYRatio,
+top: obj.top*scaleYRatio+offsetVerticalY-(strokeWidth),
+left: obj.left*scaleXRatio+offsetVerticalX,
 stroke: obj.stroke,
 strokeWidth: strokeWidth,
 selectable: false,
@@ -534,14 +554,14 @@ canvas.add(polygon);
 } else {
 
 obj.isPanel=true;
-obj.scaleX=scaleToFit;
-obj.scaleY=scaleToFit;
+obj.scaleX=scaleXRatio;
+obj.scaleY=scaleYRatio;
 if(isLand){
-obj.top=obj.top*scaleToFit+offsetHorizontalY-(strokeWidth);
-obj.left=obj.left*scaleToFit+offsetHorizontalX;
+obj.top=obj.top*scaleYRatio+offsetHorizontalY-(strokeWidth);
+obj.left=obj.left*scaleXRatio+offsetHorizontalX;
 }else{
-obj.top=obj.top*scaleToFit+offsetVerticalY-(strokeWidth);
-obj.left=obj.left*scaleToFit+offsetVerticalX;
+obj.top=obj.top*scaleYRatio+offsetVerticalY-(strokeWidth);
+obj.left=obj.left*scaleXRatio+offsetVerticalX;
 }
 
 obj.setCoords();

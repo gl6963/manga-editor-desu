@@ -737,11 +737,16 @@ dialogBox.className="btm-dialog btm-add-page-dialog";
 var title=document.createElement("h3");
 title.textContent=getText("pageAddDialogTitle")||"插入新页面";
 
+var curMm = (typeof getPageSizeMm === 'function') ? getPageSizeMm() : {width: 210, height: 297};
+var pW = Math.min(curMm.width, curMm.height);
+var pH = Math.max(curMm.width, curMm.height);
+if (curMm.width === curMm.height) { pW = curMm.width; pH = curMm.height; }
+
 var orientationGroup=document.createElement("div");
 orientationGroup.className="btm-dialog-orientation-row";
 orientationGroup.innerHTML=
-'<label><input type="radio" name="add-page-orient" value="portrait" checked> '+(getText("pagePortrait")||"纵向页面")+' (210×297mm)</label>'+
-'<label><input type="radio" name="add-page-orient" value="landscape"> '+(getText("pageLandscape")||"横向页面")+' (297×210mm)</label>';
+'<label><input type="radio" name="add-page-orient" value="portrait" checked> '+(getText("pagePortrait")||"纵向页面")+' ('+pW+'×'+pH+'mm)</label>'+
+'<label><input type="radio" name="add-page-orient" value="landscape"> '+(getText("pageLandscape")||"横向页面")+' ('+pH+'×'+pW+'mm)</label>';
 
 var templateSection=document.createElement("div");
 templateSection.className="btm-dialog-template-section";
@@ -877,8 +882,12 @@ if(isProjectBusy())return;
 if(dialog.parentElement)dialog.parentElement.removeChild(dialog);
 
 var isLand=(currentOrientation==="landscape");
-var w=isLand?297:210;
-var h=isLand?210:297;
+var curSize = (typeof getPageSizeMm === 'function') ? getPageSizeMm() : {width: 210, height: 297};
+var minD = Math.min(curSize.width, curSize.height);
+var maxD = Math.max(curSize.width, curSize.height);
+if (curSize.width === curSize.height) { minD = curSize.width; maxD = curSize.height; }
+var w = isLand ? maxD : minD;
+var h = isLand ? minD : maxD;
 var newGuid=generateGUID();
 
 await btmSaveCurrentPage(false);

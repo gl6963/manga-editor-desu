@@ -76,8 +76,15 @@ var height=parseFloat(pixelHeight);
 if(!(width>0)||!(height>0)){
 return null;
 }
-// 入力欄の刻み(step=1)に合わせて整数mmへ丸める。丸めた分だけ比率がずれるが、
-// ずれは最大0.5mm/297mm=0.17%で、その分だけ出力が大きくなる
+// 若用户已手动设定过物理 mm 且比例匹配，优先保留用户的自定义尺寸
+var cur = getPageSizeMm();
+if (cur && cur.width > 0 && cur.height > 0) {
+    var curRatio = cur.width / cur.height;
+    var targetRatio = width / height;
+    if (Math.abs(curRatio - targetRatio) < 0.05) {
+        return {width: cur.width, height: cur.height};
+    }
+}
 if(width>=height){
 return {width:PAGE_LONG_SIDE_MM,height:Math.round(PAGE_LONG_SIDE_MM*height/width)};
 }
@@ -260,12 +267,21 @@ var color=event.target.value;
 canvas.setBackgroundColor(color,canvas.renderAll.bind(canvas));
 commitHistoryDebounced();
 });
-['pageWidthMm','pageHeightMm'].forEach(function(id){
-var input=$(id);
-if(input){
-input.addEventListener('input',function(){hasProjectPageSize=true;});
-}
-});
+    ['pageWidthMm','pageHeightMm'].forEach(function(id){
+        var input=$(id);
+        if(input){
+            input.addEventListener('input',function(){
+                hasProjectPageSize=true;
+                var cur = getPageSizeMm();
+                if (cur && cur.width > 0 && cur.height > 0) {
+                    resizeCanvasToObject(cur.width, cur.height);
+                    if (typeof ImageUtil !== 'undefined' && ImageUtil.updateOutputSizeHint) {
+                        ImageUtil.updateOutputSizeHint();
+                    }
+                }
+            });
+        }
+    });
 updateCanvasZoomDisplay();
 // 割り当てキーだけを記号で出す。ここに英単語を置くと言語切替で
 // 追従できない文言が増えるため、動作はアイコンに任せる

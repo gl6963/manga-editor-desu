@@ -80,12 +80,16 @@ icon: 'process',step: 'Step2',substep: 'Page:'+page,progress: 50
 await waitNextFrame();
 
 panelLogger.debug("----- "+page+" -----")
+var userSize = (typeof getPageSizeMm === 'function') ? getPageSizeMm() : {width: 210, height: 297};
+var minDim = Math.min(userSize.width, userSize.height);
+var maxDim = Math.max(userSize.width, userSize.height);
+if (userSize.width === userSize.height) { minDim = userSize.width; maxDim = userSize.height; }
 if(selectedValue==='mPortrait'){
-await loadBookSize(210,297,true,newPage);
+await loadBookSize(minDim,maxDim,true,newPage);
 rundomPanelCut();
 }
 if(selectedValue==='mLandscape'){
-await loadBookSize(297,210,true,newPage);
+await loadBookSize(maxDim,minDim,true,newPage);
 rundomPanelCut();
 }
 newPage=true;
