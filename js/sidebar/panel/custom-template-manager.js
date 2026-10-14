@@ -95,8 +95,18 @@ const CustomTemplateManager = {
         panels.forEach(p => {
             let absPoints = [];
             if (p.type === 'polygon' && p.points) {
-                const matrix = p.calcTransformMatrix();
-                absPoints = p.points.map(pt => fabric.util.transformPoint(pt, matrix));
+                // 如果系统有标准的 getAbsolutePolygonPoints，优先使用（精确处理 pathOffset）
+                if (typeof getAbsolutePolygonPoints === 'function') {
+                    absPoints = getAbsolutePolygonPoints(p);
+                } else {
+                    const matrix = p.calcTransformMatrix();
+                    const offsetX = p.pathOffset ? p.pathOffset.x : 0;
+                    const offsetY = p.pathOffset ? p.pathOffset.y : 0;
+                    absPoints = p.points.map(pt => fabric.util.transformPoint({
+                        x: pt.x - offsetX,
+                        y: pt.y - offsetY
+                    }, matrix));
+                }
             } else if (p.type === 'rect') {
                 const matrix = p.calcTransformMatrix();
                 absPoints = [
@@ -105,6 +115,19 @@ const CustomTemplateManager = {
                     fabric.util.transformPoint({x: p.width/2, y: p.height/2}, matrix),
                     fabric.util.transformPoint({x: -p.width/2, y: p.height/2}, matrix)
                 ];
+            } else if (p.type === 'circle') {
+                // 圆形在底层可能作为 Circle 或 Polygon，若为原生 Circle 则转化为多边形采样点
+                const matrix = p.calcTransformMatrix();
+                const radius = p.radius || 50;
+                const segments = 36;
+                absPoints = [];
+                for (let i = 0; i < segments; i++) {
+                    const angle = (i / segments) * Math.PI * 2;
+                    absPoints.push(fabric.util.transformPoint({
+                        x: Math.cos(angle) * radius,
+                        y: Math.sin(angle) * radius
+                    }, matrix));
+                }
             }
 
             if (absPoints.length >= 3) {
@@ -370,6 +393,8 @@ const CustomTemplateManager = {
                     const polygon = new fabric.Polygon(localPoints, {
                         left: minX,
                         top: minY,
+                        originX: 'left',
+                        originY: 'top',
                         scaleX: 1,
                         scaleY: 1,
                         fill: pData.fill || 'rgb(255,255,255)',
@@ -382,6 +407,14 @@ const CustomTemplateManager = {
                         hasControls: true,
                         objectCaching: false
                     });
+
+                    // 矫正 Fabric 内部对 pathOffset 的重新计算，确保 (left, top) 严密对齐 (minX, minY)
+                    if (polygon.pathOffset) {
+                        polygon.set({
+                            left: minX + polygon.pathOffset.x,
+                            top: minY + polygon.pathOffset.y
+                        });
+                    }
 
                     if (typeof setText2ImageInitPrompt === 'function') {
                         setText2ImageInitPrompt(polygon);
