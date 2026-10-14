@@ -1776,3 +1776,88 @@ body {
     padding: 0 2px;
 }
 
+/* =========================================================
+   LAYER PANEL DRAG & DROP AND BATCH LOCKS
+   ========================================================= */
+
+/* 顶部批量锁定按钮 */
+.layer-batch-lock-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 1px !important;
+    padding: 1px 4px !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: 4px !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: #bbb !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+.layer-batch-lock-btn:hover {
+    background: rgba(0, 229, 255, 0.2) !important;
+    border-color: #00e5ff !important;
+    color: #00e5ff !important;
+}
+.layer-batch-lock-btn.is-all-locked {
+    background: rgba(0, 229, 255, 0.25) !important;
+    border-color: #00e5ff !important;
+    color: #00e5ff !important;
+    box-shadow: 0 0 6px rgba(0, 229, 255, 0.4) !important;
+}
+.layer-batch-lock-btn .lock-sub-icon {
+    font-size: 9px !important;
+    margin-left: -2px;
+    vertical-align: middle;
+}
+
+/* 图层项拖拽样式 */
+.layer-item {
+    user-select: none;
+    position: relative;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+.layer-item.layer-item-dragging {
+    opacity: 0.35 !important;
+    background: rgba(0, 229, 255, 0.15) !important;
+}
+.layer-drag-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 100%;
+    cursor: grab;
+    color: #666;
+    margin-right: 2px;
+    flex-shrink: 0;
+    user-select: none;
+    transition: color 0.15s;
+}
+.layer-drag-handle:hover {
+    color: #00e5ff;
+}
+.layer-drag-handle:active {
+    cursor: grabbing;
+}
+.layer-drag-handle i {
+    font-size: 15px !important;
+}
+
+/* 拖拽指示线与高亮框 */
+.layer-item.layer-drop-insert-above {
+    box-shadow: inset 0 2px 0 0 #00e5ff !important;
+    border-top-color: #00e5ff !important;
+}
+.layer-item.layer-drop-insert-below {
+    box-shadow: inset 0 -2px 0 0 #00e5ff !important;
+    border-bottom-color: #00e5ff !important;
+}
+.layer-item.layer-drop-inside-panel {
+    box-shadow: inset 0 0 0 2px #00e5ff !important;
+    background: rgba(0, 229, 255, 0.22) !important;
+}
+#layer-content.layer-content-drop-bottom {
+    box-shadow: inset 0 -3px 0 0 #00e5ff !important;
+}
+

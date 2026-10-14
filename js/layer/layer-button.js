@@ -352,3 +352,55 @@ moveLockChange(layer);
 addTooltipByElement(button,"moveLockButton");
 buttonsDiv.appendChild(button);
 }
+
+/**
+ * 批量锁定 / 解锁所有分镜格子
+ */
+function toggleLockAllPanels() {
+    if (!window.canvas) return;
+    var panels = canvas.getObjects().filter(function(o) { return typeof isPanel === 'function' && isPanel(o); });
+    if (panels.length === 0) {
+        if (typeof createToast === 'function') createToast("批量锁定", "当前页面没有分镜格子");
+        return;
+    }
+    // 若当前全部处于锁定状态，则本次操作为“全部解锁”；否则为“全部锁定”
+    var allLocked = panels.every(function(p) { return p.selectable === false; });
+    var targetSelectable = allLocked;
+    panels.forEach(function(p) {
+        p.selectable = targetSelectable;
+    });
+    if (typeof clearLockHint === 'function') clearLockHint();
+    canvas.discardActiveObject();
+    canvas.renderAll();
+    updateLayerPanel();
+    commitHistory();
+    if (typeof createToast === 'function') {
+        createToast("分镜格子", targetSelectable ? "已解锁所有分镜格子" : "已锁定所有分镜格子 (防止排版误触)");
+    }
+}
+
+/**
+ * 批量锁定 / 解锁所有图片图层
+ */
+function toggleLockAllImages() {
+    if (!window.canvas) return;
+    var images = canvas.getObjects().filter(function(o) { return typeof isImage === 'function' && isImage(o); });
+    if (images.length === 0) {
+        if (typeof createToast === 'function') createToast("批量锁定", "当前页面没有图片图层");
+        return;
+    }
+    // 若当前全部处于锁定状态，则本次操作为“全部解锁”；否则为“全部锁定”
+    var allLocked = images.every(function(img) { return img.selectable === false; });
+    var targetSelectable = allLocked;
+    images.forEach(function(img) {
+        img.selectable = targetSelectable;
+    });
+    if (typeof clearLockHint === 'function') clearLockHint();
+    canvas.discardActiveObject();
+    canvas.renderAll();
+    updateLayerPanel();
+    commitHistory();
+    if (typeof createToast === 'function') {
+        createToast("图片图层", targetSelectable ? "已解锁所有图片图层" : "已锁定所有图片图层 (防止排版误触)");
+    }
+}

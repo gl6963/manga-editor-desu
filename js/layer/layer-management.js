@@ -167,6 +167,10 @@ if (!layerContent.dataset.nameEditBound) {
 layerContent.dataset.nameEditBound="1";
 layerContent.addEventListener("dblclick",onLayerNameDblclick);
 }
+if (!layerContent.dataset.dragBound) {
+layerContent.dataset.dragBound="1";
+bindLayerContentDragEvents(layerContent);
+}
 layerPanelRebuilding=true;
 layerContent.innerHTML="";
 var guidMap=createGUIDMap(layers);
@@ -278,6 +282,14 @@ putMoveLockButton(buttonsDiv,layer,index);
 putDeleteButton(buttonsDiv,layer,index);
 
 layerDiv.setAttribute("data-guid",layer.guid);
+layerDiv.setAttribute("draggable","true");
+
+var dragHandle=Object.assign(document.createElement("div"),{
+className: "layer-drag-handle",
+title: "按住拖动调整层级顺序，或拖入/拖出分镜格"
+});
+dragHandle.innerHTML='<i class="material-icons">drag_indicator</i>';
+layerDiv.appendChild(dragHandle);
 
 if (isLayerPreview(layer)) {
 layerDiv.appendChild(previewDiv);
@@ -285,6 +297,8 @@ layerDiv.appendChild(previewDiv);
 
 layerDiv.appendChild(detailsDiv);
 detailsDiv.appendChild(buttonsDiv);
+
+bindLayerDragEvents(layerDiv, layer, level, index);
 
 const activeObject=canvas.getActiveObject();
 var isActive=lastHighlightGuid&&lastHighlightGuid==layer.guid&&
@@ -397,6 +411,7 @@ layerNameEditGuid=null;
 }
 }
 layerPanelRebuilding=false;
+updateBatchLockButtonsState();
 
 lastUpdateTime=Date.now();
 isExecuting=false;
@@ -424,8 +439,9 @@ nameTextArea.style.cursor="pointer";
 // readOnlyでもクリックでフォーカスと文字選択が起きる。押した見た目が
 // 「選択」ではなく「入力」になるため、編集中以外は取らせない
 nameTextArea.onmousedown=function (e) {
-if (nameTextArea.readOnly) {
-e.preventDefault();
+// 处于只读状态时允许抓取拖拽整行，处于编辑状态时不阻止输入
+if (!nameTextArea.readOnly) {
+e.stopPropagation();
 }
 };
 // 編集中のクリックは行の選択へ通さない。通すと作り直しが走り、
@@ -663,6 +679,269 @@ canvas.renderAll();
 updateLayerPanel();
 saveState();
 }
+}
+
+// ==========================================
+// 图层面板拖拽重排与分镜附属关系迁移引擎
+// ==========================================
+
+function clearAllLayerDragClasses() {
+    var items = document.querySelectorAll(".layer-item, #layer-content");
+    items.forEach(function(el) {
+        el.classList.remove("layer-drop-inside-panel", "layer-drop-insert-above", "layer-drop-insert-below", "layer-content-drop-bottom", "layer-item-dragging");
+    });
+}
+
+function bindLayerDragEvents(layerDiv, layer, level, index) {
+    layerDiv.addEventListener("dragstart", function(e) {
+        if (layerNameEditGuid && String(layer.guid) === String(layerNameEditGuid)) {
+            e.preventDefault();
+            return;
+        }
+        e.dataTransfer.setData("text/plain", layer.guid || "");
+        e.dataTransfer.effectAllowed = "move";
+        layerDiv.classList.add("layer-item-dragging");
+        window._layerDragSource = {
+            layer: layer,
+            level: level,
+            index: index,
+            guid: layer.guid
+        };
+    });
+
+    layerDiv.addEventListener("dragend", function(e) {
+        layerDiv.classList.remove("layer-item-dragging");
+        clearAllLayerDragClasses();
+        window._layerDragSource = null;
+    });
+
+    layerDiv.addEventListener("dragover", function(e) {
+        if (!window._layerDragSource) return;
+        if (window._layerDragSource.guid === layer.guid) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+
+        var rect = layerDiv.getBoundingClientRect();
+        var relY = (e.clientY - rect.top) / rect.height;
+
+        var sourceLayer = window._layerDragSource.layer;
+        var isSourcePanel = typeof isPanel === 'function' && isPanel(sourceLayer);
+        var isTargetPanel = typeof isPanel === 'function' && isPanel(layer);
+
+        var allItems = document.querySelectorAll(".layer-item");
+        allItems.forEach(function(el) {
+            if (el !== layerDiv) {
+                el.classList.remove("layer-drop-inside-panel", "layer-drop-insert-above", "layer-drop-insert-below");
+            }
+        });
+
+        // 若目标是分镜格子，且拖入的是非分镜格子（如图片），且在中间区域悬停 (25% ~ 75%)
+        if (isTargetPanel && !isSourcePanel && relY >= 0.25 && relY <= 0.75) {
+            layerDiv.classList.remove("layer-drop-insert-above", "layer-drop-insert-below");
+            layerDiv.classList.add("layer-drop-inside-panel");
+        } else if (relY < 0.5) {
+            layerDiv.classList.remove("layer-drop-inside-panel", "layer-drop-insert-below");
+            layerDiv.classList.add("layer-drop-insert-above");
+        } else {
+            layerDiv.classList.remove("layer-drop-inside-panel", "layer-drop-insert-above");
+            layerDiv.classList.add("layer-drop-insert-below");
+        }
+    });
+
+    layerDiv.addEventListener("dragleave", function(e) {
+        layerDiv.classList.remove("layer-drop-inside-panel", "layer-drop-insert-above", "layer-drop-insert-below");
+    });
+
+    layerDiv.addEventListener("drop", function(e) {
+        if (!window._layerDragSource) return;
+        var sourceLayer = window._layerDragSource.layer;
+        if (!sourceLayer || sourceLayer.guid === layer.guid) return;
+        e.preventDefault();
+
+        var isInside = layerDiv.classList.contains("layer-drop-inside-panel");
+        var isAbove = layerDiv.classList.contains("layer-drop-insert-above");
+
+        clearAllLayerDragClasses();
+        window._layerDragSource = null;
+
+        handleLayerDrop(sourceLayer, layer, isInside, isAbove);
+    });
+}
+
+function bindLayerContentDragEvents(layerContent) {
+    layerContent.addEventListener("dragover", function(e) {
+        if (!window._layerDragSource) return;
+        if (e.target === layerContent) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            clearAllLayerDragClasses();
+            layerContent.classList.add("layer-content-drop-bottom");
+        }
+    });
+    layerContent.addEventListener("dragleave", function(e) {
+        if (e.target === layerContent) {
+            layerContent.classList.remove("layer-content-drop-bottom");
+        }
+    });
+    layerContent.addEventListener("drop", function(e) {
+        if (e.target === layerContent && window._layerDragSource) {
+            e.preventDefault();
+            layerContent.classList.remove("layer-content-drop-bottom");
+            var sourceLayer = window._layerDragSource.layer;
+            window._layerDragSource = null;
+            if (sourceLayer) {
+                // 拖到底部空白区：移出分镜格，成为最底层自由图层
+                if (sourceLayer.relatedPoly && typeof releasePanelLink === 'function') {
+                    releasePanelLink(sourceLayer);
+                }
+                canvas.moveTo(sourceLayer, 0);
+                canvas.renderAll();
+                updateLayerPanel();
+                commitHistory();
+                if (typeof createToast === 'function') {
+                    createToast("图层层级", "已将【" + (sourceLayer.name || "图层") + "】移至最底层");
+                }
+            }
+        }
+    });
+}
+
+function handleLayerDrop(sourceLayer, targetLayer, isInside, isAbove) {
+    if (!window.canvas || !sourceLayer || !targetLayer) return;
+    if (sourceLayer === targetLayer) return;
+
+    var isSourcePanel = (typeof isPanel === 'function' && isPanel(sourceLayer));
+    var isTargetPanel = (typeof isPanel === 'function' && isPanel(targetLayer));
+
+    // ==========================================
+    // 1. 拖入分镜格子内部 (Drop INSIDE panel)
+    // ==========================================
+    if (isInside && isTargetPanel && !isSourcePanel) {
+        if (sourceLayer.relatedPoly && sourceLayer.relatedPoly !== targetLayer) {
+            if (typeof releasePanelLink === 'function') releasePanelLink(sourceLayer);
+        }
+        if (sourceLayer.relatedPoly !== targetLayer) {
+            if (typeof moveSettings === 'function') moveSettings(sourceLayer, targetLayer);
+            if (typeof setGUID === 'function') setGUID(targetLayer, sourceLayer);
+        }
+        var targetCanvasIdx = canvas.getObjects().indexOf(targetLayer);
+        var sourceCanvasIdx = canvas.getObjects().indexOf(sourceLayer);
+        if (sourceCanvasIdx <= targetCanvasIdx) {
+            canvas.moveTo(sourceLayer, targetCanvasIdx + 1);
+        }
+        sourceLayer.dirty = true;
+        canvas.renderAll();
+        updateLayerPanel();
+        commitHistory();
+        if (typeof createToast === 'function') {
+            createToast("图层归属", "已将【" + (sourceLayer.name || "图片") + "】移入【" + (targetLayer.name || "分镜格") + "】");
+        }
+        return;
+    }
+
+    // ==========================================
+    // 2. 拖到上方或下方 (Reorder / Reparent)
+    // ==========================================
+    if (targetLayer.relatedPoly && !isSourcePanel) {
+        // targetLayer 是某个格子的子图层，sourceLayer 也归入该格子
+        if (sourceLayer.relatedPoly !== targetLayer.relatedPoly) {
+            if (sourceLayer.relatedPoly && typeof releasePanelLink === 'function') {
+                releasePanelLink(sourceLayer);
+            }
+            if (typeof moveSettings === 'function') moveSettings(sourceLayer, targetLayer.relatedPoly);
+            if (typeof setGUID === 'function') setGUID(targetLayer.relatedPoly, sourceLayer);
+            sourceLayer.dirty = true;
+        }
+    } else if (isTargetPanel) {
+        // 目标是分镜格子自身：
+        // 如果拖到它的上面（UI上方 -> higher z-index），且 sourceLayer 之前在某个格子里，
+        // 说明拖到了格子外面（成为独立的自由图层）
+        if (sourceLayer.relatedPoly) {
+            if (typeof releasePanelLink === 'function') releasePanelLink(sourceLayer);
+            sourceLayer.dirty = true;
+            if (typeof createToast === 'function') {
+                createToast("图层归属", "已将【" + (sourceLayer.name || "图层") + "】移出分镜格，转换为自由图层");
+            }
+        }
+    } else {
+        // 目标是独立的非分镜顶层图层（如文本、自由图片、效果等）
+        // 如果 sourceLayer 之前属于某个分镜格，脱离原分镜格！
+        if (sourceLayer.relatedPoly) {
+            if (typeof releasePanelLink === 'function') releasePanelLink(sourceLayer);
+            sourceLayer.dirty = true;
+            if (typeof createToast === 'function') {
+                createToast("图层归属", "已将【" + (sourceLayer.name || "图层") + "】移出分镜格，转换为自由图层");
+            }
+        }
+    }
+
+    // 调整画布物理堆叠顺序 (z-index)
+    // UI 列表是 canvas.getObjects() 的倒序！UI 顶部 = Canvas 顶部（高索引）
+    var currentObjects = canvas.getObjects();
+    var fromIndex = currentObjects.indexOf(sourceLayer);
+    var toIndex = currentObjects.indexOf(targetLayer);
+
+    if (fromIndex !== -1 && toIndex !== -1) {
+        var itemsToMove = [sourceLayer];
+        if (isSourcePanel && sourceLayer.guids && sourceLayer.guids.length > 0) {
+            sourceLayer.guids.forEach(function(g) {
+                var child = typeof getObjectByGUID === 'function' ? getObjectByGUID(g) : null;
+                if (child && currentObjects.indexOf(child) !== -1) {
+                    itemsToMove.push(child);
+                }
+            });
+        }
+
+        if (isAbove) {
+            // UI 上方 -> Canvas 中在 targetLayer 上面 (higher z-index)
+            var insertCanvasIdx = toIndex;
+            if (isTargetPanel && targetLayer.guids && targetLayer.guids.length > 0) {
+                targetLayer.guids.forEach(function(g) {
+                    var ch = typeof getObjectByGUID === 'function' ? getObjectByGUID(g) : null;
+                    if (ch) {
+                        var chIdx = currentObjects.indexOf(ch);
+                        if (chIdx > insertCanvasIdx) insertCanvasIdx = chIdx;
+                    }
+                });
+            }
+
+            itemsToMove.forEach(function(item, i) {
+                var curIdx = canvas.getObjects().indexOf(item);
+                var destIdx = (curIdx < insertCanvasIdx) ? insertCanvasIdx : insertCanvasIdx + 1;
+                canvas.moveTo(item, Math.max(0, Math.min(canvas.getObjects().length - 1, destIdx + i)));
+            });
+        } else {
+            // UI 下方 -> Canvas 中在 targetLayer 下面 (lower z-index)
+            var insertCanvasIdx = toIndex;
+            itemsToMove.forEach(function(item, i) {
+                var curIdx = canvas.getObjects().indexOf(item);
+                var destIdx = (curIdx < insertCanvasIdx) ? Math.max(0, insertCanvasIdx - 1) : insertCanvasIdx;
+                canvas.moveTo(item, Math.max(0, Math.min(canvas.getObjects().length - 1, destIdx + i)));
+            });
+        }
+    }
+
+    canvas.renderAll();
+    updateLayerPanel();
+    commitHistory();
+}
+
+function updateBatchLockButtonsState() {
+    if (!window.canvas) return;
+    var btnLockPanels = document.getElementById("btn-lock-all-panels");
+    if (btnLockPanels) {
+        var panels = canvas.getObjects().filter(function(o) { return typeof isPanel === 'function' && isPanel(o); });
+        var allPanelsLocked = panels.length > 0 && panels.every(function(p) { return p.selectable === false; });
+        btnLockPanels.classList.toggle("is-all-locked", allPanelsLocked);
+        btnLockPanels.title = allPanelsLocked ? "所有分镜格子已锁定 (点击全部解锁)" : "批量锁定所有分镜格子";
+    }
+    var btnLockImages = document.getElementById("btn-lock-all-images");
+    if (btnLockImages) {
+        var images = canvas.getObjects().filter(function(o) { return typeof isImage === 'function' && isImage(o); });
+        var allImagesLocked = images.length > 0 && images.every(function(img) { return img.selectable === false; });
+        btnLockImages.classList.toggle("is-all-locked", allImagesLocked);
+        btnLockImages.title = allImagesLocked ? "所有图片图层已锁定 (点击全部解锁)" : "批量锁定所有图片图层";
+    }
 }
 
 

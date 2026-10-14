@@ -271,27 +271,11 @@ child.clipPath=undefined;
 child.dirty=true;
 }
 
-// 今いる場所から所属コマを判定し直す。別のコマへ入っていれば乗り換え、
-// どのコマにも入っていなければ表示制限を外す
+// 锁定图片与分镜格的从属关系：
+// 一旦图片归属于某个分镜格，禁止在画布移动、拉伸、缩放、放大特写时自动换格。
+// 若需调整分镜归属，在右侧图层列表中通过拖动改变。
 function relinkToPanelUnderObject(obj) {
-if (!obj||!obj.relatedPoly) {
 return false;
-}
-if (isPanel(obj)||!isPanel(obj.relatedPoly)) {
-return false;
-}
-var center=getAbsoluteCenterPoint(obj);
-var nextFrame=findPanelUnderPoint(center.x,center.y,obj);
-if (nextFrame===obj.relatedPoly) {
-return false;
-}
-panelLogger.debug("[relink] "+obj.name+" : "+obj.relatedPoly.name+" -> "+(nextFrame?nextFrame.name:"none"));
-releasePanelLink(obj);
-if (nextFrame) {
-moveSettings(obj,nextFrame);
-setGUID(nextFrame,obj);
-}
-return true;
 }
 
 // 複製されたオブジェクトのコマとのリンクを整える。**複製直後に必ず通す。**

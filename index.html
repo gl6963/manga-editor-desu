@@ -2000,6 +2000,12 @@ function getElementClasses(element) {
                         <button onclick="LayersDown()" data-tip="tipLayerDown"><i class="material-icons">arrow_downward</i></button>
                         <button id="undo" onclick="undoByUser()"><i class="material-icons">undo</i></button>
                         <button id="redo" onclick="redoByUser()"><i class="material-icons">redo</i></button>
+                        <button id="btn-lock-all-panels" class="layer-batch-lock-btn" onclick="toggleLockAllPanels()" title="批量锁定/解锁所有分镜格子">
+                            <i class="material-icons">crop_landscape</i><span class="lock-sub-icon">🔒</span>
+                        </button>
+                        <button id="btn-lock-all-images" class="layer-batch-lock-btn" onclick="toggleLockAllImages()" title="批量锁定/解锁所有图片">
+                            <i class="material-icons">image</i><span class="lock-sub-icon">🔒</span>
+                        </button>
                         <button id="btn-toggle-stack-mode" class="layout-tool-btn" style="float: right; margin-right: 4px;" title="切换堆叠/并排模式" onclick="WorkspaceLayout.toggleStackMode()">
                             <span class="material-symbols-outlined" style="font-size:14px;">view_agenda</span>
                         </button>

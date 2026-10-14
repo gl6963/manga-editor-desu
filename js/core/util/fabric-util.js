@@ -379,7 +379,7 @@ return;
 }
 
 var layers=canvas.getObjects();
-var matchingObject=layers.find(layer=>layer.guid===guid);
+var matchingObject=layers.find(layer=>layer.guid===searchGuid);
 return matchingObject;
 }
 
