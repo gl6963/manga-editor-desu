@@ -212,6 +212,10 @@ if (activeObject) {
 if(isImage(activeObject)){
 return true;
 }
+if(activeObject.type==="activeSelection"&&activeObject.getObjects){
+var imgs=activeObject.getObjects().filter(function(o){return isImage(o);});
+if(imgs.length>0) return true;
+}
 }
 let text=getText("nothingImage");
 createToastError(text,"",2000);

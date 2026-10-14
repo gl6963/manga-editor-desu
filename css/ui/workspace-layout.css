@@ -1821,6 +1821,12 @@ body {
     opacity: 0.35 !important;
     background: rgba(0, 229, 255, 0.15) !important;
 }
+
+/* 多选高亮样式增强 */
+.layer-item.layer-active {
+    background-color: rgba(0, 229, 255, 0.18) !important;
+    border-left: 3px solid #00e5ff !important;
+}
 .layer-drag-handle {
     display: inline-flex;
     align-items: center;

@@ -81,6 +81,8 @@ return true;
 return!!(element.complete&&element.naturalWidth>0);
 }
 
+var glfxOriginalImageMap = new WeakMap(); // object -> HTMLImageElement
+
 function glfxApplyFilter(filter=null) {
 // console.log("glfxApplyFilter: Start");
 if (!canvas) {
@@ -88,15 +90,15 @@ if (!canvas) {
 return Promise.resolve();
 }
 
-var activeObject=canvas.getActiveObject();
-
-if (activeObject&&activeObject.type==="image") {
-// console.log("glfxApplyFilter: Applying filter to object", activeObject);
-return glfxApplyFilterToObject(activeObject,filter);
+var targetImages = (typeof getSelectedImages === 'function') ? getSelectedImages() : [];
+if (targetImages.length > 0) {
+    var promises = targetImages.map(function(obj) {
+        return glfxApplyFilterToObject(obj, filter);
+    });
+    return Promise.all(promises);
 } else {
-// console.log("glfxApplyFilter: No active image object, applying filter to canvas");
-glfxApplyFilterToCanvas(filter);
-return Promise.resolve();
+    glfxApplyFilterToCanvas(filter);
+    return Promise.resolve();
 }
 }
 
@@ -126,7 +128,8 @@ return glfxApplyFilterChainToObject(object,[filter],filterValues);
 // テクスチャは8bit RGBAなので、途中で画像化した場合と精度は変わらない
 function glfxApplyFilterChainToObject(object,filterList,filterValues=null) {
 return new Promise((resolve)=>{
-if (!glfxOriginalImage) {
+var srcEl = glfxOriginalImageMap.get(object) || glfxOriginalImage;
+if (!srcEl) {
 return resolve();
 }
 
@@ -172,14 +175,14 @@ resolve();
 filteredImage.src=fxCanvas.toDataURL();
 };
 
-if (glfxIsDecodedElement(glfxOriginalImage)) {
-applyToElement(glfxOriginalImage);
+if (glfxIsDecodedElement(srcEl)) {
+applyToElement(srcEl);
 } else {
 var img=new Image();
 img.onload=function () {
 applyToElement(img);
 };
-img.src=glfxOriginalImage.src;
+img.src=srcEl.src;
 }
 });
 }
@@ -455,22 +458,22 @@ glfxSyncFilterName();
 PresetPicker.openFromSelect($("glfxFilter"),getText("glfxFilterPickerTitle"),glfxBuildFilterPickerMeta());
 document.querySelectorAll(".glfxControls input").forEach(function (input) {
 input.addEventListener("input",debounceGlfx(function () {
-var activeObject=canvas.getActiveObject();
-if (!glfxOriginalImage&&activeObject&&activeObject.type==="image") {
-glfxOriginalImage=activeObject.getElement();
+var targetImages = (typeof getSelectedImages === 'function') ? getSelectedImages() : [];
+if (targetImages.length === 0) {
+    createToastError("Select Image!");
+    return;
 }
 
-if (!activeObject) {
-createToastError("Select Image!");
-return;
-}
-
-if (glfxOriginalImage) {
-glfxCopiedImage=glfxOriginalImage.cloneNode();
-glfxApplyFilter().then(function(){
-commitHistoryDebounced(GLFX_HISTORY_DEBOUNCE);
+targetImages.forEach(function(imgObj) {
+    if (!glfxOriginalImageMap.has(imgObj)) {
+        var el = imgObj.getElement();
+        if (el) glfxOriginalImageMap.set(imgObj, el.cloneNode ? el.cloneNode() : el);
+    }
 });
-}
+
+glfxApplyFilter().then(function(){
+    commitHistoryDebounced(GLFX_HISTORY_DEBOUNCE);
+});
 },100)
 );
 });
@@ -490,24 +493,44 @@ glfxReset();
 }
 
 function glfxApply() {
+glfxOriginalImageMap = new WeakMap();
 if (glfxCopiedImage) {
 glfxOriginalImage=glfxCopiedImage.cloneNode();
 glfxCopiedImage=null;
 glfxOriginalImage=null;
+}
 glfxResetFilterValues();
 saveStateByManual();
+if (typeof createToast === 'function') {
+    createToast("滤镜应用", "已成功将滤镜应用到所选图片");
 }
 }
 function glfxApplyNoReset() {
+glfxOriginalImageMap = new WeakMap();
 if (glfxCopiedImage) {
 glfxOriginalImage=glfxCopiedImage.cloneNode();
 glfxCopiedImage=null;
 glfxOriginalImage=null;
-// saveStateByManual();
 }
 }
 
 function glfxReset() {
+var targetImages = (typeof getSelectedImages === 'function') ? getSelectedImages() : [];
+if (targetImages.length > 0) {
+    targetImages.forEach(function(imgObj) {
+        var orig = glfxOriginalImageMap.get(imgObj);
+        if (orig) {
+            imgObj.setElement(orig.cloneNode ? orig.cloneNode() : orig);
+        }
+    });
+    glfxOriginalImageMap = new WeakMap();
+    glfxResetFilterValues();
+    canvas.requestRenderAll();
+    commitHistory();
+    if (typeof createToast === 'function') createToast("重置", "已恢复原图");
+    return;
+}
+
 if (glfxOriginalImage) {
 var imgObj=new Image();
 imgObj.onload=function () {

@@ -301,10 +301,11 @@ detailsDiv.appendChild(buttonsDiv);
 bindLayerDragEvents(layerDiv, layer, level, index);
 
 const activeObject=canvas.getActiveObject();
-var isActive=lastHighlightGuid&&lastHighlightGuid==layer.guid&&
-(!activeObject||layer.guid==activeObject.guid);
+var inActiveSel=(activeObject&&activeObject.type==="activeSelection"&&activeObject.contains&&activeObject.contains(layer));
+var isSingleActive=(lastHighlightGuid&&lastHighlightGuid==layer.guid&&(!activeObject||layer.guid==activeObject.guid));
+var isActive=isSingleActive||inActiveSel;
 
-if(isActive&&(isPanel(layer)||isImage(layer))){
+if(isSingleActive&&(isPanel(layer)||isImage(layer))){
 var actionBar=document.createElement("div");
 actionBar.className="layer-action-bar";
 if(isPanel(layer)){
@@ -355,7 +356,7 @@ putMoreMenuActionButton(actionBar,layer);
 detailsDiv.appendChild(actionBar);
 }
 
-layerDiv.onclick=function () {
+layerDiv.onclick=function (e) {
 // 非表示のレイヤーは選択させない。選ぶと見えないままハンドルだけが出て、
 // Deleteで何が消えるのかが画面から分からなくなる
 if(!layer.visible){
@@ -364,10 +365,62 @@ canvas.renderAll();
 updateLayerPanel();
 return;
 }
-canvas.setActiveObject(layer);
+
+var isCtrl = (e.ctrlKey || e.metaKey);
+var isShift = e.shiftKey;
+var activeObj = canvas.getActiveObject();
+
+if (isCtrl) {
+    // Ctrl + 点击：多选切换 (Windows 逻辑)
+    if (!activeObj) {
+        canvas.setActiveObject(layer);
+    } else if (activeObj.type === "activeSelection") {
+        var currentObjs = activeObj.getObjects().slice();
+        var existIdx = currentObjs.indexOf(layer);
+        if (existIdx !== -1) {
+            currentObjs.splice(existIdx, 1);
+            if (currentObjs.length === 1) {
+                canvas.setActiveObject(currentObjs[0]);
+            } else if (currentObjs.length === 0) {
+                canvas.discardActiveObject();
+            } else {
+                canvas.setActiveObject(new fabric.ActiveSelection(currentObjs, { canvas: canvas }));
+            }
+        } else {
+            currentObjs.push(layer);
+            canvas.setActiveObject(new fabric.ActiveSelection(currentObjs, { canvas: canvas }));
+        }
+    } else {
+        if (activeObj === layer) {
+            canvas.discardActiveObject();
+        } else {
+            canvas.setActiveObject(new fabric.ActiveSelection([activeObj, layer], { canvas: canvas }));
+        }
+    }
+} else if (isShift && window._lastLayerClickIndex !== undefined && window._lastLayerClickIndex !== null) {
+    // Shift + 点击：区域连续多选 (Windows 逻辑)
+    var startIdx = Math.min(window._lastLayerClickIndex, index);
+    var endIdx = Math.max(window._lastLayerClickIndex, index);
+    var targetLayers = [];
+    for (var k = startIdx; k <= endIdx; k++) {
+        if (finalLayerOrder[k] && finalLayerOrder[k].layer && finalLayerOrder[k].layer.visible) {
+            targetLayers.push(finalLayerOrder[k].layer);
+        }
+    }
+    if (targetLayers.length === 1) {
+        canvas.setActiveObject(targetLayers[0]);
+    } else if (targetLayers.length > 1) {
+        canvas.setActiveObject(new fabric.ActiveSelection(targetLayers, { canvas: canvas }));
+    }
+} else {
+    // 普通单选
+    canvas.setActiveObject(layer);
+    window._lastLayerClickIndex = index;
+}
+
 canvas.renderAll();
 highlightActiveLayer(index);
-updateControls(layer);
+updateControls(canvas.getActiveObject() || layer);
 };
 
 if (level>0) {
@@ -622,6 +675,7 @@ canvas.requestRenderAll();
 
 function highlightClear() {
 lastHighlightGuid=null;
+window._lastLayerClickIndex=null;
 updateLayerPanel();
 }
 
@@ -633,7 +687,9 @@ highlightActiveLayerByCanvas();
 function highlightActiveLayerByCanvas(object=null) {
 
 let activeObject;
-if(object){
+if(object&&object.target){
+activeObject=object.target;
+}else if(object){
 activeObject=object;
 }else{
 activeObject=canvas.getActiveObject();

@@ -215,21 +215,29 @@ if (element) {
 element.addEventListener('change',()=>{saveEffectValueMap(element);});
 element.addEventListener('change',()=>{
 if (nowEffect==MODE_EFFECT_GLOW) {
-const selectedObject=canvas.getActiveObject();
-if (selectedObject) {
+var targetImages = (typeof getSelectedImages === 'function') ? getSelectedImages() : [];
+if (targetImages.length === 0) {
+    var sel = canvas.getActiveObject();
+    if (sel) targetImages = [sel];
+}
+if (targetImages.length > 0) {
 if (effectCheck.checked) {
 const color=effectColor.value;
 const blurValue=parseInt(effectSize1.value,20);
-selectedObject.set({
-shadow: {
-color: color,
-blur: blurValue,
-offsetX: 0,
-offsetY: 0
-}
+targetImages.forEach(function(img) {
+    img.set({
+        shadow: {
+            color: color,
+            blur: blurValue,
+            offsetX: 0,
+            offsetY: 0
+        }
+    });
 });
 } else {
-selectedObject.set({shadow: null});
+targetImages.forEach(function(img) {
+    img.set({shadow: null});
+});
 }
 canvas.renderAll();
 commitHistory();

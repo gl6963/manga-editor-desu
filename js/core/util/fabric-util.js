@@ -20,6 +20,20 @@ return (activeObject&&["rect","circle","polygon"].includes(activeObject.type));
 function isImage(activeObject) {
 return (activeObject&&(activeObject.type==="image"));
 }
+
+/**
+ * 提取当前画布选中的所有图片对象（支持单个图片与 ActiveSelection 多选集合）
+ */
+function getSelectedImages() {
+    if (!window.canvas) return [];
+    var active = canvas.getActiveObject();
+    if (!active) return [];
+    if (isImage(active)) return [active];
+    if (active.type === "activeSelection" && active.getObjects) {
+        return active.getObjects().filter(function(o) { return isImage(o); });
+    }
+    return [];
+}
 function haveClipPath(activeObject){
 if (activeObject.clipPath) {
 return true;
