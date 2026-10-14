@@ -775,6 +775,7 @@ dialog.appendChild(dialogBox);
 document.body.appendChild(dialog);
 
 var selectedTemplateSvg=null;
+var selectedCustomTemplateItem=null;
 var currentOrientation="portrait";
 
 async function loadTemplates(isLandscape) {
@@ -810,13 +811,16 @@ blankItem.addEventListener("click",function(){
 templateGrid.querySelectorAll(".btm-dialog-tpl-item").forEach(function(el){el.classList.remove("is-selected");});
 blankItem.classList.add("is-selected");
 selectedTemplateSvg=null;
+selectedCustomTemplateItem=null;
 });
 blankItem.addEventListener("dblclick",function(){
 selectedTemplateSvg=null;
+selectedCustomTemplateItem=null;
 doCreate();
 });
 templateGrid.appendChild(blankItem);
 selectedTemplateSvg=null;
+selectedCustomTemplateItem=null;
 
 // 1.5. 用户保存的自定义模板
 if (typeof CustomTemplateManager !== 'undefined' && CustomTemplateManager.getTemplates) {
@@ -845,9 +849,11 @@ if (typeof CustomTemplateManager !== 'undefined' && CustomTemplateManager.getTem
             templateGrid.querySelectorAll(".btm-dialog-tpl-item").forEach(function(el){el.classList.remove("is-selected");});
             cItem.classList.add("is-selected");
             selectedTemplateSvg = cTpl.svg;
+            selectedCustomTemplateItem = cTpl;
         });
         cItem.addEventListener("dblclick", function() {
             selectedTemplateSvg = cTpl.svg;
+            selectedCustomTemplateItem = cTpl;
             doCreate();
         });
         templateGrid.appendChild(cItem);
@@ -933,7 +939,12 @@ resizeCanvasToObject(w,h);
 setCanvasGUID(newGuid);
 
 if(selectedTemplateSvg){
-await loadSVGPlusReset(selectedTemplateSvg,isLand,false);
+if(selectedCustomTemplateItem && typeof CustomTemplateManager !== 'undefined' && CustomTemplateManager.applyCustomTemplate){
+    // 自定义模板使用原生 1:1 归一化多边形加载，彻底杜绝偏移与变形
+    await CustomTemplateManager.applyCustomTemplate(selectedCustomTemplateItem);
+} else {
+    await loadSVGPlusReset(selectedTemplateSvg,isLand,false);
+}
 }else{
 initImageHistory();
 showEmptyPageMessage();

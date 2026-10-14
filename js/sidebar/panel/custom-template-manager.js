@@ -399,7 +399,9 @@ const CustomTemplateManager = {
 
             // 3. 按照原稿尺寸重塑画板物理长宽比
             if (typeof resizeCanvasToObject === 'function') {
-                resizeCanvasToObject(wMm, hMm);
+                withoutHistory(function() {
+                    resizeCanvasToObject(wMm, hMm);
+                });
             }
 
             // 4. 清理旧图层与历史状态
@@ -436,15 +438,7 @@ const CustomTemplateManager = {
                     const minY = Math.min(...curPoints.map(pt => pt.y));
                     const maxY = Math.max(...curPoints.map(pt => pt.y));
 
-                    // 构建相对于左上角 (0, 0) 的多边形内部相对点数组
-                    const localPoints = curPoints.map(pt => ({
-                        x: pt.x - minX,
-                        y: pt.y - minY
-                    }));
-
-                    const polygon = new fabric.Polygon(localPoints, {
-                        left: minX,
-                        top: minY,
+                    const polygon = new fabric.Polygon(curPoints, {
                         originX: 'left',
                         originY: 'top',
                         scaleX: 1,
@@ -460,13 +454,12 @@ const CustomTemplateManager = {
                         objectCaching: false
                     });
 
-                    // 矫正 Fabric 内部对 pathOffset 的重新计算，确保 (left, top) 严密对齐 (minX, minY)
-                    if (polygon.pathOffset) {
-                        polygon.set({
-                            left: minX + polygon.pathOffset.x,
-                            top: minY + polygon.pathOffset.y
-                        });
-                    }
+                    // Fabric 根据 curPoints 自动计算的 minX 和 minY 存放在 pathOffset 中
+                    // 将 left, top 设置为包围盒左上角 minX, minY
+                    polygon.set({
+                        left: minX,
+                        top: minY
+                    });
 
                     if (typeof setText2ImageInitPrompt === 'function') {
                         setText2ImageInitPrompt(polygon);
@@ -474,6 +467,17 @@ const CustomTemplateManager = {
                     if (typeof setPanelValue === 'function') {
                         setPanelValue(polygon);
                     }
+
+                    // 固化对象的 initial 基准状态，防止后续 resizeCanvas 或 window resize 产生二次位移拉伸
+                    polygon.initial = {
+                        scaleX: 1,
+                        scaleY: 1,
+                        left: polygon.left,
+                        top: polygon.top,
+                        strokeWidth: polygon.strokeWidth,
+                        canvasWidth: canvasW,
+                        canvasHeight: canvasH
+                    };
 
                     canvas.add(polygon);
                 });
