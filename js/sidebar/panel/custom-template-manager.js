@@ -64,7 +64,7 @@ const CustomTemplateManager = {
                     <span class="custom-template-count" id="custom-template-count">0</span>
                 </div>
                 <div id="custom-template-grid" class="custom-template-grid"></div>
-                <div class="custom-template-divider"></div>
+                <div id="custom-template-resizer" class="custom-template-resizer" title="上下拖动调整两区域高度"></div>
             `;
             const header = templatePanel.querySelector(".template-header");
             if (header && header.nextSibling) {
@@ -72,7 +72,59 @@ const CustomTemplateManager = {
             } else {
                 templatePanel.prepend(section);
             }
+
+            // 绑定拖拽调节高度逻辑
+            this.bindResizer();
         }
+    },
+
+    /**
+     * 绑定自定义模板与官方模板之间的水平拖拽条交互（支持 Pointer Capture 与 LocalStorage 记忆）
+     */
+    bindResizer() {
+        const resizer = document.getElementById("custom-template-resizer");
+        const grid = document.getElementById("custom-template-grid");
+        if (!resizer || !grid) return;
+
+        // 读取持久化高度
+        const savedHeight = localStorage.getItem("desu_custom_tpl_grid_height");
+        if (savedHeight && parseInt(savedHeight) >= 60) {
+            grid.style.height = savedHeight + "px";
+        }
+
+        let isDragging = false;
+        let startY = 0;
+        let startH = 0;
+
+        resizer.addEventListener("pointerdown", (e) => {
+            isDragging = true;
+            startY = e.clientY;
+            startH = grid.getBoundingClientRect().height;
+            resizer.setPointerCapture(e.pointerId);
+            resizer.classList.add("is-dragging");
+            document.body.classList.add("is-layout-dragging");
+            e.preventDefault();
+        });
+
+        resizer.addEventListener("pointermove", (e) => {
+            if (!isDragging) return;
+            const deltaY = e.clientY - startY;
+            const targetH = Math.max(60, Math.min(window.innerHeight * 0.75, startH + deltaY));
+            grid.style.height = targetH + "px";
+        });
+
+        const stopDrag = (e) => {
+            if (!isDragging) return;
+            isDragging = false;
+            resizer.classList.remove("is-dragging");
+            document.body.classList.remove("is-layout-dragging");
+            try { resizer.releasePointerCapture(e.pointerId); } catch(err){}
+            const finalH = Math.round(grid.getBoundingClientRect().height);
+            localStorage.setItem("desu_custom_tpl_grid_height", finalH);
+        };
+
+        resizer.addEventListener("pointerup", stopDrag);
+        resizer.addEventListener("pointercancel", stopDrag);
     },
 
     /**

@@ -964,10 +964,13 @@ body {
 
 /* 左侧模板面板专属分区：我的自定义模板 */
 .custom-template-section {
-    padding: 8px 10px 4px 10px;
-    background: rgba(0, 0, 0, 0.18);
+    display: flex;
+    flex-direction: column;
+    padding: 8px 10px 0 10px;
+    background: rgba(0, 0, 0, 0.22);
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    margin-bottom: 8px;
+    position: relative;
+    box-sizing: border-box;
 }
 .custom-template-header {
     display: flex;
@@ -977,6 +980,7 @@ body {
     font-weight: 600;
     color: #00e5ff;
     margin-bottom: 8px;
+    flex-shrink: 0;
 }
 .custom-template-title {
     display: flex;
@@ -999,9 +1003,48 @@ body {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 8px;
-    max-height: 240px;
+    height: 180px;
+    min-height: 70px;
+    max-height: 80vh;
     overflow-y: auto;
     padding-right: 2px;
+}
+
+/* 自定义模板与官方模板之间的水平拖拽调整条 */
+.custom-template-resizer {
+    height: 8px;
+    width: 100%;
+    margin-top: 4px;
+    cursor: row-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.3);
+    position: relative;
+    user-select: none;
+    touch-action: none;
+    transition: background 0.15s ease;
+    flex-shrink: 0;
+}
+.custom-template-resizer::before {
+    content: '⋯';
+    font-size: 14px;
+    line-height: 6px;
+    color: #888;
+    letter-spacing: 2px;
+    pointer-events: none;
+}
+.custom-template-resizer:hover,
+.custom-template-resizer.is-dragging {
+    background: rgba(0, 229, 255, 0.3) !important;
+    border-color: #00e5ff !important;
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.6);
+}
+.custom-template-resizer:hover::before,
+.custom-template-resizer.is-dragging::before {
+    color: #ffffff;
 }
 .custom-tpl-empty {
     grid-column: 1 / -1;
