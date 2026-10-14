@@ -195,8 +195,9 @@ finalLayerOrder.push({layer: layer,level: level});
 if (layer.guids&&layer.guids.length>0) {
 const childLayers=layer.guids
 .map(guid=>guidMap.get(guid))
-.filter(child=>child!==undefined)
+.filter(child=>child!==undefined&&child!==null)
 .sort((a,b)=>{
+if (!a||!b) return 0;
 const indexA=layers.indexOf(a);
 const indexB=layers.indexOf(b);
 return indexA-indexB;
@@ -696,7 +697,18 @@ activeObject=canvas.getActiveObject();
 }
 
 updateControls(activeObject);
-if(isPanel(activeObject)){
+
+if(activeObject&&activeObject.type==="activeSelection"&&activeObject.getObjects){
+    var imgs=activeObject.getObjects().filter(function(o){return typeof isImage==='function'&&isImage(o);});
+    var pans=activeObject.getObjects().filter(function(o){return typeof isPanel==='function'&&isPanel(o);});
+    if(imgs.length>0){
+        showI2IPrompts(imgs[0]);
+    }else if(pans.length>0){
+        showT2IPrompts(pans[0]);
+    }else{
+        noShowPrompt();
+    }
+}else if(isPanel(activeObject)){
 showT2IPrompts(activeObject);
 }else if(isImage(activeObject)){
 showI2IPrompts(activeObject);

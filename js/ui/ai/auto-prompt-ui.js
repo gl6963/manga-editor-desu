@@ -1,7 +1,19 @@
 function showT2IPrompts(layer) {
-// console.log("showT2IPrompts layer.text2img_prompt:", layer.text2img_prompt);
-
+if (!layer) {
+    if (typeof noShowPrompt === 'function') noShowPrompt();
+    return;
+}
+if (layer.type === "activeSelection" && layer.getObjects) {
+    var panels = layer.getObjects().filter(function(o) { return typeof isPanel === 'function' && isPanel(o); });
+    if (panels.length > 0) {
+        layer = panels[0];
+    } else {
+        if (typeof noShowPrompt === 'function') noShowPrompt();
+        return;
+    }
+}
 var otherControlsMini=$("other-controls-mini");
+if (!otherControlsMini) return;
 otherControlsMini.innerHTML=`
 <div class="control textarea-control">
     <div class="textarea-label-wrapper">
@@ -103,7 +115,22 @@ setAutoSizeingControlMini();
 }
 
 function showI2IPrompts(layer) {
+if (!layer) {
+    if (typeof noShowPrompt === 'function') noShowPrompt();
+    return;
+}
+// 若传入的是多选集合，取其中的第一张有效图片展示其提示词
+if (layer.type === "activeSelection" && layer.getObjects) {
+    var imgs = layer.getObjects().filter(function(o) { return typeof isImage === 'function' && isImage(o); });
+    if (imgs.length > 0) {
+        layer = imgs[0];
+    } else {
+        if (typeof noShowPrompt === 'function') noShowPrompt();
+        return;
+    }
+}
 var otherControlsMini=$("other-controls-mini");
+if (!otherControlsMini) return;
 otherControlsMini.innerHTML=`
 <div class="control textarea-control">
     <div class="textarea-label-wrapper">
