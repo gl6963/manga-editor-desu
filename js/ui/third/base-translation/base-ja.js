@@ -144,6 +144,8 @@ const base_ja = {
 "side-label-template-vertical":"ひな形 縦",
 "side-label-template-landscape":"ひな形 横",
 "side-label-page-manager":"ページ",
+"side-label-asset-library":"素材集",
+"assetLibraryTitle":"素材ライブラリ",
 "side-label-panel-manager":"コマ管理",
 "side-label-auto-page":"自動ページ",
 "side-label-template-bubble":"ひな形💭",

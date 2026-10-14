@@ -144,6 +144,8 @@ const base_en = {
 "side-label-template-vertical":"Temp Vert",
 "side-label-template-landscape":"Temp Land",
 "side-label-page-manager":"Page",
+"side-label-asset-library":"Assets",
+"assetLibraryTitle":"Asset Library",
 "side-label-panel-manager":"Panel Mgr",
 "side-label-auto-page":"AutoPage",
 "side-label-template-bubble":"Temp💭",

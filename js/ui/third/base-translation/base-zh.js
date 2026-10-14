@@ -144,6 +144,8 @@ const base_zh = {
 "side-label-template-vertical":"模板竖",
 "side-label-template-landscape":"模板横",
 "side-label-page-manager":"页面",
+"side-label-asset-library":"素材",
+"assetLibraryTitle":"素材库 (Assets)",
 "side-label-panel-manager":"面板管理",
 "side-label-auto-page":"自动页",
 "side-label-template-bubble":"模板💭",

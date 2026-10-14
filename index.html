@@ -993,6 +993,11 @@ function getElementClasses(element) {
                  <span class="icon-label" data-i18n="side-label-page-manager">ページ管理</span>
                 </div>
                 <hr>
+                <div class="icon-wrapper" data-action="toggleVisibility" data-target="asset-library-area">
+                 <i class="material-icons" id="intro_asset-library-area">photo_library</i>
+                 <span class="icon-label" data-i18n="side-label-asset-library">素材库</span>
+                </div>
+                <hr>
                 <div class="icon-wrapper" data-action="toggleVisibility" data-target="auto-generate-area">
                  <i class="material-icons" id="intro_auto-generate-area">smart_toy</i>
                  <span class="icon-label" data-i18n="auto_generate">自動生成</span>
@@ -1176,16 +1181,13 @@ function getElementClasses(element) {
                 </div>
             </div>
 
-
-
-
-
-
-
-
-
-
-
+<!-- ========== Panel: Asset Library ========== -->
+            <div class="left_area" id="asset-library-area" style="display: none;">
+                <div class="area-header" data-i18n="assetLibraryTitle">素材库 (Assets)</div>
+                <div id="asset-library-container" class="asset-library-container">
+                    <!-- Populated by AssetLibraryManager -->
+                </div>
+            </div>
 
 <!-- ========== Panel: Auto Generate ========== -->
             <div class="left_area" id="auto-generate-area" style="display: none;">
@@ -1760,15 +1762,6 @@ function getElementClasses(element) {
                     <div id="manga-effect-settings"></div>
                 </div>
             </div>
-
-
-
-
-
-
-
-
-
 
 <!-- ========== Panel: Pen Tools ========== -->
             <div class="left_area preset-panel" id="tool-area" style="display: none;">
@@ -2801,6 +2794,7 @@ function getElementClasses(element) {
     <script src="js/ai/provider/ollama-provider.js?v=7.5" defer></script>
     <script src="js/ai/provider/custom-openai-provider.js?v=1.0" defer></script>
     <script src="js/sidebar/panel/custom-template-manager.js?v=1.0" defer></script>
+    <script src="js/sidebar/asset/asset-library-manager.js?v=1.0" defer></script>
     <!-- llm-storyboard-service.js が先。MANGA_EXPRESSION_TAGS を
          llm-prompt-service.js が読み込み時に参照するため -->
     <script src="js/ai/prompt/llm/llm-storyboard-service.js?v=7.6" defer></script>

@@ -6,6 +6,7 @@ toggleVisibility("svg-container-template");
 var SIDEBAR_PANEL_IDS=[
 "svg-container-template",
 "panel-manager-area",
+"asset-library-area",
 "auto-generate-area",
 "prompt-manager-area",
 "speech-bubble-area1",
