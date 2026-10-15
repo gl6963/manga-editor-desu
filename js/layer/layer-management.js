@@ -424,6 +424,24 @@ highlightActiveLayer(index);
 updateControls(canvas.getActiveObject() || layer);
 };
 
+layerDiv.oncontextmenu=function (e) {
+// 拦截浏览器默认右键菜单，唤出图层专有功能菜单面板（图 3）
+e.preventDefault();
+e.stopPropagation();
+if(!layer.visible){
+return;
+}
+if(canvas.getActiveObject()!==layer){
+canvas.setActiveObject(layer);
+canvas.renderAll();
+}
+highlightActiveLayer(index);
+updateControls(layer);
+if(typeof showObjectMenu==='function'){
+showObjectMenu('right');
+}
+};
+
 if (level>0) {
 layerDiv.classList.add("layer-item-nested");
 layerDiv.style.marginLeft=`${level * 16}px`;
