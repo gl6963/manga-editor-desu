@@ -215,6 +215,12 @@ function captureState(){
 if(isHistoryRestoring){
 return false;
 }
+if (canvas && canvas.getActiveObject && canvas.getActiveObject()) {
+    var act = canvas.getActiveObject();
+    if (act.type === 'activeSelection') {
+        canvas.discardActiveObject();
+    }
+}
 canvas.renderAll();
 const json=JSON.stringify(customToJSON());
 canvasDirtyUnlocked=false;

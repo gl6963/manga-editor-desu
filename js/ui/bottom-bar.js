@@ -103,6 +103,13 @@ return canvas.getObjects().some(obj=>!obj.isInitMessage);
 // 保留中のコミットを確定してから保存判定する。
 // 先に判定すると、直前の変更が履歴に入る前にページを離れて変更が失われる
 async function btmSaveCurrentPage(openDrawer=true) {
+if (canvas && canvas.getActiveObject && canvas.getActiveObject()) {
+    var act = canvas.getActiveObject();
+    if (act.type === 'activeSelection') {
+        canvas.discardActiveObject();
+        canvas.renderAll();
+    }
+}
 flushHistory();
 if(btmShouldSaveCurrentPage()){
 await btmSaveProjectFile(null,openDrawer);

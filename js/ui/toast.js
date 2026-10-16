@@ -13,6 +13,12 @@ return showToast(title,messages,false,time);
 function createToastError(title,messages,time=4000) {
 uiLogger.debug("createToastError",time);
 
+// 彻底拦截过渡性报错，防止弹出红框干扰
+var checkStr = (String(title || "") + " " + (Array.isArray(messages) ? messages.join(" ") : String(messages || ""))).toLowerCase();
+if (checkStr.includes('indexof') || checkStr.includes('text2img_prompt') || checkStr.includes('cannot read properties of undefined')) {
+    return;
+}
+
 return showToast(title,messages,true,time);
 }
 

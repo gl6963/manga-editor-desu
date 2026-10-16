@@ -105,7 +105,26 @@ canvas.renderAll();
 canvas.on("object:modified",(e)=>{
 eventLogger.trace('5: object:modified');
 const obj=e.target;
-saveInitialState(obj);
+if (!obj) return;
+
+if (obj.type === "activeSelection" && obj.getObjects) {
+    const children = obj.getObjects().slice();
+    // 强制将多选组变换烘焙到各个子对象的绝对坐标和尺寸
+    canvas.discardActiveObject();
+    children.forEach(child => {
+        saveInitialState(child);
+        if (child.relatedPoly && typeof updateClipPath === 'function') {
+            updateClipPath(child, child.relatedPoly);
+        }
+    });
+    // 重新组合，保持用户的多选交互框不丢失
+    const newSel = new fabric.ActiveSelection(children, { canvas: canvas });
+    canvas.setActiveObject(newSel);
+    canvas.requestRenderAll();
+    saveStateByManual();
+} else {
+    saveInitialState(obj);
+}
 });
 
 

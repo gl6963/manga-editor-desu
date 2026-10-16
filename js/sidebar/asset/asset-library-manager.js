@@ -23,6 +23,7 @@ const AssetLibraryManager = {
     objectUrlCache: new Map(), // fileId -> objectUrl
     activeDragItem: null,
     hoveredTargetFrame: null,
+    sortMode: (function(){ try { return localStorage.getItem('desu_asset_sort_mode') || 'name-asc'; } catch(e){ return 'name-asc'; } })(),
 
     async init() {
         this.bindCanvasDropEvents();
@@ -437,7 +438,15 @@ const AssetLibraryManager = {
                         <span class="asset-grid-title" id="asset-grid-current-title">
                             ${this.searchQuery ? `🔍 搜索结果 ("${this.escapeHtml(this.searchQuery)}")` : (this.getActiveNode() ? this.getActiveNode().name : '当前素材')}
                         </span>
-                        <span class="asset-grid-count" id="asset-grid-count">0 张</span>
+                        <div class="asset-grid-header-tools">
+                            <select id="asset-sort-select" class="asset-sort-select" title="素材排序方式">
+                                <option value="name-asc" ${this.sortMode === 'name-asc' ? 'selected' : ''}>名称 ↑</option>
+                                <option value="name-desc" ${this.sortMode === 'name-desc' ? 'selected' : ''}>名称 ↓</option>
+                                <option value="type-asc" ${this.sortMode === 'type-asc' ? 'selected' : ''}>类型</option>
+                                <option value="shuffle" ${this.sortMode === 'shuffle' ? 'selected' : ''}>随机 🔀</option>
+                            </select>
+                            <span class="asset-grid-count" id="asset-grid-count">0 张</span>
+                        </div>
                     </div>
                     <div class="asset-grid" id="asset-grid">
                         <!-- Populated asynchronously -->
@@ -494,6 +503,21 @@ const AssetLibraryManager = {
         } else {
             const node = this.getActiveNode();
             files = node ? node.files : [];
+        }
+
+        // 按照用户选择的排序规则排序
+        files = files.slice();
+        if (this.sortMode === 'name-desc') {
+            files.sort((a, b) => b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }));
+        } else if (this.sortMode === 'type-asc') {
+            files.sort((a, b) => (a.ext || '').localeCompare(b.ext || '') || a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+        } else if (this.sortMode === 'shuffle') {
+            for (let i = files.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [files[i], files[j]] = [files[j], files[i]];
+            }
+        } else { // 'name-asc' 默认
+            files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
         }
 
         if (countLabel) {
@@ -588,6 +612,16 @@ const AssetLibraryManager = {
     },
 
     bindEvents() {
+        // 排序方式切换
+        const sortSelect = document.getElementById('asset-sort-select');
+        if (sortSelect) {
+            sortSelect.onchange = (e) => {
+                this.sortMode = e.target.value;
+                try { localStorage.setItem('desu_asset_sort_mode', this.sortMode); } catch(err){}
+                this.renderGridItems();
+            };
+        }
+
         // 刷新
         const refreshBtn = document.getElementById('btn-asset-refresh');
         if (refreshBtn) refreshBtn.onclick = () => this.refresh();
