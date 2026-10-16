@@ -108,20 +108,21 @@ const obj=e.target;
 if (!obj) return;
 
 if (obj.type === "activeSelection" && obj.getObjects) {
+    // 将 ActiveSelection 整体形变烘焙进各子对象，并重置 ActiveSelection 为单位变换
+    var matrix = obj.calcOwnMatrix();
     const children = obj.getObjects().slice();
-    // 强制将多选组变换烘焙到各个子对象的绝对坐标和尺寸
-    canvas.discardActiveObject();
     children.forEach(child => {
+        fabric.util.addTransformToObject(child, matrix);
+        child.setCoords();
         saveInitialState(child);
         if (child.relatedPoly && typeof updateClipPath === 'function') {
             updateClipPath(child, child.relatedPoly);
         }
     });
-    // 重新组合，保持用户的多选交互框不丢失
-    const newSel = new fabric.ActiveSelection(children, { canvas: canvas });
-    canvas.setActiveObject(newSel);
-    canvas.requestRenderAll();
-    saveStateByManual();
+    fabric.util.resetObjectTransform(obj);
+    obj._calcBounds();
+    obj._updateObjectsCoords();
+    obj.setCoords();
 } else {
     saveInitialState(obj);
 }

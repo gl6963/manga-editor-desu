@@ -39,6 +39,13 @@ return fileBufferList;
 }
 
 async function generateProjectFileBufferList() {
+if (canvas && canvas.getActiveObject && canvas.getActiveObject()) {
+    var act = canvas.getActiveObject();
+    if (act.type === 'activeSelection') {
+        canvas.discardActiveObject();
+        canvas.renderAll();
+    }
+}
 flushHistory();
 if(currentStateIndex<stateStack.length-1){
 stateStack.splice(currentStateIndex+1);

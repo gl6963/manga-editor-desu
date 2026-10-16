@@ -4,6 +4,7 @@ var glfxCopiedImage=null;
 const GLFX_HISTORY_DEBOUNCE=700;
 
 function glfxResetFilterValues() {
+if (!$("glfxBrightness")) return;
 $("glfxBrightness").value=0;
 $("glfxContrast").value=0;
 $("glfxHue").value=0;
@@ -82,6 +83,7 @@ return!!(element.complete&&element.naturalWidth>0);
 }
 
 var glfxOriginalImageMap = new WeakMap(); // object -> HTMLImageElement
+window._glfxModifiedObjects = new Set();
 
 function glfxApplyFilter(filter=null) {
 // console.log("glfxApplyFilter: Start");
@@ -469,6 +471,7 @@ targetImages.forEach(function(imgObj) {
         var el = imgObj.getElement();
         if (el) glfxOriginalImageMap.set(imgObj, el.cloneNode ? el.cloneNode() : el);
     }
+    window._glfxModifiedObjects.add(imgObj);
 });
 
 glfxApplyFilter().then(function(){
@@ -494,6 +497,7 @@ glfxReset();
 
 function glfxApply() {
 glfxOriginalImageMap = new WeakMap();
+if (window._glfxModifiedObjects) window._glfxModifiedObjects.clear();
 if (glfxCopiedImage) {
 glfxOriginalImage=glfxCopiedImage.cloneNode();
 glfxCopiedImage=null;
@@ -507,6 +511,7 @@ if (typeof createToast === 'function') {
 }
 function glfxApplyNoReset() {
 glfxOriginalImageMap = new WeakMap();
+if (window._glfxModifiedObjects) window._glfxModifiedObjects.clear();
 if (glfxCopiedImage) {
 glfxOriginalImage=glfxCopiedImage.cloneNode();
 glfxCopiedImage=null;
@@ -515,19 +520,19 @@ glfxOriginalImage=null;
 }
 
 function glfxReset() {
-var targetImages = (typeof getSelectedImages === 'function') ? getSelectedImages() : [];
-if (targetImages.length > 0) {
-    targetImages.forEach(function(imgObj) {
+var hasModifications = (window._glfxModifiedObjects && window._glfxModifiedObjects.size > 0);
+if (hasModifications) {
+    window._glfxModifiedObjects.forEach(function(imgObj) {
         var orig = glfxOriginalImageMap.get(imgObj);
         if (orig) {
             imgObj.setElement(orig.cloneNode ? orig.cloneNode() : orig);
         }
     });
+    window._glfxModifiedObjects.clear();
     glfxOriginalImageMap = new WeakMap();
     glfxResetFilterValues();
     canvas.requestRenderAll();
     commitHistory();
-    if (typeof createToast === 'function') createToast("重置", "已恢复原图");
     return;
 }
 
@@ -552,5 +557,9 @@ glfxResetFilterValues();
 lastActiveObjectState=canvas.getActiveObject();
 };
 imgObj.src=glfxOriginalImage.src;
+return;
 }
+
+// 若无修改且无挂载图片，仅在面板开启时重置滑块数值，不触发任何额外的画布重绘或历史提交
+glfxResetFilterValues();
 }

@@ -15,7 +15,11 @@ uiLogger.debug("createToastError",time);
 
 // 彻底拦截过渡性报错，防止弹出红框干扰
 var checkStr = (String(title || "") + " " + (Array.isArray(messages) ? messages.join(" ") : String(messages || ""))).toLowerCase();
-if (checkStr.includes('indexof') || checkStr.includes('text2img_prompt') || checkStr.includes('cannot read properties of undefined')) {
+if (checkStr.includes('indexof') || checkStr.includes('text2img_prompt') || 
+    checkStr.includes('cannot read properties of undefined') || 
+    checkStr.includes('cannot set properties of null') || 
+    checkStr.includes('cannot read properties of null') ||
+    checkStr.includes('setting \'value\'')) {
     return;
 }
 

@@ -215,12 +215,6 @@ function captureState(){
 if(isHistoryRestoring){
 return false;
 }
-if (canvas && canvas.getActiveObject && canvas.getActiveObject()) {
-    var act = canvas.getActiveObject();
-    if (act.type === 'activeSelection') {
-        canvas.discardActiveObject();
-    }
-}
 canvas.renderAll();
 const json=JSON.stringify(customToJSON());
 canvasDirtyUnlocked=false;
@@ -308,7 +302,20 @@ imageMap.set(hash,dataUrl);
 }
 
 function customToJSON() {
+var activeObj = (canvas && canvas.getActiveObject) ? canvas.getActiveObject() : null;
+var hadActiveSelection = (activeObj && activeObj.type === "activeSelection" && activeObj.getObjects);
+var selectedObjs = null;
+if (hadActiveSelection) {
+    selectedObjs = activeObj.getObjects().slice();
+    canvas.discardActiveObject();
+}
+
 const json=canvas.toJSON(commonProperties);
+
+if (hadActiveSelection && selectedObjs && selectedObjs.length > 0) {
+    var restoredSelection = new fabric.ActiveSelection(selectedObjs, { canvas: canvas });
+    canvas.setActiveObject(restoredSelection);
+}
 const exportedObjects=canvas.getObjects().filter(obj=>!obj.excludeFromExport);
 json.objects=json.objects.map((obj,index)=>{
 const sourceObject=exportedObjects[index];

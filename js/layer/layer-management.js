@@ -373,30 +373,31 @@ var activeObj = canvas.getActiveObject();
 
 if (isCtrl) {
     // Ctrl + 点击：多选切换 (Windows 逻辑)
-    if (!activeObj) {
-        canvas.setActiveObject(layer);
-    } else if (activeObj.type === "activeSelection") {
-        var currentObjs = activeObj.getObjects().slice();
-        var existIdx = currentObjs.indexOf(layer);
-        if (existIdx !== -1) {
-            currentObjs.splice(existIdx, 1);
-            if (currentObjs.length === 1) {
-                canvas.setActiveObject(currentObjs[0]);
-            } else if (currentObjs.length === 0) {
-                canvas.discardActiveObject();
-            } else {
-                canvas.setActiveObject(new fabric.ActiveSelection(currentObjs, { canvas: canvas }));
-            }
+    var selectedList = [];
+    if (activeObj) {
+        if (activeObj.type === "activeSelection" && activeObj.getObjects) {
+            selectedList = activeObj.getObjects().slice();
         } else {
-            currentObjs.push(layer);
-            canvas.setActiveObject(new fabric.ActiveSelection(currentObjs, { canvas: canvas }));
+            selectedList = [activeObj];
         }
+    }
+    var existIdx = selectedList.indexOf(layer);
+    if (existIdx !== -1) {
+        selectedList.splice(existIdx, 1);
     } else {
-        if (activeObj === layer) {
-            canvas.discardActiveObject();
-        } else {
-            canvas.setActiveObject(new fabric.ActiveSelection([activeObj, layer], { canvas: canvas }));
-        }
+        selectedList.push(layer);
+    }
+
+    // 核心步骤：先安全清空旧激活对象，彻底消除 Fabric 内部事件与 group 冲突
+    canvas.discardActiveObject();
+
+    if (selectedList.length === 0) {
+        // 全部取消选择
+    } else if (selectedList.length === 1) {
+        canvas.setActiveObject(selectedList[0]);
+    } else {
+        var newSelection = new fabric.ActiveSelection(selectedList, { canvas: canvas });
+        canvas.setActiveObject(newSelection);
     }
 } else if (isShift && window._lastLayerClickIndex !== undefined && window._lastLayerClickIndex !== null) {
     // Shift + 点击：区域连续多选 (Windows 逻辑)
@@ -408,13 +409,18 @@ if (isCtrl) {
             targetLayers.push(finalLayerOrder[k].layer);
         }
     }
+    canvas.discardActiveObject();
     if (targetLayers.length === 1) {
         canvas.setActiveObject(targetLayers[0]);
     } else if (targetLayers.length > 1) {
-        canvas.setActiveObject(new fabric.ActiveSelection(targetLayers, { canvas: canvas }));
+        var newSelection = new fabric.ActiveSelection(targetLayers, { canvas: canvas });
+        canvas.setActiveObject(newSelection);
     }
 } else {
-    // 普通单选
+    // 普通单选：若之前有选中项，先干净释放再激活新对象
+    if (activeObj && activeObj !== layer) {
+        canvas.discardActiveObject();
+    }
     canvas.setActiveObject(layer);
     window._lastLayerClickIndex = index;
 }
